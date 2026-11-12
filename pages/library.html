@@ -33,11 +33,16 @@
         <p data-i18n="library.sub"></p>
       </div>
       <div class="page-head-actions">
+        <button type="button" class="btn btn-primary" id="lib-scan-cover-btn">
+          <i data-lucide="camera" aria-hidden="true"></i>
+          <span data-i18n="library.scan_cover_btn">Foto kouvèti liv (PDF)</span>
+        </button>
+        <input type="file" id="lib-cover-file-input" accept="image/*" capture="environment" style="display:none;">
         <button type="button" class="btn btn-secondary" id="lib-droit-btn">
           <i data-lucide="scale" aria-hidden="true"></i>
           <span data-i18n="library.droit_quick_btn"></span>
         </button>
-        <button type="button" class="btn btn-primary" id="lib-upload-btn">
+        <button type="button" class="btn btn-secondary" id="lib-upload-btn">
           <i data-lucide="upload" aria-hidden="true"></i>
           <span data-i18n="library.upload_btn"></span>
         </button>
@@ -68,6 +73,25 @@
          PANNEAU 1 : BIBLIOTHÈQUE OFFICIELLE & PERSONNELLE (PDF / CODES)
          =============================================================== -->
     <section id="panel-books">
+      <!-- Bannière / Aksyon Kouvèti Liv (Rechèch PDF) -->
+      <div class="card card-sm mb-4" style="background:linear-gradient(135deg,rgba(249,115,22,0.08),rgba(27,42,74,0.04));border:1px dashed var(--c-primary,#F97316);">
+        <div class="row-between" style="flex-wrap:wrap;gap:12px;">
+          <div class="row" style="gap:10px;">
+            <span class="icon-bubble" style="background:rgba(249,115,22,0.15);color:var(--c-primary,#F97316);width:36px;height:36px;display:flex;align-items:center;justify-content:center;border-radius:50%;">
+              <i data-lucide="camera" aria-hidden="true"></i>
+            </span>
+            <div>
+              <strong class="text-sm" data-i18n="library.scan_banner_title">Ou gen yon liv devan w ? Pran foto kouvèti a</strong>
+              <div class="text-xs muted" data-i18n="library.scan_banner_sub">IA a ap idantifye tit la ak otè a epi chèche vèsyon PDF la pou ou otomatikman.</div>
+            </div>
+          </div>
+          <button type="button" class="btn btn-sm btn-primary" id="lib-scan-cover-card-btn">
+            <i data-lucide="camera" aria-hidden="true"></i>
+            <span data-i18n="library.scan_cover_btn">Foto kouvèti liv (PDF)</span>
+          </button>
+        </div>
+      </div>
+
       <div class="card card-sm mb-6">
         <div class="row-wrap" style="gap:12px;">
           <div class="input-group flex-1" style="min-width:220px;">

@@ -11,10 +11,10 @@ import { t, getLang } from '../i18n.js';
 import {
   icons, icon, esc, getParam, isUuid, uid, toast, handleError, setLoading,
   openModal, confirmDialog, sanitizeHtml, renderMarkdown, emptyState, debounce,
-  extractPdfText, safeFilename, pageEnter,
+  extractPdfText, safeFilename, pageEnter, compressImage, blobToBase64,
 } from '../utils.js';
 import {
-  searchLibraryWeb, analyzeLibrarySource, askLibrary, generateLibraryBook,
+  searchLibraryWeb, analyzeLibrarySource, askLibrary, generateLibraryBook, scanBookCover,
 } from '../ai.js';
 import { exportBookPdf, exportBookDocx } from '../export.js';
 import { cacheSet, cacheGet, cacheEntriesByPrefix, isDataSaver } from '../offline.js';
@@ -522,28 +522,30 @@ async function deletePersonalBook(bookId) {
   }
 }
 
-function openUploadModal() {
+function openUploadModal(prefill = {}) {
+  const selectedFac = prefill.faculty || profileRef?.faculty_id;
   const facOptions = faculties.map((f) => {
     const label = getLang() === 'fr' ? f.name_fr : f.name_ht;
-    return `<option value="${esc(f.id)}" ${f.id === profileRef?.faculty_id ? 'selected' : ''}>${esc(label)}</option>`;
+    return `<option value="${esc(f.id)}" ${f.id === selectedFac ? 'selected' : ''}>${esc(label)}</option>`;
   }).join('');
 
   const m = openModal({
     title: t('library.upload_modal_title'),
     body: `
       <form id="lib-upload-form">
+        ${prefill.url ? `<div class="badge badge-outline mb-3" style="max-width:100%;word-break:break-all;">${icon('link')}<span>${esc(prefill.url)}</span></div>` : ''}
         <div class="field">
           <label for="up-file">${esc(t('library.upload_file_label'))}</label>
           <input class="input" id="up-file" type="file" accept=".pdf,.txt,.md,application/pdf,text/plain,text/markdown" required style="padding-top:9px;">
         </div>
         <div class="field">
           <label for="up-title">${esc(t('library.upload_title_label'))}</label>
-          <input class="input" id="up-title" type="text" required placeholder="Ex : Code Civil / Manuel d'Anatomie...">
+          <input class="input" id="up-title" type="text" required value="${esc(prefill.title || '')}" placeholder="Ex : Code Civil / Manuel d'Anatomie...">
         </div>
         <div class="form-row">
           <div class="field">
             <label for="up-author">${esc(t('library.upload_author_label'))}</label>
-            <input class="input" id="up-author" type="text" placeholder="Ex : Professeur / Auteur">
+            <input class="input" id="up-author" type="text" value="${esc(prefill.author || '')}" placeholder="Ex : Professeur / Auteur">
           </div>
           <div class="field">
             <label for="up-faculty">${esc(t('library.upload_faculty_label'))}</label>
@@ -948,6 +950,203 @@ async function runGenerateBook() {
 }
 
 /* ------------------------------------------------------------------
+   Scan de Couverture de Livre & Recherche PDF Automatique
+   ------------------------------------------------------------------ */
+async function handleCoverScanFile(file) {
+  if (!file) return;
+  if (!file.type.startsWith('image/')) {
+    toast(t('errors.invalid_image_type') || 'Chwazi yon imaj foto kouvèti.', 'warning');
+    return;
+  }
+
+  const localPreviewUrl = URL.createObjectURL(file);
+
+  const m = openModal({
+    title: t('library.scan_modal_title'),
+    body: `
+      <div id="scan-cover-loading" class="stack" style="text-align:center;padding:24px 8px;">
+        <div style="max-width:160px;margin:0 auto 16px;border-radius:var(--r-md);overflow:hidden;box-shadow:var(--shadow-md);border:1px solid var(--c-border);">
+          <img src="${localPreviewUrl}" alt="Kouvèti" style="width:100%;height:auto;display:block;">
+        </div>
+        <div class="spinner spinner-lg mb-2" style="margin:0 auto;"></div>
+        <strong style="color:var(--c-navy);">${esc(t('library.scan_analyzing'))}</strong>
+        <p class="text-xs muted mt-1">${esc(t('library.scan_analyzing_sub'))}</p>
+      </div>
+      <div id="scan-cover-results" class="stack" hidden></div>
+    `,
+    footer: `
+      <button type="button" class="btn btn-secondary" data-close>${esc(t('common.close'))}</button>
+    `,
+  });
+
+  try {
+    const compressedBlob = await compressImage(file, { maxSize: 1280, quality: 0.75 });
+    const b64 = await blobToBase64(compressedBlob);
+
+    const res = await scanBookCover({
+      imageBase64: b64,
+      faculty: profileRef?.faculty_id || 'autre',
+      level: profileRef?.level || 'L1',
+      language: getLang(),
+    });
+
+    const loadingEl = m.el.querySelector('#scan-cover-loading');
+    const resultsEl = m.el.querySelector('#scan-cover-results');
+    if (loadingEl) loadingEl.hidden = true;
+    if (resultsEl) {
+      resultsEl.hidden = false;
+      renderCoverScanResults(resultsEl, res, localPreviewUrl, m);
+    }
+  } catch (err) {
+    m.close();
+    handleError(err);
+  }
+}
+
+function renderCoverScanResults(container, res, coverPreviewUrl, modal) {
+  const book = res.book || {};
+  const local = res.localMatch;
+  const sources = Array.isArray(res.sources) ? res.sources : [];
+  const overview = res.aiOverview || '';
+
+  const metaPills = [
+    book.author ? `<span>${esc(t('library.upload_author_label'))} : <strong>${esc(book.author)}</strong></span>` : null,
+    book.edition ? `<span>Edisyon : <strong>${esc(book.edition)}</strong></span>` : null,
+    book.publisher ? `<span>${esc(book.publisher)}</span>` : null,
+    book.year ? `<span>${esc(book.year)}</span>` : null,
+  ].filter(Boolean);
+
+  let html = `
+    <!-- Fich Kouvèti Idantifye -->
+    <div class="card card-sm mb-4" style="border:1px solid var(--c-border);background:var(--c-card-tint,transparent);">
+      <div class="row" style="align-items:flex-start;gap:14px;">
+        <img src="${coverPreviewUrl}" alt="Kouvèti" style="width:72px;height:96px;object-fit:cover;border-radius:var(--r-sm);box-shadow:var(--shadow-sm);flex-shrink:0;">
+        <div style="flex:1;min-width:0;">
+          <div class="badge badge-accent mb-1">${icon('sparkles')}<span>${esc(t('library.scan_detected_badge'))}</span></div>
+          <h3 class="card-title mb-1" style="font-size:1.05rem;">${esc(book.title || t('library.scan_detected_title'))}</h3>
+          <div class="row-wrap text-xs muted mb-2" style="gap:8px;">
+            ${metaPills.join(' • ')}
+          </div>
+          ${book.summary ? `<p class="text-xs muted mb-0">${esc(book.summary)}</p>` : ''}
+        </div>
+      </div>
+    </div>
+  `;
+
+  // Si liv la deja nan bibliyotèk la
+  if (local) {
+    html += `
+      <div class="card card-sm mb-4" style="background:rgba(21,128,61,0.08);border:1px solid rgba(21,128,61,0.3);">
+        <div class="row-between" style="flex-wrap:wrap;gap:10px;">
+          <div>
+            <div class="row" style="gap:6px;color:#15803D;">
+              ${icon('check-circle')}
+              <strong>${esc(t('library.scan_already_in_lib'))}</strong>
+            </div>
+            <div class="text-xs muted mt-1">${esc(local.title)} — ${esc(local.author || '')}</div>
+          </div>
+          <button type="button" class="btn btn-sm btn-primary" id="scan-open-local-btn">
+            ${icon('book-open')}<span>${esc(t('library.read_btn'))}</span>
+          </button>
+        </div>
+      </div>
+    `;
+  }
+
+  // Lis PDF & Sous jwenn
+  html += `
+    <div class="row-between mb-2">
+      <h4 class="card-title mb-0 text-sm">${icon('file-text')}<span>${esc(t('library.scan_pdf_results'))}</span></h4>
+      <span class="badge badge-outline">${sources.length} sous</span>
+    </div>
+  `;
+
+  if (overview) {
+    html += `
+      <div class="card card-sm card-muted mb-3 text-xs">
+        <strong class="text-xs">${icon('sparkles')} Rezime sous yo :</strong>
+        <p class="mt-1 mb-0">${renderMarkdown(overview)}</p>
+      </div>
+    `;
+  }
+
+  if (!sources.length) {
+    html += `
+      <div class="card card-sm card-flat mb-3 text-center" style="padding:16px;">
+        <p class="text-xs muted mb-2">${esc(t('library.scan_no_pdf'))}</p>
+        <button type="button" class="btn btn-sm btn-secondary" id="scan-search-web-fallback">
+          ${icon('search')}<span>Chèche sou entènèt : "${esc(book.title)}"</span>
+        </button>
+      </div>
+    `;
+  } else {
+    html += `<div class="stack-sm mb-4">`;
+    for (const s of sources) {
+      const isDirectPdf = s.isPdf;
+      const isOpenAccess = s.openAccess;
+      html += `
+        <div class="card card-sm card-flat" style="border:1px solid var(--c-border);">
+          <div class="row-between" style="flex-wrap:wrap;gap:8px;">
+            <div style="flex:1;min-width:180px;">
+              <div class="row-wrap mb-1" style="gap:6px;">
+                ${isDirectPdf ? `<span class="badge badge-error">${icon('file-text')}<span>PDF Dirèk</span></span>` : ''}
+                ${isOpenAccess ? `<span class="badge badge-success">${icon('unlock')}<span>Aksè Louvri</span></span>` : ''}
+                <span class="badge">${esc(s.source || 'Web')}</span>
+              </div>
+              <strong class="text-sm" style="display:block;">${esc(s.title || book.title)}</strong>
+              ${s.authors ? `<div class="text-xs muted">${esc(s.authors)}</div>` : ''}
+              ${s.snippet ? `<p class="text-xs muted mt-1 mb-2">${esc(s.snippet.slice(0, 160))}...</p>` : ''}
+            </div>
+            <div class="row" style="gap:6px;align-self:flex-start;">
+              <a href="${esc(s.url)}" target="_blank" rel="noopener noreferrer" class="btn btn-sm ${isDirectPdf ? 'btn-primary' : 'btn-secondary'}">
+                ${icon(isDirectPdf ? 'download' : 'external-link')}<span>${esc(isDirectPdf ? t('library.download_pdf_btn') : t('library.scan_open_pdf'))}</span>
+              </a>
+              <button type="button" class="btn btn-sm btn-ghost" data-quick-import="${esc(s.url)}" data-source-title="${esc(s.title || book.title)}" data-source-author="${esc(s.authors || book.author || '')}" title="${esc(t('library.scan_import_to_lib'))}">
+                ${icon('plus')}<span>${esc(t('library.scan_import_to_lib'))}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+    html += `</div>`;
+  }
+
+  container.innerHTML = html;
+  icons(container);
+
+  container.querySelector('#scan-open-local-btn')?.addEventListener('click', () => {
+    modal.close();
+    openBookReader(local.id);
+  });
+
+  container.querySelector('#scan-search-web-fallback')?.addEventListener('click', () => {
+    modal.close();
+    switchTab('web');
+    const input = document.getElementById('web-search-input');
+    if (input) {
+      input.value = `${book.title} ${book.author} pdf`;
+      document.getElementById('web-search-form')?.requestSubmit();
+    }
+  });
+
+  container.querySelectorAll('[data-quick-import]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const sourceUrl = btn.dataset.quickImport;
+      const sourceTitle = btn.dataset.sourceTitle;
+      const sourceAuthor = btn.dataset.sourceAuthor;
+      modal.close();
+      openUploadModal({
+        title: sourceTitle,
+        author: sourceAuthor,
+        url: sourceUrl,
+        faculty: book.faculty || profileRef?.faculty_id,
+      });
+    });
+  });
+}
+
+/* ------------------------------------------------------------------
    Initialisation de la page
    ------------------------------------------------------------------ */
 (async () => {
@@ -971,7 +1170,17 @@ async function runGenerateBook() {
     runChunkSearch();
   });
 
-  document.getElementById('lib-upload-btn')?.addEventListener('click', openUploadModal);
+  // Foto kouvèti liv -> Rechèch PDF otomatik
+  const coverFileInput = document.getElementById('lib-cover-file-input');
+  document.getElementById('lib-scan-cover-btn')?.addEventListener('click', () => coverFileInput?.click());
+  document.getElementById('lib-scan-cover-card-btn')?.addEventListener('click', () => coverFileInput?.click());
+  coverFileInput?.addEventListener('change', (e) => {
+    const f = e.target.files?.[0];
+    if (f) handleCoverScanFile(f);
+    e.target.value = '';
+  });
+
+  document.getElementById('lib-upload-btn')?.addEventListener('click', () => openUploadModal());
   document.getElementById('lib-book-search')?.addEventListener('input', runChunkSearch);
   document.getElementById('lib-scope-filter')?.addEventListener('change', runChunkSearch);
   document.getElementById('lib-faculty-filter')?.addEventListener('change', runChunkSearch);

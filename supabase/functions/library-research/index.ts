@@ -591,6 +591,133 @@ Deno.serve(async (req) => {
     const userQuota = auth.profile?.ai_daily_quota || 500;
 
     /* ================================================================
+       ACTION 0 : SCAN DE COUVERTURE & RECHERCHE PDF AUTOMATIQUE
+       ================================================================ */
+    if (action === 'scan_cover') {
+      const imageBase64 = String(body.imageBase64 || '')
+        .replace(/^data:image\/[a-z0-9.+]+;base64,/i, '')
+        .trim();
+      if (!imageBase64) {
+        return errorResponse('invalid_input', 'Imaj kouvèti a obligatwa.', 400);
+      }
+
+      // 1. Vision IA : identification méticuleuse du livre à partir de la photo
+      const visionPrompt = `Gade byen foto kouvèti liv sa a epi idantifye enfòmasyon sa yo avèk presizyon:
+1. "title": Tit prensipal liv la (san koupe).
+2. "author": Non otè a oswa otè yo.
+3. "edition": Edisyon oswa volim si endike (ex: "4e édition", oswa null).
+4. "publisher": Mezon edisyon (ex: "Dalloz", "Dunod", "Nathan", oswa null).
+5. "year": Ane piblikasyon si vizib (antye oswa null).
+6. "faculty": Domèn akademik ki pi pre ("droit", "medecine", "sciences_info", "economie", "genie", "gestion", "autre").
+7. "summary": Yon kout deskripsyon sou sa liv la trete (2 fraz).
+
+Retounen STRICTEMENT yon JSON san okenn tèks anplis:
+{
+  "title": "Tit liv la",
+  "author": "Otè a",
+  "edition": null,
+  "publisher": null,
+  "year": null,
+  "faculty": "droit",
+  "summary": "Deskripsyon kout"
+}`;
+
+      const visionOut = await runAiTask(auth.admin, auth.user.id, userQuota, {
+        task: 'library_research',
+        faculty,
+        level,
+        language,
+        prompt: visionPrompt,
+        imagesBase64: [imageBase64],
+        expectJson: true,
+        cacheKeyPayload: { action: 'scan_cover', sample: imageBase64.slice(0, 150) + imageBase64.length },
+      });
+
+      const bookMeta = (visionOut.result || {}) as {
+        title?: string;
+        author?: string;
+        edition?: string | null;
+        publisher?: string | null;
+        year?: number | null;
+        faculty?: string;
+        summary?: string;
+      };
+
+      const detectedTitle = String(bookMeta.title || '').trim();
+      const detectedAuthor = String(bookMeta.author || '').trim();
+      const searchQ = [detectedTitle, detectedAuthor].filter(Boolean).join(' ') || 'livre';
+
+      // 2. Vérification dans la bibliothèque existante
+      let localMatch: Record<string, unknown> | null = null;
+      if (detectedTitle) {
+        const titleWords = detectedTitle.split(/\s+/).filter((w) => w.length > 3).slice(0, 3);
+        let queryBuilder = auth.admin
+          .from('pran_not_library_books')
+          .select('id, title, author, scope, category, faculty_id, storage_path, page_count, summary, mime');
+        if (titleWords.length) {
+          queryBuilder = queryBuilder.ilike('title', `%${titleWords[0]}%`);
+        } else {
+          queryBuilder = queryBuilder.ilike('title', `%${detectedTitle.slice(0, 20)}%`);
+        }
+        const { data: locals } = await queryBuilder.limit(1);
+        if (locals?.length) {
+          localMatch = locals[0];
+        }
+      }
+
+      // 3. Recherche multi-moteurs pour trouver le PDF ou l'ouvrage
+      const [oaRes, archiveRes, gemSearch] = await Promise.allSettled([
+        searchOpenAlex(searchQ),
+        searchOpenLibraryAndArchive(searchQ),
+        geminiWebGroundedSearch(`${searchQ} cours livre manuel pdf download`, faculty, language),
+      ]);
+
+      const rawPool: WebSourceItem[] = [];
+      if (gemSearch.status === 'fulfilled' && gemSearch.value?.webChunks?.length) {
+        rawPool.push(...gemSearch.value.webChunks);
+      }
+      if (archiveRes.status === 'fulfilled' && archiveRes.value?.length) {
+        rawPool.push(...archiveRes.value);
+      }
+      if (oaRes.status === 'fulfilled' && oaRes.value?.length) {
+        rawPool.push(...oaRes.value);
+      }
+
+      const deduped = dedupeWebSources(rawPool);
+
+      // Prioriser les liens PDF directs et accès libre
+      const sources = deduped.map((s) => {
+        const isDirectPdf = /\.pdf(\?|$)/i.test(s.url);
+        const isOpen = Boolean(s.openAccess || isDirectPdf || s.source === 'Internet Archive' || s.source === 'OpenAlex');
+        return {
+          ...s,
+          isPdf: isDirectPdf || Boolean(s.isPdf),
+          openAccess: isOpen,
+        };
+      }).sort((a, b) => {
+        const scoreA = (a.isPdf ? 10 : 0) + (a.openAccess ? 5 : 0);
+        const scoreB = (b.isPdf ? 10 : 0) + (b.openAccess ? 5 : 0);
+        return scoreB - scoreA;
+      });
+
+      return jsonResponse({
+        ok: true,
+        book: {
+          title: detectedTitle || 'Kouvèti idantifye',
+          author: detectedAuthor || '',
+          edition: bookMeta.edition || null,
+          publisher: bookMeta.publisher || null,
+          year: bookMeta.year || null,
+          faculty: bookMeta.faculty || faculty,
+          summary: stripEmojis(bookMeta.summary || ''),
+        },
+        localMatch,
+        sources,
+        aiOverview: gemSearch.status === 'fulfilled' ? stripEmojis(gemSearch.value?.summary || '') : '',
+      });
+    }
+
+    /* ================================================================
        ACTION 1 : RECHERCHE UNIVERSELLE (BIBLIOTHÈQUE + WEB MULTI-MOTEURS)
        ================================================================ */
     if (action === 'search_web') {

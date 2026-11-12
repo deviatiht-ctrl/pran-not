@@ -233,6 +233,22 @@ export async function assistAssignment({
   });
 }
 
+/** Eskane foto kouvèti yon liv pou idantifye l epi chèche PDF la otomatikman. */
+export async function scanBookCover({
+  imageBase64,
+  faculty,
+  level,
+  language,
+} = {}) {
+  return callEdge('library-research', {
+    action: 'scan_cover',
+    imageBase64,
+    faculty,
+    level,
+    language: language || getLang(),
+  });
+}
+
 /** Recherche universelle (Bibliothèque officielle/personnelle + Web académique réel). */
 export async function searchLibraryWeb({
   query,
