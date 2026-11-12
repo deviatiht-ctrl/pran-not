@@ -11,6 +11,9 @@ import {
   icons, icon, esc, dayOfYear, ringSvg, toast, handleError, animateIn, pageEnter, setLoading,
 } from '../utils.js';
 import { cacheSet, cacheGet } from '../offline.js';
+import {
+  mergeCourseSchedules, getCourseLiveStatus, formatCourseScheduleBadge,
+} from '../notifications.js';
 
 const db = window.db;
 
@@ -171,6 +174,55 @@ function renderStats(stats, profile) {
   animateIn('#dash-stats .card');
 }
 
+function renderTodayClasses(rawCourses = []) {
+  const box = document.getElementById('today-classes-box');
+  if (!box) return;
+  const merged = mergeCourseSchedules(rawCourses);
+  const now = new Date();
+  const todayIds = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+  const todayKey = todayIds[now.getDay()];
+
+  const todays = merged
+    .filter((c) => {
+      const days = Array.isArray(c.schedule_days) ? c.schedule_days : [];
+      const hasDay = days.length === 0 ? Boolean(c.schedule_start_time) : days.includes(todayKey);
+      return hasDay && (c.schedule_start_time || days.includes(todayKey));
+    })
+    .map((c) => ({ c, st: getCourseLiveStatus(c, now) }));
+
+  if (!todays.length) {
+    box.innerHTML = `<div class="row-between" style="flex-wrap:wrap;gap:8px;">
+      <p class="text-sm muted mb-0">${esc(t('dashboard.today_classes_empty'))}</p>
+      <a class="btn btn-sm btn-secondary" href="./courses.html">${icon('clock')}<span>${esc(t('courses.set_schedule'))}</span></a>
+    </div>`;
+    icons(box);
+    return;
+  }
+
+  box.innerHTML = `<div class="stack-sm">${todays.map(({ c, st }) => {
+    const timeLabel = formatCourseScheduleBadge(c);
+    const isLive = st.state === 'live';
+    const isSoon = st.state === 'soon';
+    return `<div class="list-item" style="justify-content:space-between;flex-wrap:wrap;gap:8px;">
+      <div class="row" style="min-width:0;flex:1;">
+        <span class="course-dot" style="background:${esc(c.color || '#F97316')}"></span>
+        <div style="min-width:0;">
+          <div class="list-item-title">${esc(c.name)}</div>
+          <div class="list-item-sub">
+            ${timeLabel ? esc(timeLabel) : esc(c.professor || '')}
+            ${isLive ? ` · <strong style="color:var(--c-error);">${esc(t('live.badge_live'))}</strong>` : ''}
+            ${isSoon ? ` · <strong>${esc(t('live.badge_soon', { min: st.minutesToStart }))}</strong>` : ''}
+          </div>
+        </div>
+      </div>
+      <a class="btn btn-sm ${isLive || isSoon ? 'btn-primary' : 'btn-secondary'}" href="./live-class.html?course=${esc(c.id)}">
+        ${icon('radio')}<span>${esc(t('live.enter_btn'))}</span>
+      </a>
+    </div>`;
+  }).join('')}</div>`;
+  icons(box);
+}
+
 (async () => {
   const { user, profile } = await requireAuth();
   const firstName = (profile?.full_name || user?.email || '').split(/\s+/)[0];
@@ -184,7 +236,11 @@ function renderStats(stats, profile) {
     : 'autre';
   document.getElementById('challenge-text').textContent = t(`dashboard.challenges.${facKey}`);
 
-  const [cachedStats, cachedPlan] = await Promise.all([cacheGet('dashboard_stats'), cacheGet('daily_plan')]);
+  const [cachedStats, cachedPlan, cachedCourses] = await Promise.all([
+    cacheGet('dashboard_stats'),
+    cacheGet('daily_plan'),
+    cacheGet('courses_list'),
+  ]);
   let stats = cachedStats;
   let plan = cachedPlan;
 
@@ -195,16 +251,26 @@ function renderStats(stats, profile) {
   // Afficher instantanément les données locales en cache (< 5 ms), puis actualiser si en ligne
   if (stats) renderStats(stats, profile);
   if (plan) renderPlan(plan);
+  renderTodayClasses(cachedCourses || []);
 
   if (navigator.onLine) {
     try {
       recordActivity().catch(() => {});
-      const [sRes, pRes] = await Promise.all([db.rpc('pran_not_get_dashboard_stats'), db.rpc('pran_not_get_daily_plan')]);
+      const [sRes, pRes, cRes] = await Promise.all([
+        db.rpc('pran_not_get_dashboard_stats'),
+        db.rpc('pran_not_get_daily_plan'),
+        db.from('pran_not_courses').select('*').eq('archived', false).order('created_at', { ascending: false }),
+      ]);
       if (sRes.error) throw sRes.error;
       if (pRes.error) throw pRes.error;
       stats = sRes.data;
       plan = pRes.data;
       await Promise.all([cacheSet('dashboard_stats', stats), cacheSet('daily_plan', plan)]);
+      if (cRes?.data) {
+        const mergedCourses = mergeCourseSchedules(cRes.data);
+        await cacheSet('courses_list', mergedCourses);
+        renderTodayClasses(mergedCourses);
+      }
       if (stats) renderStats(stats, profile);
       if (plan) renderPlan(plan);
     } catch (err) {

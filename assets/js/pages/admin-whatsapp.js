@@ -142,6 +142,7 @@ function populateSettingsForm(settings) {
   document.getElementById('wa-enabled').checked = Boolean(settings.enabled);
   document.getElementById('wa-welcome-enabled').checked = Boolean(settings.welcome_enabled);
   document.getElementById('wa-deadline-enabled').checked = Boolean(settings.deadline_enabled);
+  document.getElementById('wa-class-enabled').checked = settings.class_reminder_enabled !== false;
   document.getElementById('wa-base-url').value = settings.base_url || 'https://cvisual-whatsapp-gateway.onrender.com';
   document.getElementById('wa-inactivity-days').value = settings.inactivity_days || 2;
   document.getElementById('wa-cooldown-hours').value = settings.reminder_cooldown_hours || 48;
@@ -149,6 +150,8 @@ function populateSettingsForm(settings) {
   document.getElementById('wa-tpl-fr').value = settings.inactive_template_fr || '';
   document.getElementById('wa-tpl-dead-ht').value = settings.deadline_template_ht || '';
   document.getElementById('wa-tpl-dead-fr').value = settings.deadline_template_fr || '';
+  document.getElementById('wa-tpl-class-ht').value = settings.class_template_ht || '';
+  document.getElementById('wa-tpl-class-fr').value = settings.class_template_fr || '';
 
   document.getElementById('wa-new-key').value = '';
   document.getElementById('wa-clear-db-key').checked = false;
@@ -515,6 +518,7 @@ function fileToBase64(file) {
         enabled: document.getElementById('wa-enabled').checked,
         welcome_enabled: document.getElementById('wa-welcome-enabled').checked,
         deadline_enabled: document.getElementById('wa-deadline-enabled').checked,
+        class_reminder_enabled: document.getElementById('wa-class-enabled').checked,
         base_url: document.getElementById('wa-base-url').value.trim(),
         inactivity_days: Number.parseInt(document.getElementById('wa-inactivity-days').value, 10) || 2,
         reminder_cooldown_hours: Number.parseInt(document.getElementById('wa-cooldown-hours').value, 10) || 48,
@@ -522,6 +526,8 @@ function fileToBase64(file) {
         inactive_template_fr: document.getElementById('wa-tpl-fr').value.trim(),
         deadline_template_ht: document.getElementById('wa-tpl-dead-ht').value.trim(),
         deadline_template_fr: document.getElementById('wa-tpl-dead-fr').value.trim(),
+        class_template_ht: document.getElementById('wa-tpl-class-ht').value.trim(),
+        class_template_fr: document.getElementById('wa-tpl-class-fr').value.trim(),
         new_api_key: document.getElementById('wa-new-key').value.trim() || undefined,
         clear_db_api_key: document.getElementById('wa-clear-db-key').checked,
         new_webhook_secret: document.getElementById('wa-new-secret').value.trim() || undefined,

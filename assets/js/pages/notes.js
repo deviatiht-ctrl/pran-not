@@ -7,9 +7,10 @@ import { requireAuth } from '../auth.js';
 import { initAppChrome, setTutorContext } from '../navbar.js';
 import { t, formatRelative } from '../i18n.js';
 import {
-  icons, icon, esc, emptyState, debounce, animateIn, pageEnter, handleError, confirmDialog, toast,
+  icons, icon, esc, emptyState, debounce, animateIn, pageEnter, handleError, confirmDialog, openModal, toast, setLoading,
 } from '../utils.js';
-import { cacheSet, cacheGet, getQueueItems } from '../offline.js';
+import { cacheSet, cacheGet, getQueueItems, updateQueuedNotePayload, enqueue, isNetworkError } from '../offline.js';
+import { mergeCourseSchedules } from '../notifications.js';
 
 const db = window.db;
 const PAGE_SIZE = 18;
@@ -72,9 +73,11 @@ function renderList(append = false) {
         <p class="text-sm muted line-clamp-3 mb-0">${esc(n.summary || n.content_text || '')}</p>
       </a>
       <div class="row-between card-meta pt-2" style="border-top:1px solid var(--c-border);">
-        <span class="row" style="gap:6px;">
-          ${course ? `<span class="course-dot" style="background:${esc(course.color || '#F97316')}"></span><span>${esc(course.name)}</span>` : `<span>${esc(t('common.no_course'))}</span>`}
-        </span>
+        <button type="button" class="btn btn-sm btn-ghost" data-assign-course="${esc(n.id)}" style="padding:2px 8px;min-height:28px;font-size:12px;">
+          ${course
+            ? `<span class="course-dot" style="background:${esc(course.color || '#F97316')}"></span><span>${esc(course.name)}</span>`
+            : `${icon('folder-plus')}<span>${esc(t('notes.assign_course'))}</span>`}
+        </button>
         <span>${esc(formatRelative(n.updated_at || n.created_at))}</span>
       </div>
     </article>`;
@@ -96,6 +99,13 @@ function renderList(append = false) {
     });
   });
 
+  grid.querySelectorAll('[data-assign-course]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const target = allNotes.find((x) => x.id === btn.dataset.assignCourse);
+      if (target) openQuickAssignModal(target);
+    });
+  });
+
   grid.querySelectorAll('[data-del]').forEach((btn) => {
     btn.addEventListener('click', async () => {
       const id = btn.dataset.del;
@@ -114,6 +124,70 @@ function renderList(append = false) {
   document.getElementById('notes-pagination').hidden = !hasMore;
   icons(grid);
   animateIn('#notes-grid article');
+}
+
+function openQuickAssignModal(noteItem) {
+  const coursesList = Array.from(coursesMap.values());
+  if (!coursesList.length) {
+    toast(t('courses.empty_title'), 'info');
+    return;
+  }
+  const m = openModal({
+    title: t('notes.assign_course_title'),
+    body: `
+      <p class="text-sm muted mb-3">${esc(noteItem.title || t('notes.untitled'))}</p>
+      <div class="field">
+        <label for="quick-assign-sel">${esc(t('capture.course'))}</label>
+        <select class="select" id="quick-assign-sel">
+          <option value="">${esc(t('common.no_course'))}</option>
+          ${coursesList.map((c) => `<option value="${esc(c.id)}" ${noteItem.course_id === c.id ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}
+        </select>
+      </div>`,
+    footer: `<button type="button" class="btn btn-secondary" data-close>${esc(t('common.cancel'))}</button>
+             <button type="button" class="btn btn-primary" id="quick-assign-save">${esc(t('common.save'))}</button>`,
+  });
+  const saveBtn = m.el.querySelector('#quick-assign-save');
+  saveBtn.addEventListener('click', async () => {
+    const newCourseId = m.el.querySelector('#quick-assign-sel').value || null;
+    setLoading(saveBtn, true);
+    const updateLocal = async () => {
+      noteItem.course_id = newCourseId;
+      if (noteItem.is_local_pending) {
+        await updateQueuedNotePayload(noteItem.id.slice('local:'.length), { course_id: newCourseId });
+      } else {
+        await enqueue('note_update', { note_id: noteItem.id, course_id: newCourseId });
+        const cachedNote = await cacheGet(`note_${noteItem.id}`);
+        if (cachedNote) await cacheSet(`note_${noteItem.id}`, { ...cachedNote, course_id: newCourseId });
+      }
+      await cacheSet('notes_list', allNotes.filter((n) => !n.is_local_pending));
+      toast(t('offline.saved_locally'), 'info');
+      m.close();
+      renderList();
+    };
+
+    if (noteItem.is_local_pending || !navigator.onLine) {
+      await updateLocal();
+      return;
+    }
+
+    try {
+      const { error } = await db.from('pran_not_notes').update({ course_id: newCourseId }).eq('id', noteItem.id);
+      if (error) throw error;
+      noteItem.course_id = newCourseId;
+      const cachedNote = await cacheGet(`note_${noteItem.id}`);
+      if (cachedNote) await cacheSet(`note_${noteItem.id}`, { ...cachedNote, course_id: newCourseId });
+      await cacheSet('notes_list', allNotes.filter((n) => !n.is_local_pending));
+      toast(t('notes.course_assigned'), 'success');
+      m.close();
+      renderList();
+    } catch (err) {
+      if (isNetworkError(err)) await updateLocal();
+      else {
+        handleError(err);
+        setLoading(saveBtn, false);
+      }
+    }
+  });
 }
 
 async function getPendingNotes() {
@@ -204,11 +278,12 @@ async function fetchNotes(reset = true) {
   }
 
   if (navigator.onLine) {
-    db.from('pran_not_courses').select('id, name, color').eq('archived', false).order('name')
+    db.from('pran_not_courses').select('*').eq('archived', false).order('name')
       .then(async ({ data: cData }) => {
         if (cData) {
-          populateCoursesFilter(cData);
-          await cacheSet('courses_list', cData);
+          const merged = mergeCourseSchedules(cData);
+          populateCoursesFilter(merged);
+          await cacheSet('courses_list', merged);
         }
       })
       .catch(() => {});

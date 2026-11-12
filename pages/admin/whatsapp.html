@@ -116,6 +116,11 @@
               <span class="switch-track"></span>
               <span class="text-sm">Voye rapèl devwa J-2 ak J-7 sou WhatsApp (Slow Lane : <code>reminder_2d</code> / <code>reminder_7d</code>)</span>
             </label>
+            <label class="switch">
+              <input type="checkbox" id="wa-class-enabled">
+              <span class="switch-track"></span>
+              <span class="text-sm">Voye rapèl otomatik lè kou yon etidyan pral kòmanse (Fast Lane : <code>manual_direct</code>)</span>
+            </label>
           </div>
 
           <div class="form-row mt-2">
@@ -169,6 +174,17 @@
             <div class="field">
               <label for="wa-tpl-dead-fr">Modèl devwa (Français)</label>
               <textarea class="textarea" id="wa-tpl-dead-fr" rows="2"></textarea>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="field">
+              <label for="wa-tpl-class-ht">Modèl lè kou ap kòmanse (Kreyòl — <code>{course}</code>, <code>{time}</code>)</label>
+              <textarea class="textarea" id="wa-tpl-class-ht" rows="2"></textarea>
+            </div>
+            <div class="field">
+              <label for="wa-tpl-class-fr">Modèl lè kou ap kòmanse (Français — <code>{course}</code>, <code>{time}</code>)</label>
+              <textarea class="textarea" id="wa-tpl-class-fr" rows="2"></textarea>
             </div>
           </div>
 

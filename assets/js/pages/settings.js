@@ -10,6 +10,11 @@ import { t, getLang, setLang } from '../i18n.js';
 import { toast, handleError, setLoading, pageEnter, esc, icons } from '../utils.js';
 import { getQuotaStatus } from '../ai.js';
 import { initPwaInstall } from '../pwa.js';
+import { FUNCTIONS_URL, SUPABASE_ANON_KEY } from '../supabase.js';
+import {
+  isSoundEnabled, setSoundEnabled, isClassNotifyEnabled, setClassNotifyEnabled,
+  triggerAppNotification, requestPushPermission, playNotificationSound,
+} from '../notifications.js';
 import {
   DISPLAY_FONTS, BODY_FONTS, THEME_PRESETS,
   getTheme, applyTheme, saveTheme, resetTheme,
@@ -189,6 +194,8 @@ function initDesignStudio(lang) {
   const nDaily = document.getElementById('set-n-daily');
   const nWeekly = document.getElementById('set-n-weekly');
   const nDead = document.getElementById('set-n-deadlines');
+  const nClasses = document.getElementById('set-n-classes');
+  const nSound = document.getElementById('set-n-sound');
   const nWa = document.getElementById('set-n-whatsapp');
 
   langSel.value = profile?.language || lang;
@@ -196,6 +203,8 @@ function initDesignStudio(lang) {
   nDaily.checked = profile?.notify_email !== false;
   nWeekly.checked = profile?.notify_weekly !== false;
   nDead.checked = profile?.notify_deadlines !== false;
+  nClasses.checked = isClassNotifyEnabled();
+  nSound.checked = isSoundEnabled();
   nWa.checked = profile?.notify_whatsapp !== false;
 
   langSel.addEventListener('change', async () => {
@@ -206,10 +215,21 @@ function initDesignStudio(lang) {
   const bindToggle = (el, field) => {
     el.addEventListener('change', async () => {
       try {
-        await updateProfile({ [field]: el.checked });
+        if (field === 'notify_sound') setSoundEnabled(el.checked);
+        if (field === 'notify_classes') setClassNotifyEnabled(el.checked);
         if (field === 'data_saver') {
           document.body.classList.toggle('data-saver', el.checked);
           localStorage.setItem('prannot.dataSaver', el.checked ? '1' : '0');
+        }
+        try {
+          await updateProfile({ [field]: el.checked });
+        } catch (profileErr) {
+          if (!((field === 'notify_sound' || field === 'notify_classes') && /column|schema cache|42703|PGRST204/i.test(String(profileErr?.message || '')))) {
+            throw profileErr;
+          }
+        }
+        if (field === 'notify_sound' && el.checked) {
+          playNotificationSound('success', { force: true });
         }
         toast(t('common.saved'), 'success');
       } catch (err) {
@@ -221,7 +241,59 @@ function initDesignStudio(lang) {
   bindToggle(nDaily, 'notify_email');
   bindToggle(nWeekly, 'notify_weekly');
   bindToggle(nDead, 'notify_deadlines');
+  bindToggle(nClasses, 'notify_classes');
+  bindToggle(nSound, 'notify_sound');
   bindToggle(nWa, 'notify_whatsapp');
+
+  document.getElementById('test-sound-btn')?.addEventListener('click', async () => {
+    if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
+      await requestPushPermission();
+    }
+    await triggerAppNotification({
+      id: `settings_test_${Date.now()}`,
+      kind: 'reminder',
+      soundKind: 'live_class',
+      title: t('notifications.test_title'),
+      body: t('notifications.test_body'),
+      link: 'pages/live-class.html',
+      toastType: 'success',
+      playSound: true,
+      osNotify: true,
+    });
+  });
+
+  document.getElementById('test-wa-btn')?.addEventListener('click', async (e) => {
+    if (!navigator.onLine) {
+      toast(t('errors.offline'), 'warning');
+      return;
+    }
+    const btn = e.currentTarget;
+    setLoading(btn, true);
+    try {
+      const { data: sessionData } = await window.db.auth.getSession();
+      const token = sessionData?.session?.access_token;
+      if (!token) throw new Error('no_session');
+      const res = await fetch(`${FUNCTIONS_URL}/whatsapp-gateway`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+          apikey: SUPABASE_ANON_KEY,
+        },
+        body: JSON.stringify({
+          action: 'send_test_self',
+          app_url: location.origin,
+        }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json?.message || json?.error || 'wa_error');
+      toast(t('notifications.wa_sent'), 'success');
+    } catch (err) {
+      handleError(err);
+    } finally {
+      setLoading(btn, false);
+    }
+  });
 
   const q = await getQuotaStatus();
   const pct = Math.min(100, Math.round(((q.used || 0) / Math.max(1, q.quota || 60)) * 100));

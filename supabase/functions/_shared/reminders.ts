@@ -25,6 +25,41 @@ export interface WaReminderSummary {
   }>;
 }
 
+function getLocalClock(nowMs: number, timeZone = 'America/Port-au-Prince') {
+  try {
+    const fmt = new Intl.DateTimeFormat('en-US', {
+      timeZone: timeZone || 'America/Port-au-Prince',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      weekday: 'short',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    });
+    const parts = Object.fromEntries(fmt.formatToParts(new Date(nowMs)).map((p) => [p.type, p.value]));
+    const dayMap: Record<string, string> = {
+      Sun: 'sun', Mon: 'mon', Tue: 'tue', Wed: 'wed', Thu: 'thu', Fri: 'fri', Sat: 'sat',
+    };
+    const dayKey = dayMap[parts.weekday] || 'mon';
+    const hour = Number(parts.hour) % 24;
+    const minute = Number(parts.minute) || 0;
+    return {
+      dateStr: `${parts.year}-${parts.month}-${parts.day}`,
+      dayKey,
+      nowMinutes: hour * 60 + minute,
+    };
+  } catch {
+    const d = new Date(nowMs);
+    const days = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+    return {
+      dateStr: d.toISOString().slice(0, 10),
+      dayKey: days[d.getUTCDay()],
+      nowMinutes: d.getUTCHours() * 60 + d.getUTCMinutes(),
+    };
+  }
+}
+
 export async function runAutomatedWhatsAppReminders(
   admin: SupabaseClient,
   opts: { maxPerRun?: number; appUrl?: string; dryRun?: boolean } = {},
@@ -52,7 +87,7 @@ export async function runAutomatedWhatsAppReminders(
 
   const { data: users, error: usersErr } = await admin
     .from('pran_not_profiles')
-    .select('id, full_name, language, whatsapp_phone, notify_whatsapp, notify_deadlines, last_seen_at, last_wa_reminder_at, created_at')
+    .select('id, full_name, language, timezone, whatsapp_phone, notify_whatsapp, notify_deadlines, last_seen_at, last_wa_reminder_at, created_at')
     .eq('onboarded', true)
     .eq('is_banned', false)
     .eq('notify_whatsapp', true)
@@ -86,7 +121,7 @@ export async function runAutomatedWhatsAppReminders(
       u.last_wa_reminder_at && (nowMs - new Date(u.last_wa_reminder_at).getTime()) < cooldownMs,
     );
 
-    const [{ count: dueCount }, { data: assignments }] = await Promise.all([
+    const [{ count: dueCount }, { data: assignments }, coursesRes] = await Promise.all([
       admin
         .from('pran_not_flashcards')
         .select('id', { count: 'exact', head: true })
@@ -99,7 +134,107 @@ export async function runAutomatedWhatsAppReminders(
         .eq('user_id', u.id)
         .in('status', ['todo', 'in_progress'])
         .not('due_at', 'is', null),
+      settings.class_reminder_enabled
+        ? admin
+            .from('pran_not_courses')
+            .select('id, name, schedule_days, schedule_start_time, notify_before_minutes')
+            .eq('user_id', u.id)
+            .eq('archived', false)
+            .not('schedule_start_time', 'is', null)
+        : Promise.resolve({ data: [], error: null }),
     ]);
+
+    // 0) Kou ki pral komanse oswa ki fenk komanse (Fast Lane pou rive a le)
+    if (settings.class_reminder_enabled && !coursesRes?.error && Array.isArray(coursesRes?.data)) {
+      const clk = getLocalClock(nowMs, (u as { timezone?: string }).timezone || 'America/Port-au-Prince');
+      for (const c of coursesRes.data as Array<{
+        id: string;
+        name: string;
+        schedule_days?: string[];
+        schedule_start_time?: string;
+        notify_before_minutes?: number;
+      }>) {
+        if (summary.queued >= maxPerRun) break;
+        const m = /^(\d{1,2}):(\d{2})/.exec(String(c.schedule_start_time || ''));
+        if (!m) continue;
+        const days = Array.isArray(c.schedule_days) ? c.schedule_days : [];
+        if (days.length > 0 && !days.includes(clk.dayKey)) continue;
+
+        const startMin = Number(m[1]) * 60 + Number(m[2]);
+        const diff = startMin - clk.nowMinutes;
+        const winBefore = Math.max(5, Number(c.notify_before_minutes ?? 15));
+        if (diff > winBefore || diff < -15) continue;
+
+        const classKey = `prannot-wa-class-${u.id}-${c.id}-${clk.dateStr}`;
+        const { data: existingLog } = await admin
+          .from('pran_not_wa_logs')
+          .select('id')
+          .eq('user_id', u.id)
+          .contains('payload', { idempotency_key: classKey })
+          .limit(1);
+        if (existingLog?.length) continue;
+
+        const hhmm = `${m[1].padStart(2, '0')}:${m[2]}`;
+        const classTpl = lang === 'fr' ? settings.class_template_fr : settings.class_template_ht;
+        const classMsg = renderSpintaxTemplate(classTpl, {
+          name: firstName,
+          course: c.name,
+          time: hhmm,
+          url: `${appUrl}/pages/live-class.html?course=${c.id}`,
+        });
+
+        if (opts.dryRun) {
+          summary.queued++;
+          summary.items.push({ userId: u.id, phone, kind: 'manual_direct', status: 'queued' });
+          continue;
+        }
+
+        try {
+          const gwResp = await client.sendMessage({
+            to: phone,
+            message: classMsg,
+            kind: 'manual_direct',
+            mode: 'async',
+            idempotencyKey: classKey,
+          });
+          const gwId = String(gwResp?.id || gwResp?.message_id || '') || null;
+          await admin.from('pran_not_wa_logs').insert({
+            user_id: u.id,
+            phone,
+            kind: 'manual_direct',
+            lane: 'fast',
+            mode: 'async',
+            gateway_message_id: gwId,
+            status: 'queued',
+            payload: { course_id: c.id, course_name: c.name, start_time: hhmm, idempotency_key: classKey },
+          });
+          await admin.from('pran_not_notifications').insert({
+            user_id: u.id,
+            kind: 'reminder',
+            title: lang === 'fr' ? `Cours imminent : ${c.name}` : `Kou ${c.name} ap komanse`,
+            body: lang === 'fr' ? `Debut prevu a ${hhmm}` : `Le kou a : ${hhmm}`,
+            link: `pages/live-class.html?course=${c.id}`,
+          });
+          summary.queued++;
+          summary.items.push({
+            userId: u.id,
+            phone,
+            kind: 'manual_direct',
+            status: 'queued',
+            messageId: gwId || undefined,
+          });
+        } catch (err) {
+          summary.errors++;
+          summary.items.push({
+            userId: u.id,
+            phone,
+            kind: 'manual_direct',
+            status: 'failed',
+            error: err instanceof Error ? err.message : 'class_wa_error',
+          });
+        }
+      }
+    }
 
     // 1) Echeyans devwa J-2 oswa J-7
     const dueTitles: string[] = [];

@@ -13,7 +13,7 @@ import {
 } from '../utils.js';
 import { generateFlashcards, generateTest, explainText, processNote } from '../ai.js';
 import { exportNotePdf, exportNoteDocx, exportNoteMarkdown } from '../export.js';
-import { cacheSet, cacheGet, isDataSaver, enqueue, getQueueItems, isNetworkError } from '../offline.js';
+import { cacheSet, cacheGet, isDataSaver, enqueue, getQueueItems, updateQueuedNotePayload, isNetworkError } from '../offline.js';
 
 const db = window.db;
 let note = null;
@@ -37,7 +37,12 @@ async function renderNote() {
       <div>
         <div class="row-wrap mb-2">
           <a class="btn btn-sm btn-ghost" href="./notes.html">${icon('arrow-left')}<span>${esc(t('common.back'))}</span></a>
-          ${course ? `<a class="badge badge-outline" href="./course.html?id=${esc(course.id)}"><span class="course-dot" style="background:${esc(course.color || '#F97316')}"></span><span>${esc(course.name)}</span></a>` : ''}
+          ${course
+            ? `<a class="badge badge-outline" href="./course.html?id=${esc(course.id)}"><span class="course-dot" style="background:${esc(course.color || '#F97316')}"></span><span>${esc(course.name)}</span></a>`
+            : ''}
+          <button type="button" class="btn btn-sm ${course ? 'btn-ghost' : 'btn-secondary'}" id="btn-assign-course">
+            ${icon('folder-plus')}<span>${esc(course ? t('notes.change_course') : t('notes.assign_course'))}</span>
+          </button>
           <span class="badge">${esc(formatDate(note.updated_at || note.created_at))}</span>
         </div>
         <h1>${esc(note.title || t('notes.untitled'))}</h1>
@@ -160,7 +165,152 @@ async function renderSources() {
   icons(box);
 }
 
+async function loadAvailableCourses() {
+  let coursesList = (await cacheGet('courses_list')) || [];
+  if (navigator.onLine) {
+    try {
+      const { data } = await db.from('pran_not_courses').select('*').eq('archived', false).order('name');
+      if (data?.length) {
+        coursesList = data;
+        await cacheSet('courses_list', data);
+      }
+    } catch { /* fallback cache */ }
+  }
+  return coursesList;
+}
+
+async function applyNoteCourseAssignment(courseId, unitId, coursesList = []) {
+  const cleanCourseId = courseId || null;
+  const cleanUnitId = unitId || null;
+  const matchedCourse = cleanCourseId ? coursesList.find((c) => c.id === cleanCourseId) || null : null;
+
+  const updateCaches = async () => {
+    note.course_id = cleanCourseId;
+    note.unit_id = cleanUnitId;
+    course = matchedCourse;
+    suggestedCourse = null;
+    if (!note.is_local_pending) {
+      await cacheSet(`note_${note.id}`, note);
+    }
+    const listCached = await cacheGet('notes_list');
+    if (Array.isArray(listCached)) {
+      await cacheSet('notes_list', listCached.map((x) => (x.id === note.id ? { ...x, course_id: cleanCourseId } : x)));
+    }
+    setTutorContext({
+      contextType: 'note',
+      contextId: note.id,
+      contextTitle: note.title,
+      contextText: `${note.title}\n${note.summary || ''}\n${note.content_text || ''}`,
+      courseId: note.course_id,
+    });
+  };
+
+  if (note.is_local_pending) {
+    const qId = note.id.slice('local:'.length);
+    await updateQueuedNotePayload(qId, { course_id: cleanCourseId, unit_id: cleanUnitId });
+    await updateCaches();
+    toast(t('notes.course_assigned'), 'success');
+    renderNote();
+    return;
+  }
+
+  if (!navigator.onLine) {
+    await updateCaches();
+    await enqueue('note_update', { note_id: note.id, course_id: cleanCourseId, unit_id: cleanUnitId });
+    toast(t('offline.saved_locally'), 'info');
+    renderNote();
+    return;
+  }
+
+  try {
+    const { error } = await db
+      .from('pran_not_notes')
+      .update({ course_id: cleanCourseId, unit_id: cleanUnitId })
+      .eq('id', note.id);
+    if (error) throw error;
+    await updateCaches();
+    toast(t('notes.course_assigned'), 'success');
+    renderNote();
+  } catch (err) {
+    if (isNetworkError(err)) {
+      await updateCaches();
+      await enqueue('note_update', { note_id: note.id, course_id: cleanCourseId, unit_id: cleanUnitId });
+      toast(t('offline.saved_locally'), 'info');
+      renderNote();
+    } else {
+      throw err;
+    }
+  }
+}
+
+async function openAssignCourseModal() {
+  const coursesList = await loadAvailableCourses();
+  if (!coursesList.length) {
+    toast(t('courses.empty_title'), 'info', {
+      action: { label: t('courses.new'), onClick: () => { location.href = appUrl('pages/courses.html?new=1'); } },
+    });
+    return;
+  }
+
+  const m = openModal({
+    title: t('notes.assign_course_title'),
+    body: `
+      <div class="field">
+        <label for="assign-course-sel">${esc(t('capture.course'))}</label>
+        <select class="select" id="assign-course-sel">
+          <option value="">${esc(t('common.no_course'))}</option>
+          ${coursesList.map((c) => `<option value="${esc(c.id)}" ${note.course_id === c.id ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}
+        </select>
+      </div>
+      <div class="field">
+        <label for="assign-unit-sel">${esc(t('notes.unit_optional'))}</label>
+        <select class="select" id="assign-unit-sel">
+          <option value="">${esc(t('common.none'))}</option>
+        </select>
+      </div>`,
+    footer: `<button type="button" class="btn btn-secondary" data-close>${esc(t('common.cancel'))}</button>
+             <button type="button" class="btn btn-primary" id="assign-course-save">${esc(t('common.save'))}</button>`,
+  });
+
+  const cSel = m.el.querySelector('#assign-course-sel');
+  const uSel = m.el.querySelector('#assign-unit-sel');
+
+  const refreshUnits = async (cid) => {
+    uSel.innerHTML = `<option value="">${esc(t('common.none'))}</option>`;
+    if (!cid) return;
+    let unitsList = [];
+    const cachedDetail = await cacheGet(`course_detail_${cid}`);
+    if (cachedDetail?.units?.length) unitsList = cachedDetail.units;
+    if (navigator.onLine) {
+      try {
+        const { data } = await db.from('pran_not_syllabus_units').select('id, title, position').eq('course_id', cid).order('position');
+        if (data?.length) unitsList = data;
+      } catch { /* ignore */ }
+    }
+    unitsList.forEach((u) => {
+      uSel.insertAdjacentHTML('beforeend', `<option value="${esc(u.id)}" ${note.unit_id === u.id ? 'selected' : ''}>${esc(u.title)}</option>`);
+    });
+  };
+
+  cSel.addEventListener('change', () => refreshUnits(cSel.value));
+  await refreshUnits(cSel.value);
+
+  const saveBtn = m.el.querySelector('#assign-course-save');
+  saveBtn.addEventListener('click', async () => {
+    setLoading(saveBtn, true);
+    try {
+      await applyNoteCourseAssignment(cSel.value, uSel.value, coursesList);
+      m.close();
+    } catch (err) {
+      handleError(err);
+      setLoading(saveBtn, false);
+    }
+  });
+}
+
 function bindActions() {
+  document.getElementById('btn-assign-course')?.addEventListener('click', openAssignCourseModal);
+
   document.getElementById('btn-confirm-course')?.addEventListener('click', async (e) => {
     const btn = e.currentTarget;
     setLoading(btn, true);
@@ -326,11 +476,19 @@ function bindActions() {
   });
 
   document.getElementById('btn-edit-note')?.addEventListener('click', async () => {
+    const coursesList = await loadAvailableCourses();
     const m = openModal({
       title: t('common.edit'),
       size: 'lg',
       body: `
         <div class="field"><label>Tit</label><input class="input" id="ed-title" value="${esc(note.title || '')}"></div>
+        <div class="field">
+          <label for="ed-course">${esc(t('capture.course'))}</label>
+          <select class="select" id="ed-course">
+            <option value="">${esc(t('common.no_course'))}</option>
+            ${coursesList.map((c) => `<option value="${esc(c.id)}" ${note.course_id === c.id ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}
+          </select>
+        </div>
         <div class="field"><label>Rezime</label><textarea class="textarea" id="ed-summary" rows="3">${esc(note.summary || '')}</textarea></div>
         <div class="field"><label>Kontni</label><textarea class="textarea" id="ed-content" rows="10">${esc(note.content_text || '')}</textarea></div>`,
       footer: `<button type="button" class="btn btn-secondary" data-close>${esc(t('common.cancel'))}</button>
@@ -338,16 +496,24 @@ function bindActions() {
     });
     m.el.querySelector('#ed-save').addEventListener('click', async () => {
       const title = m.el.querySelector('#ed-title').value.trim();
+      const courseId = m.el.querySelector('#ed-course').value || null;
       const summary = m.el.querySelector('#ed-summary').value.trim();
       const contentText = m.el.querySelector('#ed-content').value.trim();
       const contentHtml = `<p>${esc(contentText).replace(/\n{2,}/g, '</p><p>').replace(/\n/g, '<br>')}</p>`;
-      const patch = { title, summary, content_text: contentText, content_html: contentHtml };
+      const patch = { title, course_id: courseId, summary, content_text: contentText, content_html: contentHtml };
 
       const applyLocalSave = async () => {
-        note.title = title; note.summary = summary; note.content_text = contentText; note.content_html = contentHtml;
-        if (!note.is_local_pending) {
+        note.title = title; note.course_id = courseId; note.summary = summary; note.content_text = contentText; note.content_html = contentHtml;
+        course = courseId ? coursesList.find((c) => c.id === courseId) || null : null;
+        if (note.is_local_pending) {
+          await updateQueuedNotePayload(note.id.slice('local:'.length), patch);
+        } else {
           await cacheSet(`note_${note.id}`, note);
           await enqueue('note_update', { note_id: note.id, ...patch });
+        }
+        const cachedList = await cacheGet('notes_list');
+        if (Array.isArray(cachedList)) {
+          await cacheSet('notes_list', cachedList.map((x) => (x.id === note.id ? { ...x, title, course_id: courseId, summary, content_text: contentText } : x)));
         }
         toast(t('offline.saved_locally'), 'info');
         m.close();
@@ -362,8 +528,13 @@ function bindActions() {
       try {
         const { error } = await db.from('pran_not_notes').update(patch).eq('id', note.id);
         if (error) throw error;
-        note.title = title; note.summary = summary; note.content_text = contentText; note.content_html = contentHtml;
+        note.title = title; note.course_id = courseId; note.summary = summary; note.content_text = contentText; note.content_html = contentHtml;
+        course = courseId ? coursesList.find((c) => c.id === courseId) || null : null;
         await cacheSet(`note_${note.id}`, note);
+        const cachedList = await cacheGet('notes_list');
+        if (Array.isArray(cachedList)) {
+          await cacheSet('notes_list', cachedList.map((x) => (x.id === note.id ? { ...x, title, course_id: courseId, summary, content_text: contentText } : x)));
+        }
         toast(t('common.saved'), 'success');
         m.close();
         renderNote();

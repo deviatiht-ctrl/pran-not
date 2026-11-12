@@ -23,10 +23,13 @@ export interface WaSettingsRow {
   inactivity_days: number;
   reminder_cooldown_hours: number;
   deadline_enabled: boolean;
+  class_reminder_enabled: boolean;
   inactive_template_ht: string;
   inactive_template_fr: string;
   deadline_template_ht: string;
   deadline_template_fr: string;
+  class_template_ht: string;
+  class_template_fr: string;
   updated_at?: string;
 }
 
@@ -455,6 +458,7 @@ export async function loadWaConfig(admin: SupabaseClient): Promise<{
     inactivity_days: 2,
     reminder_cooldown_hours: 48,
     deadline_enabled: true,
+    class_reminder_enabled: true,
     inactive_template_ht:
       '{Bonjou|Alo|Koman ou ye} {name}, sa fe {days} jou nou pa we w sou Pran Not. Ou gen {due} kat memwa ki ap tann ou. Tounen etidye : {url}',
     inactive_template_fr:
@@ -463,6 +467,10 @@ export async function loadWaConfig(admin: SupabaseClient): Promise<{
       '{Rapel|Atansyon} {name} : devwa ou yo ({deadlines}) ap rive talè. Louvri Pran Not : {url}',
     deadline_template_fr:
       '{Rappel|Attention} {name} : vos echeances ({deadlines}) approchent. Ouvrez Pran Not : {url}',
+    class_template_ht:
+      '{Rapel kou|Kou an direk} {name} : kou {course} ou a ap komanse a {time}. Antre nan mod Kou an direk la kounye a : {url}',
+    class_template_fr:
+      '{Rappel cours|Cours en direct} {name} : votre cours {course} commence a {time}. Ouvrez le mode Cours en direct : {url}',
   };
 
   const settings: WaSettingsRow = data ? { ...defaults, ...data } : defaults;

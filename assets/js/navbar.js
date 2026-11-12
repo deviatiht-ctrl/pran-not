@@ -12,6 +12,7 @@ import {
 import { askTutor } from './ai.js';
 import { initOffline, cacheGet, getQueueItems } from './offline.js';
 import { initPwaInstall } from './pwa.js';
+import { startNotificationMonitor, openNotificationsModal } from './notifications.js';
 
 let currentContext = {
   contextType: 'general',
@@ -90,6 +91,12 @@ export async function initAppChrome({
       <button type="button" class="btn-icon" id="nav-search-btn" aria-label="${esc(t('nav.search'))}" title="${esc(t('nav.search'))} (Ctrl+K)">
         ${icon('search')}
       </button>
+      <div class="notif-wrap">
+        <button type="button" class="btn-icon" id="nav-notif-btn" aria-label="${esc(t('notifications.center_title'))}" title="${esc(t('notifications.center_title'))}">
+          ${icon('bell')}
+        </button>
+        <span class="notif-dot-badge" id="nav-notif-badge" hidden>0</span>
+      </div>
       <button type="button" class="nav-lang" id="nav-lang-btn" aria-label="${esc(t('nav.switch_lang'))}">
         ${lang.toUpperCase()}
       </button>
@@ -132,6 +139,10 @@ export async function initAppChrome({
     </a>
     <div class="mobile-top-actions">
       <button type="button" class="btn-icon" id="mob-install-btn" data-pwa-install data-pwa-mode="when-available" aria-label="${esc(t('pwa.install_phone'))}" title="${esc(t('pwa.install_phone'))}">${icon('smartphone')}</button>
+      <div class="notif-wrap">
+        <button type="button" class="btn-icon" id="mob-notif-btn" aria-label="${esc(t('notifications.center_title'))}">${icon('bell')}</button>
+        <span class="notif-dot-badge" id="mob-notif-badge" hidden>0</span>
+      </div>
       <button type="button" class="btn-icon" id="mob-search-btn" aria-label="${esc(t('nav.search'))}">${icon('search')}</button>
       <a class="btn-icon" href="${pageHref('pages/library.html')}" aria-label="${esc(t('nav.library_full'))}">${icon('library')}</a>
       <a class="btn-icon" href="${pageHref('pages/planner.html')}" aria-label="${esc(t('nav.planner'))}">${icon('calendar')}</a>
@@ -205,6 +216,8 @@ export async function initAppChrome({
 
   document.getElementById('nav-search-btn')?.addEventListener('click', openSearchModal);
   document.getElementById('mob-search-btn')?.addEventListener('click', openSearchModal);
+  document.getElementById('nav-notif-btn')?.addEventListener('click', openNotificationsModal);
+  document.getElementById('mob-notif-btn')?.addEventListener('click', openNotificationsModal);
 
   if (!window.__pranNotSearchShortcut) {
     window.__pranNotSearchShortcut = true;
@@ -224,6 +237,9 @@ export async function initAppChrome({
 
   // Charger les annonces actives (silencieux)
   loadAnnouncements();
+
+  // Moniteur de notifications hors-ligne & en ligne (cours, son, WhatsApp, devoirs)
+  startNotificationMonitor({ profile, user }).catch(() => {});
 
   initPwaInstall({ showBanner: true });
   icons(document.body);

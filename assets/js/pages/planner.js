@@ -11,6 +11,7 @@ import {
   icons, icon, esc, formatDuration, toast, handleError, openModal, promptDialog, uid, pageEnter,
 } from '../utils.js';
 import { enqueue, cacheSet, cacheGet } from '../offline.js';
+import { triggerAppNotification } from '../notifications.js';
 
 const db = window.db;
 let userRef = null;
@@ -75,8 +76,28 @@ function startTimer() {
       if (pomoMode === 'work') {
         const mins = Math.max(1, Math.round(elapsedWorkSec / 60));
         elapsedWorkSec = 0;
+        triggerAppNotification({
+          id: `pomo_work_${Date.now()}`,
+          kind: 'reminder',
+          soundKind: 'pomodoro',
+          title: t('notifications.pomo_work_title'),
+          body: t('notifications.pomo_work_body', { min: mins }),
+          link: 'pages/planner.html',
+          toastType: 'success',
+          silentToast: true,
+        }).catch(() => {});
         saveStudySession(mins);
       } else {
+        triggerAppNotification({
+          id: `pomo_break_${Date.now()}`,
+          kind: 'reminder',
+          soundKind: 'pomodoro',
+          title: t('notifications.pomo_break_title'),
+          body: t('notifications.pomo_break_body'),
+          link: 'pages/planner.html',
+          toastType: 'info',
+          silentToast: true,
+        }).catch(() => {});
         toast('Poz fini. Pare pou kontinye.', 'info');
       }
     }

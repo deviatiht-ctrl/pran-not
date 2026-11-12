@@ -7,7 +7,7 @@
    - Déclenchement synchronisation Background Sync
    ===================================================================== */
 
-const CACHE_NAME = 'prannot-shell-v10';
+const CACHE_NAME = 'prannot-shell-v11';
 const PRECACHE_LOCAL = [
   './',
   './index.html',
@@ -27,14 +27,15 @@ const PRECACHE_LOCAL = [
   './assets/css/mobile-nav.css',
   './assets/css/components.css',
   './assets/css/admin.css',
-  './assets/i18n/ht.json?v=20261112b',
-  './assets/i18n/fr.json?v=20261112b',
+  './assets/i18n/ht.json?v=20261112c',
+  './assets/i18n/fr.json?v=20261112c',
   './assets/js/supabase.js',
   './assets/js/theme.js',
   './assets/js/auth.js',
   './assets/js/i18n.js',
   './assets/js/utils.js',
   './assets/js/navbar.js',
+  './assets/js/notifications.js',
   './assets/js/pwa.js',
   './assets/js/ai.js',
   './assets/js/offline.js',
@@ -49,6 +50,7 @@ const PRECACHE_LOCAL = [
   './assets/js/pages/note-view.js',
   './assets/js/pages/courses.js',
   './assets/js/pages/course.js',
+  './assets/js/pages/live-class.js',
   './assets/js/pages/syllabus.js',
   './assets/js/pages/review.js',
   './assets/js/pages/flashcards.js',
@@ -68,6 +70,7 @@ const PRECACHE_LOCAL = [
   './pages/note-view.html',
   './pages/courses.html',
   './pages/course.html',
+  './pages/live-class.html',
   './pages/syllabus.html',
   './pages/review.html',
   './pages/flashcards.html',
@@ -264,4 +267,24 @@ self.addEventListener('sync', (event) => {
       })
     );
   }
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const targetUrl = event.notification.data?.link || './pages/dashboard.html';
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
+      for (const client of clients) {
+        if ('focus' in client) {
+          client.focus();
+          if ('navigate' in client) return client.navigate(targetUrl);
+          return client;
+        }
+      }
+      if (self.clients.openWindow) {
+        return self.clients.openWindow(targetUrl);
+      }
+      return null;
+    })
+  );
 });

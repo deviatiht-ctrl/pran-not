@@ -13,6 +13,7 @@ import {
 import { generateTest } from '../ai.js';
 import { getThemeChartPalette } from '../theme.js';
 import { cacheSet, cacheGet } from '../offline.js';
+import { mergeCourseSchedules, formatCourseScheduleBadge, getCourseLiveStatus } from '../notifications.js';
 
 const db = window.db;
 let course = null;
@@ -152,23 +153,29 @@ async function launchFlashTest(e) {
 async function renderCourse() {
   if (examMode) { renderExamMode(); return; }
   const root = document.getElementById('course-root');
-  const mastery = Math.round(Number(course.mastery || 0));
+  const mergedCourse = mergeCourseSchedules([course])[0] || course;
+  const mastery = Math.round(Number(mergedCourse.mastery || 0));
+  const schedTime = formatCourseScheduleBadge(mergedCourse);
+  const liveStatus = getCourseLiveStatus(mergedCourse);
 
   root.innerHTML = `
     <div class="page-head">
       <div>
         <div class="row-wrap mb-2">
           <a class="btn btn-sm btn-ghost" href="./courses.html">${icon('arrow-left')}<span>${esc(t('common.back'))}</span></a>
-          <span class="badge"><span class="course-dot" style="background:${esc(course.color || '#F97316')}"></span><span>${mastery}% ${esc(t('courses.mastery'))}</span></span>
-          ${course.exam_date ? `<span class="badge badge-warning">${icon('calendar')}<span>${esc(formatDate(course.exam_date))}</span></span>` : ''}
+          <span class="badge"><span class="course-dot" style="background:${esc(mergedCourse.color || '#F97316')}"></span><span>${mastery}% ${esc(t('courses.mastery'))}</span></span>
+          ${schedTime ? `<span class="badge badge-outline">${icon('clock')}<span>${esc(schedTime)}</span></span>` : ''}
+          ${liveStatus.state === 'live' ? `<span class="badge badge-error">${icon('radio')}<span>${esc(t('live.badge_live'))}</span></span>` : ''}
+          ${mergedCourse.exam_date ? `<span class="badge badge-warning">${icon('calendar')}<span>${esc(formatDate(mergedCourse.exam_date))}</span></span>` : ''}
         </div>
-        <h1>${esc(course.name)}</h1>
-        <p>${esc([course.professor, course.semester].filter(Boolean).join(' • '))}</p>
+        <h1>${esc(mergedCourse.name)}</h1>
+        <p>${esc([mergedCourse.professor, mergedCourse.semester].filter(Boolean).join(' • '))}</p>
       </div>
       <div class="page-head-actions">
-        <a class="btn btn-secondary" href="./syllabus.html?course=${esc(course.id)}">${icon('file-up')}<span>${esc(t('courses.import_syllabus'))}</span></a>
-        <a class="btn btn-secondary" href="./note-capture.html?course=${esc(course.id)}">${icon('plus')}<span>${esc(t('notes.new'))}</span></a>
-        <button type="button" class="btn btn-primary" id="btn-exam-mode">${icon('zap')}<span>${esc(t('courses.exam_eve_mode'))}</span></button>
+        <a class="btn btn-primary" href="./live-class.html?course=${esc(mergedCourse.id)}">${icon('radio')}<span>${esc(t('live.enter_btn'))}</span></a>
+        <a class="btn btn-secondary" href="./syllabus.html?course=${esc(mergedCourse.id)}">${icon('file-up')}<span>${esc(t('courses.import_syllabus'))}</span></a>
+        <a class="btn btn-secondary" href="./note-capture.html?course=${esc(mergedCourse.id)}">${icon('plus')}<span>${esc(t('notes.new'))}</span></a>
+        <button type="button" class="btn btn-dark" id="btn-exam-mode">${icon('zap')}<span>${esc(t('courses.exam_eve_mode'))}</span></button>
       </div>
     </div>
 

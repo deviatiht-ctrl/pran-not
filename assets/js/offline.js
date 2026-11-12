@@ -146,6 +146,16 @@ async function updateQueueItem(item) {
   await tx(STORE_QUEUE, 'readwrite', (s) => s.put(item));
 }
 
+/** Met à jour une note encore dans la file hors-ligne locale (`local:<id>`). */
+export async function updateQueuedNotePayload(queueId, patch = {}) {
+  const items = await getQueueItems();
+  const target = items.find((x) => x.id === queueId && x.kind === 'note');
+  if (!target) return false;
+  target.payload = { ...(target.payload || {}), ...patch };
+  await updateQueueItem(target);
+  return true;
+}
+
 export function onQueueChange(fn) {
   listeners.add(fn);
   return () => listeners.delete(fn);
@@ -367,12 +377,14 @@ async function syncSessionItem(db, userId, payload) {
 /** Synchronise la modification d'une note existante hors-ligne. */
 async function syncNoteUpdateItem(db, userId, payload) {
   if (!payload?.note_id) return;
-  const patch = {
-    title: payload.title,
-    summary: payload.summary,
-    content_text: payload.content_text,
-    content_html: payload.content_html,
-  };
+  const patch = {};
+  if ('title' in payload) patch.title = payload.title;
+  if ('summary' in payload) patch.summary = payload.summary;
+  if ('content_text' in payload) patch.content_text = payload.content_text;
+  if ('content_html' in payload) patch.content_html = payload.content_html;
+  if ('course_id' in payload) patch.course_id = payload.course_id || null;
+  if ('unit_id' in payload) patch.unit_id = payload.unit_id || null;
+  if (!Object.keys(patch).length) return;
   const { error } = await db
     .from('pran_not_notes')
     .update(patch)

@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="ht">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Kou an dirèk — Pran Nòt</title>
+  <meta name="theme-color" content="#1B2A4A">
+  <link rel="manifest" href="../manifest.json">
+  <link rel="icon" href="../assets/icons/icon-192.png" sizes="192x192" type="image/png">
+  <link rel="apple-touch-icon" sizes="180x180" href="../assets/icons/apple-touch-icon.png">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Pran Nòt">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <script>(function(){try{var s=localStorage.getItem('prannot.theme_vars');if(!s)return;var p=JSON.parse(s),r=document.documentElement;if(p.mode)r.setAttribute('data-theme-mode',p.mode);if(p.cardStyle)r.setAttribute('data-card-style',p.cardStyle);if(p.vars){for(var k in p.vars)r.style.setProperty(k,p.vars[k]);}if(p.fontHref){var l=document.createElement('link');l.id='prannot-custom-fonts';l.rel='stylesheet';l.href=p.fontHref;document.head.appendChild(l);}if(p.themeColor){var m=document.querySelector('meta[name="theme-color"]');if(m)m.setAttribute('content',p.themeColor);}}catch(e){}})();</script>
+  <link rel="stylesheet" href="../assets/css/variables.css">
+  <link rel="stylesheet" href="../assets/css/main.css">
+  <link rel="stylesheet" href="../assets/css/navbar.css">
+  <link rel="stylesheet" href="../assets/css/mobile-nav.css">
+  <link rel="stylesheet" href="../assets/css/components.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Ale nan kontni prensipal</a>
+
+  <main id="main" class="app-main">
+    <!-- En-tête Kou an dirèk -->
+    <div class="page-head">
+      <div>
+        <div class="row-wrap mb-2">
+          <span class="badge badge-error" id="live-status-pill">
+            <span class="live-pulse-dot" aria-hidden="true"></span>
+            <span id="live-status-text" data-i18n="live.badge_live"></span>
+          </span>
+          <span class="badge badge-outline" id="live-clock-badge">00:00</span>
+          <span class="badge" id="live-schedule-badge" hidden></span>
+        </div>
+        <h1 id="live-heading" data-i18n="live.title"></h1>
+        <p id="live-sub" data-i18n="live.subtitle"></p>
+      </div>
+      <div class="page-head-actions">
+        <button type="button" class="btn btn-sm btn-secondary" id="live-wa-btn">
+          <i data-lucide="message-circle" aria-hidden="true"></i>
+          <span data-i18n="live.send_wa_alert"></span>
+        </button>
+        <a class="btn btn-sm btn-ghost" href="./courses.html">
+          <i data-lucide="arrow-left" aria-hidden="true"></i>
+          <span data-i18n="common.back"></span>
+        </a>
+      </div>
+    </div>
+
+    <!-- Barre d'étapes guidées -->
+    <div class="live-steps-bar" id="live-steps-bar" aria-label="Etap kou an dirèk">
+      <div class="live-step-pill is-active" data-step="1"><span>1.</span><span data-i18n="live.step_1"></span></div>
+      <div class="live-step-pill" data-step="2"><span>2.</span><span data-i18n="live.step_2"></span></div>
+      <div class="live-step-pill" data-step="3"><span>3.</span><span data-i18n="live.step_3"></span></div>
+      <div class="live-step-pill" data-step="4"><span>4.</span><span data-i18n="live.step_4"></span></div>
+      <div class="live-step-pill" data-step="5"><span>5.</span><span data-i18n="live.step_5"></span></div>
+    </div>
+
+    <!-- Étape 1 : Sélection du cours + Chapitre syllabus -->
+    <section class="card card-accent mb-5">
+      <div class="form-row">
+        <div class="field mb-0">
+          <label for="live-course-select" data-i18n="capture.course"></label>
+          <select class="select" id="live-course-select">
+            <option value="" data-i18n="common.no_course"></option>
+          </select>
+        </div>
+        <div class="field mb-0">
+          <label for="live-unit-select" data-i18n="notes.unit_optional"></label>
+          <select class="select" id="live-unit-select">
+            <option value="" data-i18n="common.none"></option>
+          </select>
+        </div>
+      </div>
+      <div id="live-unit-focus" class="mt-3 pt-3" style="border-top:1px solid var(--c-border);" hidden>
+        <div class="text-xs font-bold mb-1" data-i18n="live.unit_focus_label"></div>
+        <p class="text-sm muted mb-2" id="live-unit-desc"></p>
+        <div class="row-wrap" id="live-unit-kws"></div>
+      </div>
+    </section>
+
+    <div class="live-class-grid">
+      <!-- Colonne gauche : Étape 2 (Audio + Notes) & Étape 3 (Mots-clés) -->
+      <div class="stack">
+        <!-- Audio salle de cours -->
+        <section class="card">
+          <div class="row-between mb-3">
+            <div>
+              <h2 class="card-title mb-0" data-i18n="live.listen_title"></h2>
+              <div class="text-xs muted" id="live-audio-hint" data-i18n="live.listen_sub"></div>
+            </div>
+            <div class="row" style="gap:8px;">
+              <span class="rec-dot" id="live-rec-dot" hidden></span>
+              <span class="badge" id="live-rec-timer">00:00</span>
+            </div>
+          </div>
+
+          <canvas id="live-audio-meter" class="audio-meter-canvas mb-3" height="52" aria-hidden="true"></canvas>
+
+          <div class="alert alert-info mb-3" id="live-speech-box" hidden>
+            <i data-lucide="captions" aria-hidden="true"></i>
+            <div class="flex-1">
+              <strong class="text-xs" data-i18n="capture.live_speech_label"></strong>
+              <div class="text-sm mt-1" id="live-speech-preview"></div>
+            </div>
+          </div>
+
+          <div class="row-wrap">
+            <button type="button" class="btn btn-primary" id="live-rec-start">
+              <i data-lucide="mic" aria-hidden="true"></i>
+              <span data-i18n="live.rec_start"></span>
+            </button>
+            <button type="button" class="btn btn-dark" id="live-rec-stop" hidden>
+              <i data-lucide="square" aria-hidden="true"></i>
+              <span data-i18n="live.rec_stop"></span>
+            </button>
+            <span class="badge badge-outline" id="live-chunks-count">0 segman</span>
+          </div>
+          <div id="live-transcript-log" class="stack-sm mt-3"></div>
+        </section>
+
+        <!-- Étape 2b : Prise de notes en direct -->
+        <section class="card">
+          <div class="row-between mb-2">
+            <h2 class="card-title mb-0" data-i18n="live.scratchpad_title"></h2>
+            <button type="button" class="btn btn-sm btn-secondary" id="live-stamp-btn">
+              <i data-lucide="clock" aria-hidden="true"></i>
+              <span data-i18n="live.add_timestamp"></span>
+            </button>
+          </div>
+          <div class="field mb-3">
+            <label for="live-note-title" data-i18n="live.note_title_label"></label>
+            <input class="input" id="live-note-title" type="text" data-i18n-placeholder="live.note_title_placeholder">
+          </div>
+          <textarea class="textarea" id="live-notes-area" rows="10" data-i18n-placeholder="live.scratchpad_placeholder"></textarea>
+        </section>
+
+        <!-- Étape 3 : Mots-clés pendant le cours -->
+        <section class="card">
+          <h2 class="card-title mb-2" data-i18n="live.keywords_title"></h2>
+          <p class="text-xs muted mb-3" data-i18n="live.keywords_sub"></p>
+
+          <form class="row-wrap mb-3" id="live-kw-form">
+            <input class="input flex-1" id="live-kw-input" type="text" style="min-width:170px;" data-i18n-placeholder="live.keyword_placeholder">
+            <select class="select" id="live-kw-tag" style="width:auto;">
+              <option value="definition" data-i18n="live.tag_definition"></option>
+              <option value="exam" data-i18n="live.tag_exam"></option>
+              <option value="question" data-i18n="live.tag_question"></option>
+              <option value="article" data-i18n="live.tag_article"></option>
+            </select>
+            <button type="submit" class="btn btn-primary btn-sm">
+              <i data-lucide="plus" aria-hidden="true"></i>
+              <span data-i18n="live.add_keyword"></span>
+            </button>
+          </form>
+
+          <div class="row-wrap mb-3" id="live-quick-tags">
+            <button type="button" class="chip" data-quick-tag="exam" data-i18n="live.tag_exam"></button>
+            <button type="button" class="chip" data-quick-tag="definition" data-i18n="live.tag_definition"></button>
+            <button type="button" class="chip" data-quick-tag="question" data-i18n="live.tag_question"></button>
+          </div>
+
+          <div id="live-keywords-list" class="row-wrap"></div>
+        </section>
+      </div>
+
+      <!-- Colonne droite : Étape 4 (Recherche rapide pendant que le prof parle) -->
+      <aside class="stack">
+        <section class="card">
+          <h2 class="card-title mb-1" data-i18n="live.search_title"></h2>
+          <p class="text-xs muted mb-3" data-i18n="live.search_sub"></p>
+
+          <div class="segmented mb-3" id="live-search-tabs" style="width:100%;">
+            <button type="button" data-search-tab="library" aria-pressed="true" data-i18n="live.tab_library"></button>
+            <button type="button" data-search-tab="notes" aria-pressed="false" data-i18n="live.tab_notes"></button>
+            <button type="button" data-search-tab="ai" aria-pressed="false" data-i18n="live.tab_ai"></button>
+          </div>
+
+          <form class="row mb-3" id="live-search-form" style="gap:8px;">
+            <input type="search" class="input flex-1" id="live-search-input" data-i18n-placeholder="live.search_placeholder">
+            <button type="submit" class="btn btn-primary" id="live-search-btn" aria-label="Search">
+              <i data-lucide="search" aria-hidden="true"></i>
+            </button>
+          </form>
+
+          <div id="live-search-results" class="stack-sm">
+            <p class="text-xs muted mb-0" data-i18n="live.search_hint"></p>
+          </div>
+        </section>
+
+        <!-- Étape 5 : Sauvegarde & Structuration après cours -->
+        <section class="card card-accent">
+          <h2 class="card-title mb-2" data-i18n="live.finish_title"></h2>
+          <p class="text-xs muted mb-4" data-i18n="live.finish_sub"></p>
+          <div class="stack-sm">
+            <button type="button" class="btn btn-primary btn-block" id="live-finish-ai-btn">
+              <i data-lucide="sparkles" aria-hidden="true"></i>
+              <span data-i18n="live.finish_ai_btn"></span>
+            </button>
+            <button type="button" class="btn btn-secondary btn-block" id="live-save-quick-btn">
+              <i data-lucide="save" aria-hidden="true"></i>
+              <span data-i18n="live.save_quick_btn"></span>
+            </button>
+          </div>
+        </section>
+      </aside>
+    </div>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/lucide@0.468.0/dist/umd/lucide.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+  <script type="module" src="../assets/js/pages/live-class.js"></script>
+</body>
+</html>

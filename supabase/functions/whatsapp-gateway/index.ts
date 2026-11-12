@@ -9,6 +9,7 @@ import {
   loadWaConfig,
   maskApiKey,
   normalizePhone,
+  renderSpintaxTemplate,
   resolveLane,
 } from '../_shared/whatsapp.ts';
 import { runAutomatedWhatsAppReminders } from '../_shared/reminders.ts';
@@ -28,10 +29,13 @@ function sanitizeSettingsForAdmin(opts: {
     inactivity_days: settings.inactivity_days,
     reminder_cooldown_hours: settings.reminder_cooldown_hours,
     deadline_enabled: Boolean(settings.deadline_enabled),
+    class_reminder_enabled: Boolean(settings.class_reminder_enabled),
     inactive_template_ht: settings.inactive_template_ht,
     inactive_template_fr: settings.inactive_template_fr,
     deadline_template_ht: settings.deadline_template_ht,
     deadline_template_fr: settings.deadline_template_fr,
+    class_template_ht: settings.class_template_ht,
+    class_template_fr: settings.class_template_fr,
     updated_at: settings.updated_at || null,
     // Enfòmasyon maske sèlman — pa janm voye kle reyèl bay navigatè a
     has_api_key: Boolean(effectiveApiKey),
@@ -100,6 +104,123 @@ Deno.serve(async (req) => {
         status: 'queued',
       });
 
+      return jsonResponse({ ok: true, sent: true, gateway: res });
+    }
+
+    // Aksyon etidyan : voye yon alèt kou an dirèk sou WhatsApp pou pwòp tèt pa l
+    if (action === 'notify_class_start') {
+      const cfg = await loadWaConfig(admin);
+      if (!cfg.settings.enabled || !cfg.settings.class_reminder_enabled || !cfg.effectiveApiKey) {
+        return jsonResponse({ ok: true, sent: false, reason: 'class_reminder_disabled' });
+      }
+      const { data: prof } = await admin
+        .from('pran_not_profiles')
+        .select('id, full_name, language, whatsapp_phone, notify_whatsapp')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      if (!prof?.whatsapp_phone || (!body.manual && prof.notify_whatsapp === false)) {
+        return jsonResponse({ ok: true, sent: false, reason: 'no_phone_or_opted_out' });
+      }
+
+      let courseName = String(body.course_name || 'Kou').trim().slice(0, 120);
+      const courseId = typeof body.course_id === 'string' && body.course_id ? body.course_id : null;
+      if (courseId) {
+        const { data: ownedCourse } = await admin
+          .from('pran_not_courses')
+          .select('id, name')
+          .eq('id', courseId)
+          .eq('user_id', user.id)
+          .maybeSingle();
+        if (ownedCourse?.name) courseName = ownedCourse.name;
+      }
+
+      const phone = normalizePhone(prof.whatsapp_phone);
+      const firstName = (prof.full_name || '').trim().split(/\s+/)[0] || '';
+      const lang = prof.language === 'fr' ? 'fr' : 'ht';
+      const baseAppUrl = String(body.app_url || Deno.env.get('APP_URL') || 'https://prannot.ht').replace(/\/$/, '');
+      const liveUrl = courseId
+        ? `${baseAppUrl}/pages/live-class.html?course=${encodeURIComponent(courseId)}`
+        : `${baseAppUrl}/pages/live-class.html`;
+      const startTime = String(body.start_time || new Date().toTimeString().slice(0, 5)).slice(0, 10);
+      const tpl = lang === 'fr' ? cfg.settings.class_template_fr : cfg.settings.class_template_ht;
+      const msg = renderSpintaxTemplate(tpl, {
+        name: firstName,
+        course: courseName,
+        time: startTime,
+        url: liveUrl,
+      });
+
+      const todayStr = new Date().toISOString().slice(0, 10);
+      const idemp = body.manual
+        ? `prannot-wa-class-manual-${user.id}-${courseId || 'x'}-${Math.floor(Date.now() / 30000)}`
+        : `prannot-wa-class-${user.id}-${courseId || 'x'}-${todayStr}`;
+
+      const res = await cfg.client.sendMessage({
+        to: phone,
+        message: msg,
+        kind: 'manual_direct',
+        mode: 'async',
+        idempotencyKey: idemp,
+      });
+
+      const gwId = String(res?.id || res?.message_id || '') || null;
+      await admin.from('pran_not_wa_logs').insert({
+        user_id: user.id,
+        phone,
+        kind: 'manual_direct',
+        lane: 'fast',
+        mode: 'async',
+        gateway_message_id: gwId,
+        status: 'queued',
+        payload: { course_id: courseId, course_name: courseName, start_time: startTime, idempotency_key: idemp },
+      });
+
+      return jsonResponse({ ok: true, sent: true, gateway: res });
+    }
+
+    // Aksyon etidyan : teste koneksyon WhatsApp pou pwòp nimewo li
+    if (action === 'send_test_self') {
+      const cfg = await loadWaConfig(admin);
+      if (!cfg.settings.enabled || !cfg.effectiveApiKey) {
+        return errorResponse('WA_DISABLED', 'Sevis WhatsApp la pa aktive sou seve a.', 400);
+      }
+      const { data: prof } = await admin
+        .from('pran_not_profiles')
+        .select('id, full_name, language, whatsapp_phone')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      if (!prof?.whatsapp_phone) {
+        return errorResponse('NO_PHONE', 'Ou poko mete yon nimewo WhatsApp nan pwofil ou.', 400);
+      }
+
+      const phone = normalizePhone(prof.whatsapp_phone);
+      const lang = prof.language === 'fr' ? 'fr' : 'ht';
+      const firstName = (prof.full_name || '').trim().split(/\s+/)[0] || '';
+      const baseAppUrl = String(body.app_url || Deno.env.get('APP_URL') || 'https://prannot.ht').replace(/\/$/, '');
+      const msg = lang === 'fr'
+        ? `Test Pran Not reussi ${firstName} ! Vos rappels de cours et d'echeances WhatsApp sont bien actifs : ${baseAppUrl}/pages/dashboard.html`
+        : `Tes Pran Not reyisi ${firstName} ! Rapel kou ak devwa WhatsApp ou yo aktive byen : ${baseAppUrl}/pages/dashboard.html`;
+
+      const res = await cfg.client.sendMessage({
+        to: phone,
+        message: msg,
+        kind: 'test',
+        mode: 'async',
+        idempotencyKey: `prannot-self-test-${user.id}-${Math.floor(Date.now() / 30000)}`,
+      });
+      const gwId = String(res?.id || res?.message_id || '') || null;
+      await admin.from('pran_not_wa_logs').insert({
+        user_id: user.id,
+        phone,
+        kind: 'test',
+        lane: 'fast',
+        mode: 'async',
+        gateway_message_id: gwId,
+        status: 'queued',
+        payload: { self_test: true },
+      });
       return jsonResponse({ ok: true, sent: true, gateway: res });
     }
 
@@ -197,6 +318,7 @@ Deno.serve(async (req) => {
         inactivity_days: inactivityDays,
         reminder_cooldown_hours: cooldownHours,
         deadline_enabled: body.deadline_enabled !== undefined ? Boolean(body.deadline_enabled) : cfg.settings.deadline_enabled,
+        class_reminder_enabled: body.class_reminder_enabled !== undefined ? Boolean(body.class_reminder_enabled) : cfg.settings.class_reminder_enabled,
         updated_by: user.id,
       };
 
@@ -211,6 +333,12 @@ Deno.serve(async (req) => {
       }
       if (typeof body.deadline_template_fr === 'string' && body.deadline_template_fr.trim()) {
         patch.deadline_template_fr = body.deadline_template_fr.trim();
+      }
+      if (typeof body.class_template_ht === 'string' && body.class_template_ht.trim()) {
+        patch.class_template_ht = body.class_template_ht.trim();
+      }
+      if (typeof body.class_template_fr === 'string' && body.class_template_fr.trim()) {
+        patch.class_template_fr = body.class_template_fr.trim();
       }
 
       // Kle API : sèlman mete ajou si administratè a ekri yon nouvo kle oswa si li mande efase kle DB a pou repli sou .env
