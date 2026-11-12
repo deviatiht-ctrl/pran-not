@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="ht">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Nòt mwen yo — Pran Nòt</title>
+  <meta name="theme-color" content="#1B2A4A">
+  <link rel="manifest" href="../manifest.json">
+  <link rel="icon" href="../assets/icons/icon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <script>(function(){try{var s=localStorage.getItem('prannot.theme_vars');if(!s)return;var p=JSON.parse(s),r=document.documentElement;if(p.mode)r.setAttribute('data-theme-mode',p.mode);if(p.cardStyle)r.setAttribute('data-card-style',p.cardStyle);if(p.vars){for(var k in p.vars)r.style.setProperty(k,p.vars[k]);}if(p.fontHref){var l=document.createElement('link');l.id='prannot-custom-fonts';l.rel='stylesheet';l.href=p.fontHref;document.head.appendChild(l);}if(p.themeColor){var m=document.querySelector('meta[name="theme-color"]');if(m)m.setAttribute('content',p.themeColor);}}catch(e){}})();</script>
+  <link rel="stylesheet" href="../assets/css/variables.css">
+  <link rel="stylesheet" href="../assets/css/main.css">
+  <link rel="stylesheet" href="../assets/css/navbar.css">
+  <link rel="stylesheet" href="../assets/css/mobile-nav.css">
+  <link rel="stylesheet" href="../assets/css/components.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Ale nan kontni prensipal</a>
+
+  <main id="main" class="app-main">
+    <div class="page-head">
+      <div>
+        <span class="eyebrow"><i data-lucide="notebook-pen" aria-hidden="true"></i><span data-i18n="nav.notes"></span></span>
+        <h1 data-i18n="notes.title"></h1>
+        <p data-i18n="notes.sub"></p>
+      </div>
+      <div class="page-head-actions">
+        <a class="btn btn-primary" href="./note-capture.html">
+          <i data-lucide="plus" aria-hidden="true"></i>
+          <span data-i18n="notes.new"></span>
+        </a>
+      </div>
+    </div>
+
+    <!-- Barre de filtres -->
+    <div class="card card-sm mb-6">
+      <div class="row-wrap" style="gap:12px;">
+        <div class="input-group flex-1" style="min-width:200px;">
+          <i data-lucide="search" aria-hidden="true"></i>
+          <input class="input" type="search" id="notes-search" data-i18n-placeholder="notes.search_ph">
+        </div>
+        <select class="select" id="notes-course-filter" style="width:auto;min-width:170px;">
+          <option value="" data-i18n="notes.filter_course"></option>
+        </select>
+        <select class="select" id="notes-mode-filter" style="width:auto;min-width:160px;">
+          <option value="" data-i18n="notes.filter_mode"></option>
+          <option value="photo" data-i18n="capture.mode_photo"></option>
+          <option value="audio" data-i18n="capture.mode_audio"></option>
+          <option value="flash" data-i18n="capture.mode_flash"></option>
+          <option value="text" data-i18n="capture.mode_text"></option>
+          <option value="import" data-i18n="capture.mode_import"></option>
+        </select>
+      </div>
+    </div>
+
+    <div id="notes-grid" class="grid grid-3">
+      <div class="skeleton skeleton-card"></div>
+      <div class="skeleton skeleton-card"></div>
+      <div class="skeleton skeleton-card"></div>
+    </div>
+
+    <div class="pagination" id="notes-pagination" hidden>
+      <button type="button" class="btn btn-secondary" id="load-more-btn" data-i18n="common.next"></button>
+    </div>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/lucide@0.468.0/dist/umd/lucide.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+  <script type="module" src="../assets/js/pages/notes.js"></script>
+</body>
+</html>

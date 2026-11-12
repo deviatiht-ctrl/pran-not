@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="ht">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Devwa — Pran Nòt</title>
+  <meta name="theme-color" content="#1B2A4A">
+  <link rel="manifest" href="../manifest.json">
+  <link rel="icon" href="../assets/icons/icon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <script>(function(){try{var s=localStorage.getItem('prannot.theme_vars');if(!s)return;var p=JSON.parse(s),r=document.documentElement;if(p.mode)r.setAttribute('data-theme-mode',p.mode);if(p.cardStyle)r.setAttribute('data-card-style',p.cardStyle);if(p.vars){for(var k in p.vars)r.style.setProperty(k,p.vars[k]);}if(p.fontHref){var l=document.createElement('link');l.id='prannot-custom-fonts';l.rel='stylesheet';l.href=p.fontHref;document.head.appendChild(l);}if(p.themeColor){var m=document.querySelector('meta[name="theme-color"]');if(m)m.setAttribute('content',p.themeColor);}}catch(e){}})();</script>
+  <link rel="stylesheet" href="../assets/css/variables.css">
+  <link rel="stylesheet" href="../assets/css/main.css">
+  <link rel="stylesheet" href="../assets/css/navbar.css">
+  <link rel="stylesheet" href="../assets/css/mobile-nav.css">
+  <link rel="stylesheet" href="../assets/css/components.css">
+  <style>
+    .ql-container.ql-snow { min-height: 280px; }
+  </style>
+</head>
+<body>
+  <a class="skip-link" href="#main">Ale nan kontni prensipal</a>
+
+  <main id="main" class="app-main">
+    <div id="assignment-root">
+      <div class="skeleton skeleton-title"></div>
+      <div class="skeleton skeleton-card mt-4"></div>
+    </div>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/lucide@0.468.0/dist/umd/lucide.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+  <script type="module" src="../assets/js/pages/assignment.js"></script>
+</body>
+</html>

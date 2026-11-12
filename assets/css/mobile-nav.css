@@ -1,0 +1,46 @@
+/* =====================================================================
+   PRAN NÒT - mobile-nav.css
+   Barre de navigation inférieure (style Android), 5 onglets.
+   ===================================================================== */
+.mobile-nav {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .mobile-nav {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: var(--z-nav);
+    display: grid; grid-template-columns: repeat(5, 1fr);
+    height: calc(var(--mobile-nav-h) + env(safe-area-inset-bottom));
+    padding: 6px 6px env(safe-area-inset-bottom);
+    border-radius: 24px 24px 0 0;
+    background: var(--c-mobile-nav-bg);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border-top: 1px solid var(--c-nav-border);
+    box-shadow: 0 -6px 24px rgba(0, 0, 0, 0.08);
+  }
+
+  .mobile-nav-item {
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+    min-height: 44px; text-decoration: none; color: var(--c-text-muted);
+    font-size: 10px; font-weight: 600; letter-spacing: 0.01em; border-radius: 16px;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .mobile-nav-item .mobile-nav-icon {
+    width: 56px; height: 30px; border-radius: var(--r-pill);
+    display: inline-flex; align-items: center; justify-content: center;
+    transition: background var(--dur-fast) var(--ease);
+  }
+  .mobile-nav-item svg { width: 22px; height: 22px; }
+  .mobile-nav-item[aria-current="page"] { color: var(--c-navy); }
+  .mobile-nav-item[aria-current="page"] .mobile-nav-icon { background: var(--c-accent-soft); color: var(--c-accent-text); }
+  .mobile-nav-item:active .mobile-nav-icon { background: var(--c-surface); }
+
+  .mobile-nav-badge {
+    position: absolute; transform: translate(12px, -10px);
+    min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px;
+    background: var(--c-accent); color: var(--c-on-accent); font-size: 9px; font-weight: 700;
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  .mobile-nav-item { position: relative; }
+}

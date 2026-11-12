@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="ht">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Konfigirasyon — Pran Nòt</title>
+  <meta name="theme-color" content="#1B2A4A">
+  <link rel="manifest" href="./manifest.json">
+  <link rel="icon" href="./assets/icons/icon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <script>(function(){try{var s=localStorage.getItem('prannot.theme_vars');if(!s)return;var p=JSON.parse(s),r=document.documentElement;if(p.mode)r.setAttribute('data-theme-mode',p.mode);if(p.cardStyle)r.setAttribute('data-card-style',p.cardStyle);if(p.vars){for(var k in p.vars)r.style.setProperty(k,p.vars[k]);}if(p.fontHref){var l=document.createElement('link');l.id='prannot-custom-fonts';l.rel='stylesheet';l.href=p.fontHref;document.head.appendChild(l);}if(p.themeColor){var m=document.querySelector('meta[name="theme-color"]');if(m)m.setAttribute('content',p.themeColor);}}catch(e){}})();</script>
+  <link rel="stylesheet" href="./assets/css/variables.css">
+  <link rel="stylesheet" href="./assets/css/main.css">
+  <link rel="stylesheet" href="./assets/css/navbar.css">
+  <link rel="stylesheet" href="./assets/css/components.css">
+</head>
+<body>
+  <main class="app-main narrow" style="padding-top:var(--sp-10);">
+    <div class="row-between mb-6">
+      <a class="nav-brand" href="./index.html" style="margin:0;">
+        <span class="nav-brand-mark"><i data-lucide="notebook-pen" aria-hidden="true"></i></span>
+        <span>Pran N<span class="nav-brand-dot">ò</span>t</span>
+      </a>
+      <button type="button" class="nav-lang" id="onb-lang-btn">HT</button>
+    </div>
+
+    <div class="page-head">
+      <div>
+        <span class="eyebrow" data-i18n="onboarding.eyebrow"></span>
+        <h1 data-i18n="onboarding.title"></h1>
+        <p data-i18n="onboarding.sub"></p>
+      </div>
+    </div>
+
+    <div class="mb-6">
+      <div class="row-between text-xs muted mb-2">
+        <span id="step-label"></span>
+        <span id="step-pct">33%</span>
+      </div>
+      <div class="progress"><span id="step-bar" style="width:33%"></span></div>
+    </div>
+
+    <form id="onboarding-form" class="card" novalidate>
+      <!-- Étape 1 : Identité et université -->
+      <section data-step="1">
+        <div class="field">
+          <label for="onb-name" data-i18n="onboarding.full_name"></label>
+          <input class="input" id="onb-name" type="text" required data-i18n-placeholder="onboarding.full_name_ph">
+        </div>
+        <div class="field">
+          <label for="onb-uni" data-i18n="onboarding.university"></label>
+          <input class="input" id="onb-uni" type="text" required data-i18n-placeholder="onboarding.university_ph">
+        </div>
+      </section>
+
+      <!-- Étape 2 : Faculté et niveau -->
+      <section data-step="2" hidden>
+        <div class="field">
+          <label data-i18n="onboarding.faculty"></label>
+          <div class="option-grid" id="faculty-grid"></div>
+        </div>
+        <div class="field mt-6">
+          <label for="onb-level" data-i18n="onboarding.level"></label>
+          <select class="select" id="onb-level" required></select>
+        </div>
+      </section>
+
+      <!-- Étape 3 : Langue, objectif quotidien et rappel -->
+      <section data-step="3" hidden>
+        <div class="field">
+          <label data-i18n="onboarding.language"></label>
+          <div class="option-grid">
+            <label class="option">
+              <input type="radio" name="language" value="ht" checked>
+              <i data-lucide="globe" aria-hidden="true"></i>
+              <span data-i18n="onboarding.lang_ht"></span>
+            </label>
+            <label class="option">
+              <input type="radio" name="language" value="fr">
+              <i data-lucide="globe" aria-hidden="true"></i>
+              <span data-i18n="onboarding.lang_fr"></span>
+            </label>
+          </div>
+        </div>
+
+        <div class="form-row mt-4">
+          <div class="field">
+            <label for="onb-goal" data-i18n="onboarding.daily_goal"></label>
+            <select class="select" id="onb-goal">
+              <option value="15">15 min / jou</option>
+              <option value="30" selected>30 min / jou</option>
+              <option value="45">45 min / jou</option>
+              <option value="60">60 min / jou</option>
+              <option value="90">90 min / jou</option>
+              <option value="120">120 min / jou</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="onb-reminder" data-i18n="onboarding.reminder_time"></label>
+            <input class="input" id="onb-reminder" type="time" value="19:00">
+          </div>
+        </div>
+
+        <div class="field mt-4">
+          <label for="onb-whatsapp" data-i18n="onboarding.whatsapp_phone"></label>
+          <input class="input" id="onb-whatsapp" type="tel" inputmode="tel" data-i18n-placeholder="onboarding.whatsapp_phone_ph">
+          <div class="text-xs muted mt-1" data-i18n="onboarding.whatsapp_hint"></div>
+        </div>
+
+        <label class="switch mt-4">
+          <input type="checkbox" id="onb-notify-wa" checked>
+          <span class="switch-track"></span>
+          <span class="text-sm" data-i18n="onboarding.notify_whatsapp"></span>
+        </label>
+      </section>
+
+      <div class="row-between mt-6">
+        <button type="button" class="btn btn-secondary" id="prev-btn" hidden>
+          <i data-lucide="arrow-left" aria-hidden="true"></i>
+          <span data-i18n="common.back"></span>
+        </button>
+        <div class="row" style="margin-left:auto;">
+          <button type="button" class="btn btn-primary" id="next-btn">
+            <span data-i18n="common.next"></span>
+            <i data-lucide="arrow-right" aria-hidden="true"></i>
+          </button>
+          <button type="submit" class="btn btn-primary" id="finish-btn" hidden>
+            <span data-i18n="onboarding.finish_btn"></span>
+            <i data-lucide="check" aria-hidden="true"></i>
+          </button>
+        </div>
+      </div>
+    </form>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/lucide@0.468.0/dist/umd/lucide.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+  <script type="module" src="./assets/js/pages/onboarding.js"></script>
+</body>
+</html>

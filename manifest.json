@@ -1,0 +1,38 @@
+{
+  "name": "Pran Nòt",
+  "short_name": "Pran Nòt",
+  "description": "Konpayon etid entèlijan pou etidyan inivèsitè ayisyen — Nòt, kat memwa, tès, devwa ak titè IA.",
+  "start_url": "./pages/dashboard.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#FFFFFF",
+  "theme_color": "#1B2A4A",
+  "lang": "ht",
+  "categories": ["education", "productivity"],
+  "icons": [
+    {
+      "src": "./assets/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Foto tablo / kaye",
+      "short_name": "Foto",
+      "url": "./pages/note-capture.html?mode=photo"
+    },
+    {
+      "name": "Anrejistre kou",
+      "short_name": "Vwa",
+      "url": "./pages/note-capture.html?mode=audio"
+    },
+    {
+      "name": "Revize kat memwa",
+      "short_name": "Revize",
+      "url": "./pages/review.html"
+    }
+  ]
+}

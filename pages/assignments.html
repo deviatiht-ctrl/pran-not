@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="ht">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Devwa — Pran Nòt</title>
+  <meta name="theme-color" content="#1B2A4A">
+  <link rel="manifest" href="../manifest.json">
+  <link rel="icon" href="../assets/icons/icon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <script>(function(){try{var s=localStorage.getItem('prannot.theme_vars');if(!s)return;var p=JSON.parse(s),r=document.documentElement;if(p.mode)r.setAttribute('data-theme-mode',p.mode);if(p.cardStyle)r.setAttribute('data-card-style',p.cardStyle);if(p.vars){for(var k in p.vars)r.style.setProperty(k,p.vars[k]);}if(p.fontHref){var l=document.createElement('link');l.id='prannot-custom-fonts';l.rel='stylesheet';l.href=p.fontHref;document.head.appendChild(l);}if(p.themeColor){var m=document.querySelector('meta[name="theme-color"]');if(m)m.setAttribute('content',p.themeColor);}}catch(e){}})();</script>
+  <link rel="stylesheet" href="../assets/css/variables.css">
+  <link rel="stylesheet" href="../assets/css/main.css">
+  <link rel="stylesheet" href="../assets/css/navbar.css">
+  <link rel="stylesheet" href="../assets/css/mobile-nav.css">
+  <link rel="stylesheet" href="../assets/css/components.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Ale nan kontni prensipal</a>
+
+  <main id="main" class="app-main">
+    <div class="page-head">
+      <div>
+        <span class="eyebrow"><i data-lucide="clipboard-list" aria-hidden="true"></i><span data-i18n="nav.assignments"></span></span>
+        <h1 data-i18n="assignments.title"></h1>
+        <p data-i18n="assignments.sub"></p>
+      </div>
+      <div class="page-head-actions">
+        <button type="button" class="btn btn-primary" id="new-assignment-btn">
+          <i data-lucide="plus" aria-hidden="true"></i>
+          <span data-i18n="assignments.new"></span>
+        </button>
+      </div>
+    </div>
+
+    <div class="segmented mb-6" id="asg-filters">
+      <button type="button" aria-pressed="true" data-status="">Tout</button>
+      <button type="button" aria-pressed="false" data-status="todo" data-i18n="assignments.status_todo"></button>
+      <button type="button" aria-pressed="false" data-status="in_progress" data-i18n="assignments.status_in_progress"></button>
+      <button type="button" aria-pressed="false" data-status="done" data-i18n="assignments.status_done"></button>
+      <button type="button" aria-pressed="false" data-status="submitted" data-i18n="assignments.status_submitted"></button>
+    </div>
+
+    <div id="assignments-grid" class="grid grid-3">
+      <div class="skeleton skeleton-card"></div>
+      <div class="skeleton skeleton-card"></div>
+      <div class="skeleton skeleton-card"></div>
+    </div>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/lucide@0.468.0/dist/umd/lucide.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+  <script type="module" src="../assets/js/pages/assignments.js"></script>
+</body>
+</html>

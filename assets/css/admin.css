@@ -1,0 +1,138 @@
+/* =====================================================================
+   PRAN NÒT - admin.css
+   Mise en page et composants dédiés à l'espace d'administration.
+   Toujours fond blanc #FFFFFF, texte navy #1B2A4A, accent #F97316.
+   ===================================================================== */
+
+.admin-shell {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  min-height: 100vh;
+  background: var(--c-bg);
+}
+
+.admin-sidebar {
+  border-right: 1px solid var(--c-border);
+  padding: var(--sp-6) var(--sp-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-6);
+  background: var(--c-card);
+  position: sticky;
+  top: 0;
+  height: 100vh;
+}
+
+.admin-brand {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  padding: 0 var(--sp-2);
+}
+
+.admin-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+}
+
+.admin-nav a {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  min-height: var(--tap);
+  padding: 0 var(--sp-3);
+  border-radius: var(--r-md);
+  text-decoration: none;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--c-text-muted);
+  transition: background var(--dur-fast), color var(--dur-fast);
+}
+
+.admin-nav a svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+.admin-nav a:hover {
+  background: var(--c-surface);
+  color: var(--c-navy);
+}
+
+.admin-nav a[aria-current="page"] {
+  background: var(--c-accent-soft);
+  color: var(--c-accent-text);
+}
+
+.admin-main {
+  padding: var(--sp-8) var(--sp-8) var(--sp-16);
+  max-width: 1200px;
+  width: 100%;
+}
+
+.admin-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--sp-4);
+  margin-bottom: var(--sp-8);
+}
+
+.admin-provider-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+.admin-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-6);
+}
+
+.admin-toolbar .input-group {
+  flex: 1;
+  min-width: 220px;
+}
+
+@media (max-width: 960px) {
+  .admin-shell {
+    grid-template-columns: 1fr;
+  }
+  .admin-sidebar {
+    position: static;
+    height: auto;
+    border-right: 0;
+    border-bottom: 1px solid var(--c-border);
+    padding: var(--sp-4);
+    gap: var(--sp-3);
+  }
+  .admin-nav {
+    flex-direction: row;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .admin-nav::-webkit-scrollbar {
+    display: none;
+  }
+  .admin-nav a {
+    white-space: nowrap;
+  }
+  .admin-main {
+    padding: var(--sp-6) var(--sp-4) var(--sp-12);
+  }
+  .admin-kpi-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 560px) {
+  .admin-kpi-grid {
+    grid-template-columns: 1fr;
+  }
+}

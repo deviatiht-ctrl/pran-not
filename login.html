@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="ht">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Konekte — Pran Nòt</title>
+  <meta name="theme-color" content="#1B2A4A">
+  <link rel="manifest" href="./manifest.json">
+  <link rel="icon" href="./assets/icons/icon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <script>(function(){try{var s=localStorage.getItem('prannot.theme_vars');if(!s)return;var p=JSON.parse(s),r=document.documentElement;if(p.mode)r.setAttribute('data-theme-mode',p.mode);if(p.cardStyle)r.setAttribute('data-card-style',p.cardStyle);if(p.vars){for(var k in p.vars)r.style.setProperty(k,p.vars[k]);}if(p.fontHref){var l=document.createElement('link');l.id='prannot-custom-fonts';l.rel='stylesheet';l.href=p.fontHref;document.head.appendChild(l);}if(p.themeColor){var m=document.querySelector('meta[name="theme-color"]');if(m)m.setAttribute('content',p.themeColor);}}catch(e){}})();</script>
+  <link rel="stylesheet" href="./assets/css/variables.css">
+  <link rel="stylesheet" href="./assets/css/main.css">
+  <link rel="stylesheet" href="./assets/css/navbar.css">
+  <link rel="stylesheet" href="./assets/css/components.css">
+  <style>
+    .login-wrap {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: var(--sp-8) var(--sp-4);
+    }
+    .login-card {
+      width: min(460px, 100%);
+      text-align: center;
+    }
+    .login-card .field { text-align: left; }
+    .login-card .alert { text-align: left; }
+  </style>
+</head>
+<body>
+  <main class="login-wrap">
+    <div class="card login-card">
+      <div class="row-between mb-6">
+        <a class="nav-brand" href="./index.html" style="margin:0;">
+          <span class="nav-brand-mark"><i data-lucide="notebook-pen" aria-hidden="true"></i></span>
+          <span>Pran N<span class="nav-brand-dot">ò</span>t</span>
+        </a>
+        <button type="button" class="nav-lang" id="login-lang-btn">HT</button>
+      </div>
+
+      <h1 style="font-size:1.75rem;" data-i18n="login.title">Konekte sou Pran Nòt</h1>
+      <p class="muted text-sm mb-6" data-i18n="login.sub"></p>
+
+      <div id="protocol-alert" class="alert alert-warning mb-4" hidden>
+        <div>
+          <strong>Sèvè HTTP obligatwa / Serveur HTTP requis</strong>
+          <div class="text-xs mt-1">Lanse sit la sou <code>http://localhost</code> oswa HTTPS pou koneksyon Supabase la mache.</div>
+        </div>
+      </div>
+      <script>if (window.location.protocol === 'file:') document.getElementById('protocol-alert').hidden = false;</script>
+
+      <div id="login-alert" class="alert alert-warning mb-4" hidden></div>
+
+      <div class="segmented mb-6" role="tablist" style="width:100%;justify-content:center;">
+        <button type="button" role="tab" aria-selected="true" data-mode="password" data-i18n="login.tab_password"></button>
+        <button type="button" role="tab" aria-selected="false" data-mode="signup" data-i18n="login.tab_signup"></button>
+      </div>
+
+      <form id="auth-form">
+        <div class="field" id="name-field" hidden>
+          <label for="full-name" data-i18n="login.full_name"></label>
+          <input class="input" id="full-name" type="text" autocomplete="name" placeholder="Jean-Baptiste Guerrier">
+        </div>
+
+        <div class="field">
+          <label for="email" data-i18n="login.email"></label>
+          <div class="input-group">
+            <i data-lucide="mail" aria-hidden="true"></i>
+            <input class="input" id="email" type="email" required autocomplete="email" placeholder="non@inivesite.edu.ht">
+          </div>
+        </div>
+
+        <div class="field" id="password-field">
+          <label for="password" data-i18n="login.password"></label>
+          <div class="input-group has-trailing">
+            <i data-lucide="lock" aria-hidden="true"></i>
+            <input class="input" id="password" type="password" required autocomplete="current-password" minlength="6" placeholder="••••••••">
+            <button type="button" class="input-trailing" id="toggle-pass-btn" aria-label="Afiche modpas la">
+              <i data-lucide="eye" aria-hidden="true"></i>
+            </button>
+          </div>
+          <span class="hint" id="pass-hint" hidden data-i18n="login.password_hint"></span>
+        </div>
+
+        <div class="field" id="confirm-password-field" hidden>
+          <label for="confirm-password" data-i18n="login.confirm_password"></label>
+          <div class="input-group has-trailing">
+            <i data-lucide="lock" aria-hidden="true"></i>
+            <input class="input" id="confirm-password" type="password" autocomplete="new-password" minlength="6" placeholder="••••••••">
+            <button type="button" class="input-trailing" id="toggle-confirm-btn" aria-label="Afiche modpas la">
+              <i data-lucide="eye" aria-hidden="true"></i>
+            </button>
+          </div>
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-block btn-lg mt-2" id="submit-btn">
+          <span data-i18n="login.submit_login"></span>
+        </button>
+      </form>
+
+      <div class="divider-text" id="auth-divider" hidden><span data-i18n="login.or"></span></div>
+
+      <button type="button" class="btn btn-secondary btn-block btn-lg" id="google-btn" hidden>
+        <i data-lucide="chrome" aria-hidden="true"></i>
+        <span data-i18n="login.google"></span>
+      </button>
+    </div>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/lucide@0.468.0/dist/umd/lucide.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+  <script type="module" src="./assets/js/pages/login.js"></script>
+</body>
+</html>

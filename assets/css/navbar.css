@@ -1,0 +1,88 @@
+/* =====================================================================
+   PRAN NÒT - navbar.css
+   Navbar desktop : pill flottante glassmorphic.
+   ===================================================================== */
+.nav-pill {
+  position: fixed; top: 16px; left: 50%; transform: translateX(-50%);
+  z-index: var(--z-nav);
+  width: calc(100% - 32px); max-width: 980px;
+  display: flex; align-items: center; gap: var(--sp-2);
+  padding: 6px 6px 6px var(--sp-4);
+  border-radius: 999px;
+  background: var(--c-nav-bg);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid var(--c-nav-border);
+  box-shadow: var(--sh-md);
+}
+
+.nav-brand {
+  display: inline-flex; align-items: center; gap: var(--sp-2);
+  text-decoration: none; color: var(--c-navy);
+  font-family: var(--font-display); font-weight: 800; font-size: 1.05rem; letter-spacing: -0.02em;
+  min-height: var(--tap); margin-right: var(--sp-2); white-space: nowrap;
+}
+.nav-brand-mark {
+  width: 30px; height: 30px; border-radius: 9px; background: var(--c-navy); color: var(--c-on-navy);
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.nav-brand-mark svg { width: 16px; height: 16px; }
+.nav-brand-dot { color: var(--c-accent); }
+
+.nav-links { display: flex; align-items: center; gap: 2px; flex: 1; min-width: 0; }
+.nav-link {
+  display: inline-flex; align-items: center; gap: 6px;
+  min-height: 40px; padding: 0 var(--sp-3); border-radius: var(--r-pill);
+  font-size: var(--fs-sm); font-weight: 600; color: var(--c-text-muted); text-decoration: none; white-space: nowrap;
+  transition: background var(--dur-fast), color var(--dur-fast);
+}
+.nav-link svg { width: 16px; height: 16px; }
+.nav-link:hover { color: var(--c-navy); background: var(--c-surface); }
+.nav-link[aria-current="page"] { color: var(--c-navy); background: var(--c-nav-active); box-shadow: var(--sh-sm); }
+
+.nav-actions { display: flex; align-items: center; gap: 4px; margin-left: auto; }
+.nav-actions .btn-icon { width: 40px; height: 40px; }
+.nav-actions .avatar { width: 36px; height: 36px; font-size: 13px; }
+.nav-avatar-btn { border: 0; background: none; padding: 2px; border-radius: 50%; min-width: var(--tap); min-height: var(--tap); display: inline-flex; align-items: center; justify-content: center; }
+
+.nav-lang {
+  min-height: 36px; padding: 0 10px; border-radius: var(--r-pill); border: 1px solid var(--c-border);
+  background: var(--c-nav-active); font-size: var(--fs-xs); font-weight: 700; color: var(--c-navy); letter-spacing: 0.04em;
+}
+
+.nav-menu-wrap { position: relative; }
+.nav-menu-wrap .menu { right: 0; top: calc(100% + 10px); }
+.nav-menu-head { padding: var(--sp-3); border-bottom: 1px solid var(--c-border); margin-bottom: var(--sp-1); }
+.nav-menu-head strong { display: block; font-size: var(--fs-sm); color: var(--c-navy); }
+.nav-menu-head span { font-size: var(--fs-xs); color: var(--c-text-muted); }
+
+/* Navbar publique (landing) */
+.nav-pill.public .nav-links { justify-content: center; }
+
+/* Masquer sur mobile : la barre du bas prend le relais */
+@media (max-width: 768px) {
+  .nav-pill { display: none; }
+}
+@media (max-width: 1060px) and (min-width: 769px) {
+  .nav-link span { display: none; }
+  .nav-link { padding: 0 10px; }
+}
+
+/* Barre de recherche globale (modale) */
+.search-modal .input-group .input { min-height: 52px; font-size: var(--fs-md); }
+.search-modal { width: min(640px, 100%); }
+.search-overlay { align-items: flex-start; padding-top: 12vh; }
+@media (max-width: 600px) { .search-overlay { align-items: flex-end; padding-top: 0; } }
+
+/* En-tête mobile compact (titre + actions) */
+.mobile-top {
+  display: none;
+}
+@media (max-width: 768px) {
+  .mobile-top {
+    display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2);
+    padding: var(--sp-3) var(--sp-4) 0;
+  }
+  .mobile-top .nav-brand { font-size: 1rem; }
+  .mobile-top-actions { display: flex; gap: 2px; }
+}

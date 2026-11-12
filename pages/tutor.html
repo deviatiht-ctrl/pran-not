@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="ht">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Titè IA — Pran Nòt</title>
+  <meta name="theme-color" content="#1B2A4A">
+  <link rel="manifest" href="../manifest.json">
+  <link rel="icon" href="../assets/icons/icon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <script>(function(){try{var s=localStorage.getItem('prannot.theme_vars');if(!s)return;var p=JSON.parse(s),r=document.documentElement;if(p.mode)r.setAttribute('data-theme-mode',p.mode);if(p.cardStyle)r.setAttribute('data-card-style',p.cardStyle);if(p.vars){for(var k in p.vars)r.style.setProperty(k,p.vars[k]);}if(p.fontHref){var l=document.createElement('link');l.id='prannot-custom-fonts';l.rel='stylesheet';l.href=p.fontHref;document.head.appendChild(l);}if(p.themeColor){var m=document.querySelector('meta[name="theme-color"]');if(m)m.setAttribute('content',p.themeColor);}}catch(e){}})();</script>
+  <link rel="stylesheet" href="../assets/css/variables.css">
+  <link rel="stylesheet" href="../assets/css/main.css">
+  <link rel="stylesheet" href="../assets/css/navbar.css">
+  <link rel="stylesheet" href="../assets/css/mobile-nav.css">
+  <link rel="stylesheet" href="../assets/css/components.css">
+  <style>
+    .tutor-shell { display: grid; grid-template-columns: 280px minmax(0, 1fr); gap: var(--sp-6); align-items: start; }
+    .tutor-chat-card { display: flex; flex-direction: column; height: 70vh; min-height: 480px; padding: 0; overflow: hidden; }
+    .tutor-chat-head { padding: var(--sp-4); border-bottom: 1px solid var(--c-border); display: flex; flex-wrap: wrap; gap: var(--sp-3); align-items: center; justify-content: space-between; }
+    .tutor-chat-body { flex: 1; overflow-y: auto; padding: var(--sp-4); display: flex; flex-direction: column; gap: var(--sp-3); }
+    .tutor-chat-foot { padding: var(--sp-4); border-top: 1px solid var(--c-border); }
+    @media (max-width: 900px) { .tutor-shell { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <a class="skip-link" href="#main">Ale nan kontni prensipal</a>
+
+  <main id="main" class="app-main">
+    <div class="page-head">
+      <div>
+        <span class="eyebrow"><i data-lucide="sparkles" aria-hidden="true"></i><span data-i18n="nav.tutor"></span></span>
+        <h1 data-i18n="tutor.title"></h1>
+      </div>
+      <div class="page-head-actions">
+        <button type="button" class="btn btn-primary" id="new-conv-btn">
+          <i data-lucide="plus" aria-hidden="true"></i>
+          <span>Nouvo konvèsasyon</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="tutor-shell">
+      <aside class="card card-sm">
+        <div class="field mb-3">
+          <label for="tutor-course-sel" data-i18n="nav.courses"></label>
+          <select class="select" id="tutor-course-sel">
+            <option value="" data-i18n="common.all"></option>
+          </select>
+        </div>
+        <h2 class="text-sm font-display mb-2">Istwa konvèsasyon</h2>
+        <ul class="list" id="conv-list"></ul>
+      </aside>
+
+      <section class="card tutor-chat-card">
+        <div class="tutor-chat-head">
+          <strong class="font-display" id="active-conv-title" data-i18n="tutor.context_general"></strong>
+          <div class="tutor-modes" id="full-tutor-modes" style="padding:0;">
+            <button type="button" class="chip" data-mode="simple" data-i18n="tutor.mode_simple"></button>
+            <button type="button" class="chip" data-mode="child" data-i18n="tutor.mode_child"></button>
+            <button type="button" class="chip" data-mode="haiti" data-i18n="tutor.mode_haiti"></button>
+            <button type="button" class="chip" data-mode="compare" data-i18n="tutor.mode_compare"></button>
+            <button type="button" class="chip" data-mode="mnemonic" data-i18n="tutor.mode_mnemonic"></button>
+            <button type="button" class="chip" data-mode="quiz" data-i18n="tutor.mode_quiz"></button>
+          </div>
+        </div>
+
+        <div class="tutor-chat-body" id="full-tutor-msgs"></div>
+
+        <div class="tutor-chat-foot">
+          <form class="composer" id="full-tutor-form">
+            <textarea class="textarea" id="full-tutor-input" rows="1" data-i18n-placeholder="tutor.placeholder"></textarea>
+            <button type="submit" class="btn btn-primary" id="full-tutor-send" aria-label="Envoyer">
+              <i data-lucide="send" aria-hidden="true"></i>
+            </button>
+          </form>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/lucide@0.468.0/dist/umd/lucide.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+  <script type="module" src="../assets/js/pages/tutor.js"></script>
+</body>
+</html>

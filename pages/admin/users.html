@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="ht">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Itilizatè — Administrasyon Pran Nòt</title>
+  <meta name="theme-color" content="#1B2A4A">
+  <link rel="manifest" href="../../manifest.json">
+  <link rel="icon" href="../../assets/icons/icon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <script>(function(){try{var s=localStorage.getItem('prannot.theme_vars');if(!s)return;var p=JSON.parse(s),r=document.documentElement;if(p.mode)r.setAttribute('data-theme-mode',p.mode);if(p.cardStyle)r.setAttribute('data-card-style',p.cardStyle);if(p.vars){for(var k in p.vars)r.style.setProperty(k,p.vars[k]);}if(p.fontHref){var l=document.createElement('link');l.id='prannot-custom-fonts';l.rel='stylesheet';l.href=p.fontHref;document.head.appendChild(l);}if(p.themeColor){var m=document.querySelector('meta[name="theme-color"]');if(m)m.setAttribute('content',p.themeColor);}}catch(e){}})();</script>
+  <link rel="stylesheet" href="../../assets/css/variables.css">
+  <link rel="stylesheet" href="../../assets/css/main.css">
+  <link rel="stylesheet" href="../../assets/css/navbar.css">
+  <link rel="stylesheet" href="../../assets/css/components.css">
+  <link rel="stylesheet" href="../../assets/css/admin.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Ale nan kontni prensipal</a>
+
+  <div class="admin-shell">
+    <aside id="admin-sidebar" class="admin-sidebar"></aside>
+
+    <main id="main" class="admin-main">
+      <div class="page-head">
+        <div>
+          <span class="eyebrow"><i data-lucide="users" aria-hidden="true"></i><span data-i18n="admin.title"></span></span>
+          <h1 data-i18n="admin.nav_users"></h1>
+          <p class="muted" data-i18n="admin.users_sub"></p>
+        </div>
+      </div>
+
+      <div class="tabs" role="tablist">
+        <button type="button" class="tab" role="tab" aria-selected="true" data-tab="students">
+          <i data-lucide="graduation-cap" aria-hidden="true"></i>
+          <span data-i18n="admin.tab_students"></span>
+        </button>
+        <button type="button" class="tab" role="tab" aria-selected="false" data-tab="admins">
+          <i data-lucide="shield" aria-hidden="true"></i>
+          <span data-i18n="admin.tab_admins"></span>
+        </button>
+      </div>
+
+      <!-- Onglet Étudiants -->
+      <section id="panel-students">
+        <div class="admin-toolbar">
+          <div class="input-group">
+            <i data-lucide="search" aria-hidden="true"></i>
+            <input type="search" class="input" id="users-search" data-i18n-placeholder="admin.search_users_ph">
+          </div>
+          <select class="select" id="users-faculty" style="width:auto;min-width:190px;" aria-label="Fakilte">
+            <option value="all" data-i18n="common.all"></option>
+          </select>
+          <select class="select" id="users-status" style="width:auto;min-width:150px;" aria-label="Statut">
+            <option value="all" data-i18n="common.all"></option>
+            <option value="active" data-i18n="admin.active"></option>
+            <option value="banned" data-i18n="admin.banned"></option>
+          </select>
+        </div>
+
+        <div id="users-table-box">
+          <div class="skeleton skeleton-card"></div>
+        </div>
+        <div class="pagination" id="users-pagination"></div>
+      </section>
+
+      <!-- Onglet Administrateurs -->
+      <section id="panel-admins" hidden>
+        <form class="card mb-6" id="add-admin-form">
+          <h2 class="card-title mb-3" data-i18n="admin.add_admin_btn"></h2>
+          <div class="row-wrap">
+            <input type="email" class="input flex-1" id="new-admin-email" required data-i18n-placeholder="admin.add_admin_ph" style="min-width:240px;">
+            <button type="submit" class="btn btn-primary" id="add-admin-submit">
+              <i data-lucide="plus" aria-hidden="true"></i>
+              <span data-i18n="admin.add_admin_btn"></span>
+            </button>
+          </div>
+        </form>
+
+        <div id="admins-list-box">
+          <div class="skeleton skeleton-line"></div>
+          <div class="skeleton skeleton-line"></div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/lucide@0.468.0/dist/umd/lucide.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+  <script type="module" src="../../assets/js/pages/admin-users.js"></script>
+</body>
+</html>

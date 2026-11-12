@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="ht">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>WhatsApp Gateway — Administrasyon Pran Nòt</title>
+  <meta name="theme-color" content="#1B2A4A">
+  <link rel="manifest" href="../../manifest.json">
+  <link rel="icon" href="../../assets/icons/icon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <script>(function(){try{var s=localStorage.getItem('prannot.theme_vars');if(!s)return;var p=JSON.parse(s),r=document.documentElement;if(p.mode)r.setAttribute('data-theme-mode',p.mode);if(p.cardStyle)r.setAttribute('data-card-style',p.cardStyle);if(p.vars){for(var k in p.vars)r.style.setProperty(k,p.vars[k]);}if(p.fontHref){var l=document.createElement('link');l.id='prannot-custom-fonts';l.rel='stylesheet';l.href=p.fontHref;document.head.appendChild(l);}if(p.themeColor){var m=document.querySelector('meta[name="theme-color"]');if(m)m.setAttribute('content',p.themeColor);}}catch(e){}})();</script>
+  <link rel="stylesheet" href="../../assets/css/variables.css">
+  <link rel="stylesheet" href="../../assets/css/main.css">
+  <link rel="stylesheet" href="../../assets/css/navbar.css">
+  <link rel="stylesheet" href="../../assets/css/components.css">
+  <link rel="stylesheet" href="../../assets/css/admin.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Ale nan kontni prensipal</a>
+
+  <div class="admin-shell">
+    <aside id="admin-sidebar" class="admin-sidebar"></aside>
+
+    <main id="main" class="admin-main">
+      <div class="page-head">
+        <div>
+          <span class="eyebrow"><i data-lucide="message-square" aria-hidden="true"></i><span data-i18n="admin.title"></span></span>
+          <h1 data-i18n="admin.nav_whatsapp"></h1>
+          <p class="muted" data-i18n="admin.wa_sub"></p>
+        </div>
+        <div class="page-head-actions">
+          <button type="button" class="btn btn-secondary" id="wa-test-conn-btn">
+            <i data-lucide="activity" aria-hidden="true"></i>
+            <span data-i18n="admin.wa_test_conn"></span>
+          </button>
+          <button type="button" class="btn btn-secondary" id="wa-dry-run-btn">
+            <i data-lucide="eye" aria-hidden="true"></i>
+            <span data-i18n="admin.wa_dry_run"></span>
+          </button>
+          <button type="button" class="btn btn-primary" id="wa-run-reminders-btn">
+            <i data-lucide="send" aria-hidden="true"></i>
+            <span data-i18n="admin.wa_run_reminders"></span>
+          </button>
+        </div>
+      </div>
+
+      <!-- KPI et état CVISUAL Gateway -->
+      <section class="admin-kpi-grid" id="wa-kpis">
+        <div class="skeleton skeleton-card"></div>
+        <div class="skeleton skeleton-card"></div>
+        <div class="skeleton skeleton-card"></div>
+        <div class="skeleton skeleton-card"></div>
+      </section>
+
+      <div id="wa-run-result" class="mb-6" hidden></div>
+
+      <div class="tabs" role="tablist">
+        <button type="button" class="tab" role="tab" aria-selected="true" data-tab="config">
+          <i data-lucide="sliders" aria-hidden="true"></i>
+          <span data-i18n="admin.wa_tab_config"></span>
+        </button>
+        <button type="button" class="tab" role="tab" aria-selected="false" data-tab="send">
+          <i data-lucide="send" aria-hidden="true"></i>
+          <span data-i18n="admin.wa_tab_send"></span>
+        </button>
+        <button type="button" class="tab" role="tab" aria-selected="false" data-tab="logs">
+          <i data-lucide="list" aria-hidden="true"></i>
+          <span data-i18n="admin.wa_tab_logs"></span>
+        </button>
+        <button type="button" class="tab" role="tab" aria-selected="false" data-tab="webhooks">
+          <i data-lucide="webhook" aria-hidden="true"></i>
+          <span data-i18n="admin.wa_tab_webhooks"></span>
+        </button>
+      </div>
+
+      <!-- Onglet 1 : Configuration serveur & modèles -->
+      <section id="panel-config" class="stack">
+        <div id="wa-cluster-box" class="card">
+          <div class="skeleton skeleton-line"></div>
+          <div class="skeleton skeleton-line"></div>
+        </div>
+
+        <form class="card stack-sm" id="wa-settings-form">
+          <div class="row-between">
+            <h2 class="card-title mb-0">Konfigirasyon sèvè CVISUAL & Rapèl otomatik</h2>
+            <span class="badge badge-info" id="wa-key-badge">Pa gen kle</span>
+          </div>
+
+          <div class="alert alert-info text-xs">
+            <i data-lucide="lock" aria-hidden="true"></i>
+            <div class="flex-1">
+              Kle API a pa janm soti nan navigatè a. Lè w sove yon nouvo kle isi a, li estoke sèlman nan baz done sèvè a ki bloke pou tout kliyan, epi li verifye touswit ak <code>GET /api/v1/me</code>.
+            </div>
+          </div>
+
+          <div class="stack-sm">
+            <label class="switch">
+              <input type="checkbox" id="wa-enabled">
+              <span class="switch-track"></span>
+              <span class="text-sm">Aktive sèvis WhatsApp Pran Nòt la</span>
+            </label>
+            <label class="switch">
+              <input type="checkbox" id="wa-welcome-enabled">
+              <span class="switch-track"></span>
+              <span class="text-sm">Voye yon mesaj byenvini otomatik apre enskripsyon (Fast Lane : <code>welcome</code>)</span>
+            </label>
+            <label class="switch">
+              <input type="checkbox" id="wa-deadline-enabled">
+              <span class="switch-track"></span>
+              <span class="text-sm">Voye rapèl devwa J-2 ak J-7 sou WhatsApp (Slow Lane : <code>reminder_2d</code> / <code>reminder_7d</code>)</span>
+            </label>
+          </div>
+
+          <div class="form-row mt-2">
+            <div class="field">
+              <label for="wa-base-url">Base URL Gateway CVISUAL</label>
+              <input type="url" class="input" id="wa-base-url" required placeholder="https://cvisual-whatsapp-gateway.onrender.com">
+            </div>
+            <div class="field">
+              <label for="wa-inactivity-days">Jou inaktivite anvan rapèl (pa monte sou sit la)</label>
+              <input type="number" class="input" id="wa-inactivity-days" min="1" max="30" value="2">
+            </div>
+            <div class="field">
+              <label for="wa-cooldown-hours">Delè ant 2 rapèl pou menm etidyan (èdtan)</label>
+              <input type="number" class="input" id="wa-cooldown-hours" min="12" max="168" value="48">
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="field">
+              <label for="wa-new-key">Ranplase kle API a (kite vid pou konsève kle aktyèl la)</label>
+              <input type="password" class="input" id="wa-new-key" autocomplete="new-password" placeholder="cv_live_...">
+              <label class="switch mt-2">
+                <input type="checkbox" id="wa-clear-db-key">
+                <span class="switch-track"></span>
+                <span class="text-xs muted">Efase kle pèsonalize nan baz done a epi retounen sou kle sekrè sèvè a</span>
+              </label>
+            </div>
+            <div class="field">
+              <label for="wa-new-secret">Webhook Secret HMAC-SHA256 (kite vid pou konsève)</label>
+              <input type="password" class="input" id="wa-new-secret" autocomplete="new-password" placeholder="whsec_...">
+              <span class="text-xs muted mt-1" id="wa-secret-status"></span>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="field">
+              <label for="wa-tpl-ht">Modèl inaktivite (Kreyòl — sipòte Spintax {Bonjou|Alo})</label>
+              <textarea class="textarea" id="wa-tpl-ht" rows="3"></textarea>
+            </div>
+            <div class="field">
+              <label for="wa-tpl-fr">Modèl inaktivite (Français — sipòte Spintax {Bonjour|Salut})</label>
+              <textarea class="textarea" id="wa-tpl-fr" rows="3"></textarea>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="field">
+              <label for="wa-tpl-dead-ht">Modèl devwa (Kreyòl)</label>
+              <textarea class="textarea" id="wa-tpl-dead-ht" rows="2"></textarea>
+            </div>
+            <div class="field">
+              <label for="wa-tpl-dead-fr">Modèl devwa (Français)</label>
+              <textarea class="textarea" id="wa-tpl-dead-fr" rows="2"></textarea>
+            </div>
+          </div>
+
+          <p class="text-xs muted mb-0">
+            Varyab disponib nan modèl yo : <code>{name}</code>, <code>{days}</code>, <code>{due}</code>, <code>{deadlines}</code>, <code>{url}</code>.
+          </p>
+
+          <div class="row-wrap mt-2">
+            <button type="submit" class="btn btn-primary" id="wa-save-settings-btn">
+              <i data-lucide="save" aria-hidden="true"></i>
+              <span data-i18n="admin.wa_save_verify"></span>
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <!-- Onglet 2 : Envoi manuel / test & vérification de numéros -->
+      <section id="panel-send" class="grid grid-2" hidden>
+        <form class="card stack-sm" id="wa-send-form">
+          <h2 class="card-title mb-0">Voye yon mesaj WhatsApp (Dual-Lane)</h2>
+
+          <div class="field">
+            <label for="wa-student-pick">Chwazi yon etidyan rapidman (opsyonèl)</label>
+            <select class="select" id="wa-student-pick">
+              <option value="">-- Antre yon nimewo alamen --</option>
+            </select>
+          </div>
+
+          <div class="form-row">
+            <div class="field">
+              <label for="wa-to">Nimewo destinasyon (8 chif oswa 509XXXXXXXX)</label>
+              <input type="tel" class="input" id="wa-to" required placeholder="31234567 oswa 50931234567">
+            </div>
+            <div class="field">
+              <label for="wa-kind">Kalite mesaj (Lane)</label>
+              <select class="select" id="wa-kind">
+                <optgroup label="Fast Lane (Enstantane, san limit 25/jou)">
+                  <option value="test" selected>test (Fast Lane)</option>
+                  <option value="manual_direct">manual_direct (Fast Lane)</option>
+                  <option value="welcome">welcome (Fast Lane)</option>
+                  <option value="otp">otp (Fast Lane)</option>
+                  <option value="receipt">receipt (Fast Lane)</option>
+                </optgroup>
+                <optgroup label="Slow Lane (Anti-Ban Meta, mode async obligatwa)">
+                  <option value="manual">manual (Slow Lane)</option>
+                  <option value="reminder">reminder (Slow Lane)</option>
+                  <option value="reminder_2d">reminder_2d (Slow Lane)</option>
+                  <option value="reminder_7d">reminder_7d (Slow Lane)</option>
+                  <option value="marketing">marketing (Slow Lane)</option>
+                </optgroup>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="field">
+              <label for="wa-mode">Mòd ekzekisyon</label>
+              <select class="select" id="wa-mode">
+                <option value="async" selected>async (HTTP 202 rekòmande)</option>
+                <option value="sync">sync (HTTP 200 enstantane - Fast Lane sèlman)</option>
+              </select>
+              <span class="text-xs muted mt-1" id="wa-lane-hint"></span>
+            </div>
+            <div class="field">
+              <label for="wa-idemp">Idempotency-Key (opsyonèl, kach 15 min)</label>
+              <input type="text" class="input" id="wa-idemp" placeholder="ex: test-admin-001">
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="wa-msg">Mesaj (sipòte Spintax {Bonjou|Alo})</label>
+            <textarea class="textarea" id="wa-msg" rows="4" required placeholder="{Bonjou|Alo} ! Sa a se yon mesaj tès ki soti nan Pran Nòt."></textarea>
+          </div>
+
+          <div class="field">
+            <label for="wa-pdf-file">Fichye PDF (opsyonèl, max 10 MB)</label>
+            <input type="file" class="input" id="wa-pdf-file" accept="application/pdf">
+          </div>
+
+          <button type="submit" class="btn btn-primary" id="wa-send-btn">
+            <i data-lucide="send" aria-hidden="true"></i>
+            <span>Voye sou WhatsApp</span>
+          </button>
+
+          <div id="wa-send-output"></div>
+        </form>
+
+        <form class="card stack-sm" id="wa-check-form">
+          <h2 class="card-title mb-0">Verifye nimewo WhatsApp (POST /numbers/check)</h2>
+          <p class="text-sm muted mb-0">
+            Verifye si jiska 50 nimewo anrejistre sou WhatsApp anvan ou voye yon kanpay.
+          </p>
+          <div class="field">
+            <label for="wa-check-phones">Nimewo yo (youn pa liy oswa separe pa vigil)</label>
+            <textarea class="textarea" id="wa-check-phones" rows="5" placeholder="31234567&#10;50934567890"></textarea>
+          </div>
+          <button type="submit" class="btn btn-secondary" id="wa-check-btn">
+            <i data-lucide="check-circle-2" aria-hidden="true"></i>
+            <span>Verifye nimewo yo</span>
+          </button>
+          <div id="wa-check-output"></div>
+        </form>
+      </section>
+
+      <!-- Onglet 3 : Historique & logs -->
+      <section id="panel-logs" class="stack" hidden>
+        <div class="card">
+          <div class="section-head mb-3">
+            <h2 class="card-title mb-0">Fil ak Istorik Gateway CVISUAL (/api/v1/messages)</h2>
+            <button type="button" class="btn btn-sm btn-secondary" id="wa-refresh-msgs-btn">
+              <i data-lucide="refresh-cw" aria-hidden="true"></i>
+              <span>Aktyalize</span>
+            </button>
+          </div>
+          <div id="wa-gw-messages-box">
+            <div class="skeleton skeleton-line"></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2 class="card-title mb-3">Jounal lokal Pran Nòt (pran_not_wa_logs)</h2>
+          <div id="wa-local-logs-box">
+            <div class="skeleton skeleton-line"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Onglet 4 : Webhooks HMAC-SHA256 -->
+      <section id="panel-webhooks" class="stack" hidden>
+        <div class="card stack-sm">
+          <h2 class="card-title mb-1">Endpoint Webhook Pran Nòt (HMAC-SHA256)</h2>
+          <p class="text-sm muted mb-2">
+            CVISUAL Gateway siyen chak notifikasyon ak <code>X-CVISUAL-Signature</code> (HMAC-SHA256 verifye ak <code>timingSafeEqual</code>).
+          </p>
+          <div class="row-wrap">
+            <input type="url" class="input flex-1" id="wa-webhook-url" readonly>
+            <button type="button" class="btn btn-secondary" id="wa-copy-webhook-btn">
+              <i data-lucide="copy" aria-hidden="true"></i>
+              <span data-i18n="common.copy"></span>
+            </button>
+            <button type="button" class="btn btn-primary" id="wa-register-webhook-btn">
+              <i data-lucide="plus" aria-hidden="true"></i>
+              <span>Anrejistre webhook la sou CVISUAL</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="section-head mb-3">
+            <h2 class="card-title mb-0">Webhooks aktif (/api/v1/webhooks)</h2>
+            <button type="button" class="btn btn-sm btn-secondary" id="wa-refresh-webhooks-btn">
+              <i data-lucide="refresh-cw" aria-hidden="true"></i>
+              <span>Aktyalize</span>
+            </button>
+          </div>
+          <div id="wa-webhooks-box">
+            <div class="skeleton skeleton-line"></div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/lucide@0.468.0/dist/umd/lucide.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+  <script type="module" src="../../assets/js/pages/admin-whatsapp.js"></script>
+</body>
+</html>

@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="ht">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Akèy — Pran Nòt</title>
+  <meta name="theme-color" content="#1B2A4A">
+  <link rel="manifest" href="../manifest.json">
+  <link rel="icon" href="../assets/icons/icon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <script>(function(){try{var s=localStorage.getItem('prannot.theme_vars');if(!s)return;var p=JSON.parse(s),r=document.documentElement;if(p.mode)r.setAttribute('data-theme-mode',p.mode);if(p.cardStyle)r.setAttribute('data-card-style',p.cardStyle);if(p.vars){for(var k in p.vars)r.style.setProperty(k,p.vars[k]);}if(p.fontHref){var l=document.createElement('link');l.id='prannot-custom-fonts';l.rel='stylesheet';l.href=p.fontHref;document.head.appendChild(l);}if(p.themeColor){var m=document.querySelector('meta[name="theme-color"]');if(m)m.setAttribute('content',p.themeColor);}}catch(e){}})();</script>
+  <link rel="stylesheet" href="../assets/css/variables.css">
+  <link rel="stylesheet" href="../assets/css/main.css">
+  <link rel="stylesheet" href="../assets/css/navbar.css">
+  <link rel="stylesheet" href="../assets/css/mobile-nav.css">
+  <link rel="stylesheet" href="../assets/css/components.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Ale nan kontni prensipal</a>
+
+  <main id="main" class="app-main">
+    <div class="page-head">
+      <div>
+        <span class="eyebrow"><i data-lucide="sun" aria-hidden="true"></i><span data-i18n="dashboard.eyebrow"></span></span>
+        <h1 id="dash-greeting">...</h1>
+        <p id="dash-subtitle" class="muted"></p>
+      </div>
+      <div class="page-head-actions">
+        <a class="btn btn-primary" href="./note-capture.html">
+          <i data-lucide="plus" aria-hidden="true"></i>
+          <span data-i18n="dashboard.new_note"></span>
+        </a>
+        <a class="btn btn-secondary" href="./review.html">
+          <i data-lucide="layers" aria-hidden="true"></i>
+          <span data-i18n="dashboard.start_review"></span>
+        </a>
+      </div>
+    </div>
+
+    <!-- Tuiles statistiques -->
+    <section class="grid grid-4 mb-8" id="dash-stats">
+      <div class="skeleton skeleton-card"></div>
+      <div class="skeleton skeleton-card"></div>
+      <div class="skeleton skeleton-card"></div>
+      <div class="skeleton skeleton-card"></div>
+    </section>
+
+    <div class="grid grid-main-side">
+      <!-- Colonne principale : Plan du jour + Défi + Cours à risque -->
+      <div class="stack">
+        <section class="card card-accent" aria-labelledby="plan-heading">
+          <div class="card-head">
+            <div>
+              <h2 id="plan-heading" class="card-title" style="font-size:1.3rem;" data-i18n="dashboard.plan_title"></h2>
+              <p class="text-xs muted mb-0" id="plan-progress-text"></p>
+            </div>
+            <button type="button" class="btn btn-sm btn-secondary" id="refresh-plan-btn">
+              <i data-lucide="refresh-cw" aria-hidden="true"></i>
+              <span data-i18n="dashboard.plan_refresh"></span>
+            </button>
+          </div>
+          <div class="progress progress-sm mb-4"><span id="plan-progress-bar" style="width:0%"></span></div>
+          <ul class="list" id="daily-plan-list">
+            <li class="skeleton skeleton-line"></li>
+            <li class="skeleton skeleton-line"></li>
+            <li class="skeleton skeleton-line"></li>
+          </ul>
+        </section>
+
+        <section class="card" id="challenge-card">
+          <div class="card-head">
+            <div class="row">
+              <span class="icon-chip accent"><i data-lucide="target" aria-hidden="true"></i></span>
+              <div>
+                <h2 class="card-title" data-i18n="dashboard.challenge_title"></h2>
+                <p class="text-sm muted mb-0" id="challenge-text"></p>
+              </div>
+            </div>
+            <button type="button" class="btn btn-sm btn-secondary" id="challenge-done-btn" data-i18n="dashboard.plan_done"></button>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="section-head mb-2">
+            <h2 class="card-title" data-i18n="dashboard.risk_title"></h2>
+            <a href="./courses.html" data-i18n="nav.courses"></a>
+          </div>
+          <div id="risk-courses-box"></div>
+        </section>
+      </div>
+
+      <!-- Colonne latérale : Anneau objectif, échéances, badges -->
+      <aside class="stack">
+        <section class="card" id="goal-card">
+          <div class="row-between">
+            <div>
+              <span class="stat-label" data-i18n="dashboard.goal_label"></span>
+              <div class="stat-value mt-2" id="goal-minutes-val">0 min</div>
+              <p class="text-xs muted mt-2 mb-0" id="goal-target-sub"></p>
+            </div>
+            <div id="goal-ring-box"></div>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="section-head mb-2">
+            <h2 class="card-title" data-i18n="dashboard.deadlines_title"></h2>
+            <a href="./assignments.html" data-i18n="nav.assignments"></a>
+          </div>
+          <div id="deadlines-box"></div>
+        </section>
+
+        <section class="card">
+          <div class="section-head mb-2">
+            <h2 class="card-title" data-i18n="dashboard.badges_title"></h2>
+            <a href="./profile.html" data-i18n="nav.profile"></a>
+          </div>
+          <div id="badges-box"></div>
+        </section>
+      </aside>
+    </div>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/lucide@0.468.0/dist/umd/lucide.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+  <script type="module" src="../assets/js/pages/dashboard.js"></script>
+</body>
+</html>

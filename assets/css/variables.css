@@ -1,0 +1,138 @@
+/* =====================================================================
+   PRAN NÒT - variables.css
+   Jetons de design sémantiques (thèmes clairs/sombres par étudiant),
+   typographie, échelle, rayons et ombres.
+   ===================================================================== */
+:root {
+  color-scheme: light;
+
+  /* Surfaces et couleurs principales */
+  --c-bg: #FFFFFF;
+  --c-card: #FFFFFF;
+  --c-elevated: #FFFFFF;
+  --c-navy: #1B2A4A;
+  --c-on-navy: #FFFFFF;
+  --c-navy-hover: #13203A;
+  --c-navy-80: #3A4866;
+  --c-navy-60: #5B6680;
+  --c-text: #1B2A4A;
+  --c-text-muted: #5B6680;          /* AA sur fond clair */
+  --c-text-faint: #6B7280;
+  --c-placeholder: #9CA3AF;
+
+  /* Accent et états d'accentuation */
+  --c-accent: #F97316;
+  --c-on-accent: #FFFFFF;
+  --c-accent-hover: #EA580C;
+  --c-accent-text: #C2410C;          /* orange lisible (AA) pour du texte */
+  --c-accent-soft: #FFF4EC;
+  --c-accent-border: #FED7AA;
+  --c-accent-ring: rgba(249, 115, 22, 0.35);
+  --c-accent-shadow: rgba(249, 115, 22, 0.34);
+
+  /* Surfaces neutres & navigation glassmorphique */
+  --c-surface: #F4F5F7;
+  --c-surface-2: #FAFAFB;
+  --c-input-bg: #FFFFFF;
+  --c-border: #E5E7EB;
+  --c-border-strong: #D1D5DB;
+  --c-skeleton-hi: #ECEEF1;
+  --c-overlay: rgba(27, 42, 74, 0.38);
+  --c-nav-bg: rgba(255, 255, 255, 0.82);
+  --c-nav-border: rgba(229, 231, 235, 0.9);
+  --c-nav-active: #FFFFFF;
+  --c-mobile-nav-bg: rgba(255, 255, 255, 0.92);
+
+  /* États */
+  --c-success: #15803D;
+  --c-success-soft: #ECFDF3;
+  --c-success-border: #BBF7D0;
+  --c-success-text: #14532D;
+  --c-error: #B91C1C;
+  --c-error-soft: #FEF2F2;
+  --c-error-border: #FECACA;
+  --c-error-text: #7F1D1D;
+  --c-warning: #A16207;
+  --c-warning-soft: #FEFCE8;
+  --c-warning-border: #FDE68A;
+  --c-warning-text: #713F12;
+  --c-info: #1D4ED8;
+  --c-info-soft: #EFF6FF;
+  --c-info-border: #BFDBFE;
+  --c-info-text: #1E3A8A;
+
+  /* Typographie */
+  --font-display: 'Plus Jakarta Sans', 'Inter', system-ui, sans-serif;
+  --font-body: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+
+  --fs-scale: 1;
+  --fs-xs: calc(0.75rem * var(--fs-scale));     /* 12 */
+  --fs-sm: calc(0.875rem * var(--fs-scale));    /* 14 */
+  --fs-base: calc(1rem * var(--fs-scale));      /* 16 */
+  --fs-md: calc(1.125rem * var(--fs-scale));    /* 18 */
+  --fs-lg: calc(1.375rem * var(--fs-scale));    /* 22 */
+  --fs-xl: calc(1.75rem * var(--fs-scale));     /* 28 */
+  --fs-2xl: calc(2.25rem * var(--fs-scale));    /* 36 */
+  --fs-3xl: clamp(calc(2.1rem * var(--fs-scale)), 5vw, calc(3.35rem * var(--fs-scale)));
+  --fs-hero: clamp(calc(2.35rem * var(--fs-scale)), 7vw, calc(4.5rem * var(--fs-scale)));
+
+  --lh-tight: 1.15;
+  --lh-snug: 1.35;
+  --lh-body: 1.62;
+
+  /* Espacements */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 24px;
+  --sp-8: 32px;
+  --sp-10: 40px;
+  --sp-12: 48px;
+  --sp-16: 64px;
+  --sp-20: 80px;
+
+  /* Rayons */
+  --r-sm: 8px;
+  --r-md: 12px;
+  --r-lg: 16px;
+  --r-xl: 24px;
+  --r-pill: 999px;
+
+  /* Ombres très légères */
+  --sh-xs: 0 1px 2px rgba(27, 42, 74, 0.05);
+  --sh-sm: 0 1px 3px rgba(27, 42, 74, 0.06), 0 1px 2px rgba(27, 42, 74, 0.04);
+  --sh-md: 0 6px 20px rgba(27, 42, 74, 0.07);
+  --sh-lg: 0 16px 40px rgba(27, 42, 74, 0.10);
+
+  /* Mise en page */
+  --container: 1120px;
+  --container-narrow: 760px;
+  --nav-top-offset: 96px;           /* espace sous la navbar flottante */
+  --mobile-nav-h: 68px;
+  --tap: 44px;                      /* cible tactile minimale */
+
+  /* Animations */
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --dur-fast: 150ms;
+  --dur: 250ms;
+
+  --z-nav: 50;
+  --z-fab: 55;
+  --z-panel: 70;
+  --z-modal: 80;
+  --z-toast: 90;
+}
+
+html[data-theme-mode="dark"] {
+  color-scheme: dark;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-fast: 0ms;
+    --dur: 0ms;
+  }
+}

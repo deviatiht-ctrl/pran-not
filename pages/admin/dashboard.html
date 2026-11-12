@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="ht">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Administrasyon — Pran Nòt</title>
+  <meta name="theme-color" content="#1B2A4A">
+  <link rel="manifest" href="../../manifest.json">
+  <link rel="icon" href="../../assets/icons/icon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <script>(function(){try{var s=localStorage.getItem('prannot.theme_vars');if(!s)return;var p=JSON.parse(s),r=document.documentElement;if(p.mode)r.setAttribute('data-theme-mode',p.mode);if(p.cardStyle)r.setAttribute('data-card-style',p.cardStyle);if(p.vars){for(var k in p.vars)r.style.setProperty(k,p.vars[k]);}if(p.fontHref){var l=document.createElement('link');l.id='prannot-custom-fonts';l.rel='stylesheet';l.href=p.fontHref;document.head.appendChild(l);}if(p.themeColor){var m=document.querySelector('meta[name="theme-color"]');if(m)m.setAttribute('content',p.themeColor);}}catch(e){}})();</script>
+  <link rel="stylesheet" href="../../assets/css/variables.css">
+  <link rel="stylesheet" href="../../assets/css/main.css">
+  <link rel="stylesheet" href="../../assets/css/navbar.css">
+  <link rel="stylesheet" href="../../assets/css/components.css">
+  <link rel="stylesheet" href="../../assets/css/admin.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Ale nan kontni prensipal</a>
+
+  <div class="admin-shell">
+    <aside id="admin-sidebar" class="admin-sidebar"></aside>
+
+    <main id="main" class="admin-main">
+      <div class="page-head">
+        <div>
+          <span class="eyebrow"><i data-lucide="shield" aria-hidden="true"></i><span data-i18n="admin.title"></span></span>
+          <h1 data-i18n="admin.nav_overview"></h1>
+          <p class="muted" data-i18n="admin.overview_sub"></p>
+        </div>
+        <div class="page-head-actions">
+          <a class="btn btn-secondary" href="./whatsapp.html">
+            <i data-lucide="message-square" aria-hidden="true"></i>
+            <span data-i18n="admin.nav_whatsapp"></span>
+          </a>
+          <button type="button" class="btn btn-secondary" id="admin-refresh-btn">
+            <i data-lucide="refresh-cw" aria-hidden="true"></i>
+            <span data-i18n="common.retry"></span>
+          </button>
+        </div>
+      </div>
+
+      <!-- KPI Cards -->
+      <section class="admin-kpi-grid" id="admin-kpis">
+        <div class="skeleton skeleton-card"></div>
+        <div class="skeleton skeleton-card"></div>
+        <div class="skeleton skeleton-card"></div>
+        <div class="skeleton skeleton-card"></div>
+        <div class="skeleton skeleton-card"></div>
+        <div class="skeleton skeleton-card"></div>
+        <div class="skeleton skeleton-card"></div>
+        <div class="skeleton skeleton-card"></div>
+      </section>
+
+      <!-- Graphiques -->
+      <div class="grid grid-2 mb-8">
+        <section class="card">
+          <h2 class="card-title mb-4" data-i18n="admin.chart_signups"></h2>
+          <div class="chart-box">
+            <canvas id="admin-chart-signups"></canvas>
+          </div>
+        </section>
+
+        <section class="card">
+          <h2 class="card-title mb-4" data-i18n="admin.chart_faculty"></h2>
+          <div class="chart-box">
+            <canvas id="admin-chart-faculty"></canvas>
+          </div>
+        </section>
+      </div>
+
+      <!-- Santé des fournisseurs IA -->
+      <section class="card">
+        <div class="section-head mb-4">
+          <h2 class="card-title" data-i18n="admin.tab_providers"></h2>
+          <a href="./ai-usage.html" data-i18n="admin.nav_ai"></a>
+        </div>
+        <div id="admin-providers-box">
+          <div class="skeleton skeleton-line"></div>
+          <div class="skeleton skeleton-line"></div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/lucide@0.468.0/dist/umd/lucide.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+  <script type="module" src="../../assets/js/pages/admin-dashboard.js"></script>
+</body>
+</html>

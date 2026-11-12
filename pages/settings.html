@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="ht">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Paramèt — Pran Nòt</title>
+  <meta name="theme-color" content="#1B2A4A">
+  <link rel="manifest" href="../manifest.json">
+  <link rel="icon" href="../assets/icons/icon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <script>(function(){try{var s=localStorage.getItem('prannot.theme_vars');if(!s)return;var p=JSON.parse(s),r=document.documentElement;if(p.mode)r.setAttribute('data-theme-mode',p.mode);if(p.cardStyle)r.setAttribute('data-card-style',p.cardStyle);if(p.vars){for(var k in p.vars)r.style.setProperty(k,p.vars[k]);}if(p.fontHref){var l=document.createElement('link');l.id='prannot-custom-fonts';l.rel='stylesheet';l.href=p.fontHref;document.head.appendChild(l);}if(p.themeColor){var m=document.querySelector('meta[name="theme-color"]');if(m)m.setAttribute('content',p.themeColor);}}catch(e){}})();</script>
+  <link rel="stylesheet" href="../assets/css/variables.css">
+  <link rel="stylesheet" href="../assets/css/main.css">
+  <link rel="stylesheet" href="../assets/css/navbar.css">
+  <link rel="stylesheet" href="../assets/css/mobile-nav.css">
+  <link rel="stylesheet" href="../assets/css/components.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Ale nan kontni prensipal</a>
+
+  <main id="main" class="app-main narrow">
+    <div class="page-head">
+      <div>
+        <span class="eyebrow"><i data-lucide="settings" aria-hidden="true"></i><span data-i18n="nav.settings"></span></span>
+        <h1 data-i18n="settings.title"></h1>
+        <p data-i18n="settings.sub"></p>
+      </div>
+    </div>
+
+    <div class="stack">
+      <!-- Studio Design Personnel par étudiant -->
+      <section class="card card-accent" id="design-studio">
+        <div class="card-head">
+          <div>
+            <span class="eyebrow mb-1"><i data-lucide="palette" aria-hidden="true"></i><span data-i18n="nav.design_studio"></span></span>
+            <h2 class="card-title" data-i18n="settings.studio_title"></h2>
+            <p class="text-sm muted mb-0" data-i18n="settings.studio_sub"></p>
+          </div>
+        </div>
+
+        <!-- Presets visuels -->
+        <div class="mt-4">
+          <label class="label mb-2" style="display:block;" data-i18n="settings.studio_presets"></label>
+          <div class="theme-preset-grid" id="studio-presets-grid"></div>
+        </div>
+
+        <!-- Couleurs sur mesure -->
+        <div class="mt-6">
+          <label class="label mb-2" style="display:block;" data-i18n="settings.studio_colors"></label>
+          <div class="color-picker-grid">
+            <label class="color-picker-card">
+              <input type="color" class="color-picker-input" id="col-bg" value="#FFFFFF">
+              <div>
+                <div class="text-xs muted" data-i18n="settings.studio_color_bg"></div>
+                <code id="hex-bg">#FFFFFF</code>
+              </div>
+            </label>
+            <label class="color-picker-card">
+              <input type="color" class="color-picker-input" id="col-card" value="#FFFFFF">
+              <div>
+                <div class="text-xs muted" data-i18n="settings.studio_color_card"></div>
+                <code id="hex-card">#FFFFFF</code>
+              </div>
+            </label>
+            <label class="color-picker-card">
+              <input type="color" class="color-picker-input" id="col-text" value="#1B2A4A">
+              <div>
+                <div class="text-xs muted" data-i18n="settings.studio_color_text"></div>
+                <code id="hex-text">#1B2A4A</code>
+              </div>
+            </label>
+            <label class="color-picker-card">
+              <input type="color" class="color-picker-input" id="col-accent" value="#F97316">
+              <div>
+                <div class="text-xs muted" data-i18n="settings.studio_color_accent"></div>
+                <code id="hex-accent">#F97316</code>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <!-- Typographie -->
+        <div class="mt-6">
+          <label class="label mb-2" style="display:block;" data-i18n="settings.studio_fonts"></label>
+          <div class="form-row">
+            <div class="field mb-0">
+              <label for="font-display-sel" data-i18n="settings.studio_display_font"></label>
+              <select class="select" id="font-display-sel"></select>
+            </div>
+            <div class="field mb-0">
+              <label for="font-body-sel" data-i18n="settings.studio_body_font"></label>
+              <select class="select" id="font-body-sel"></select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Forme, finition & taille -->
+        <div class="mt-6">
+          <div class="form-row">
+            <div>
+              <label class="label mb-2" style="display:block;" data-i18n="settings.studio_radius"></label>
+              <div class="segmented" id="studio-radius-group">
+                <button type="button" data-radius="sharp" data-i18n="settings.studio_radius_sharp"></button>
+                <button type="button" data-radius="balanced" aria-pressed="true" data-i18n="settings.studio_radius_balanced"></button>
+                <button type="button" data-radius="soft" data-i18n="settings.studio_radius_soft"></button>
+              </div>
+            </div>
+            <div>
+              <label class="label mb-2" style="display:block;" data-i18n="settings.studio_card_style"></label>
+              <div class="segmented" id="studio-card-group">
+                <button type="button" data-card-style="bordered" aria-pressed="true" data-i18n="settings.studio_card_bordered"></button>
+                <button type="button" data-card-style="elevated" data-i18n="settings.studio_card_elevated"></button>
+                <button type="button" data-card-style="tinted" data-i18n="settings.studio_card_tinted"></button>
+              </div>
+            </div>
+          </div>
+
+          <div class="mt-4">
+            <div class="row-between mb-1">
+              <label class="label mb-0" for="studio-scale" data-i18n="settings.studio_text_size"></label>
+              <span class="badge badge-outline" id="studio-scale-val">100%</span>
+            </div>
+            <input type="range" class="studio-range" id="studio-scale" min="0.88" max="1.18" step="0.02" value="1">
+          </div>
+        </div>
+
+        <!-- Aperçu en direct -->
+        <div class="mt-6">
+          <label class="label mb-2" style="display:block;" data-i18n="settings.studio_preview"></label>
+          <div class="studio-mini-preview">
+            <article class="card card-sm">
+              <div class="row-between mb-2">
+                <span class="badge badge-accent"><i data-lucide="sparkles" aria-hidden="true"></i><span>Anatomi 101</span></span>
+                <span class="badge">SM-2</span>
+              </div>
+              <h3 class="card-title mb-1">Sik kadyak — Sistòl ak Dyastòl</h3>
+              <p class="text-sm muted mb-3">Egzanp tèks nòt ou yo ak koulè, polis ekriti ak stil kat ou chwazi kounye a.</p>
+              <div class="row-wrap">
+                <span class="btn btn-sm btn-primary" style="pointer-events:none;">Revize kat la</span>
+                <span class="btn btn-sm btn-secondary" style="pointer-events:none;">Titè IA</span>
+              </div>
+            </article>
+          </div>
+        </div>
+
+        <div class="row-wrap mt-6">
+          <button type="button" class="btn btn-primary" id="studio-save-btn">
+            <i data-lucide="check" aria-hidden="true"></i>
+            <span data-i18n="settings.studio_save"></span>
+          </button>
+          <button type="button" class="btn btn-secondary" id="studio-reset-btn">
+            <i data-lucide="rotate-ccw" aria-hidden="true"></i>
+            <span data-i18n="settings.studio_reset"></span>
+          </button>
+        </div>
+      </section>
+
+      <!-- Langue & Données -->
+      <section class="card">
+        <div class="field">
+          <label for="set-lang" data-i18n="onboarding.language"></label>
+          <select class="select" id="set-lang">
+            <option value="ht">Kreyòl ayisyen</option>
+            <option value="fr">Français</option>
+          </select>
+        </div>
+
+        <label class="switch mt-4">
+          <input type="checkbox" id="set-datasaver">
+          <span class="switch-track"></span>
+          <div>
+            <strong class="text-sm" data-i18n="settings.data_saver"></strong>
+            <div class="text-xs muted" data-i18n="settings.data_saver_sub"></div>
+          </div>
+        </label>
+      </section>
+
+      <!-- Notifications -->
+      <section class="card">
+        <h2 class="card-title mb-3" data-i18n="settings.notifications"></h2>
+        <div class="stack-sm">
+          <label class="switch">
+            <input type="checkbox" id="set-n-daily">
+            <span class="switch-track"></span>
+            <span class="text-sm" data-i18n="settings.notify_daily"></span>
+          </label>
+          <label class="switch">
+            <input type="checkbox" id="set-n-weekly">
+            <span class="switch-track"></span>
+            <span class="text-sm" data-i18n="settings.notify_weekly"></span>
+          </label>
+          <label class="switch">
+            <input type="checkbox" id="set-n-deadlines">
+            <span class="switch-track"></span>
+            <span class="text-sm" data-i18n="settings.notify_deadlines"></span>
+          </label>
+          <label class="switch">
+            <input type="checkbox" id="set-n-whatsapp">
+            <span class="switch-track"></span>
+            <span class="text-sm" data-i18n="settings.notify_whatsapp"></span>
+          </label>
+        </div>
+      </section>
+
+      <!-- Quota IA -->
+      <section class="card">
+        <div class="row-between mb-2">
+          <h2 class="card-title mb-0" data-i18n="settings.ai_quota"></h2>
+          <strong class="text-sm" id="quota-text">0 / 60</strong>
+        </div>
+        <div class="progress"><span id="quota-bar" style="width:0%"></span></div>
+      </section>
+
+      <!-- Déconnexion -->
+      <section class="card">
+        <div class="row-wrap">
+          <button type="button" class="btn btn-danger" id="logout-btn">
+            <i data-lucide="log-out" aria-hidden="true"></i>
+            <span data-i18n="nav.logout"></span>
+          </button>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/lucide@0.468.0/dist/umd/lucide.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+  <script type="module" src="../assets/js/pages/settings.js"></script>
+</body>
+</html>
