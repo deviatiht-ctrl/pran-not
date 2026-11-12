@@ -4,7 +4,7 @@
    navigation hors-ligne et déclenchement de synchronisation.
    ===================================================================== */
 
-const CACHE_NAME = 'prannot-shell-v8';
+const CACHE_NAME = 'prannot-shell-v9';
 const PRECACHE_URLS = [
   './',
   './index.html',

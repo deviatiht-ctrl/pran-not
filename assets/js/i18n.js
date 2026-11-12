@@ -8,6 +8,7 @@
 
 const SUPPORTED = ['ht', 'fr'];
 const STORAGE_KEY = 'prannot.lang';
+const I18N_VERSION = '20261112b';
 const dictionaries = {};
 let current = 'ht';
 let readyPromise = null;
@@ -17,8 +18,8 @@ const listeners = new Set();
 async function load(lang) {
   if (dictionaries[lang]) return dictionaries[lang];
   try {
-    const url = new URL(`../i18n/${lang}.json`, import.meta.url);
-    const res = await fetch(url, { cache: 'default' });
+    const url = new URL(`../i18n/${lang}.json?v=${I18N_VERSION}`, import.meta.url);
+    const res = await fetch(url, { cache: 'no-cache' });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     dictionaries[lang] = await res.json();
   } catch (err) {
