@@ -6,6 +6,7 @@ import { SUPABASE_URL, SUPABASE_ANON_KEY } from '../supabase.js';
 import { initI18n, getLang, setLang, t } from '../i18n.js';
 import { getSession, getProfile, appUrl } from '../auth.js';
 import { ensureFooter } from '../navbar.js';
+import { initPwaInstall } from '../pwa.js';
 import { icons, icon, toast, setLoading, getParam, esc, pageEnter } from '../utils.js';
 
 const db = window.db;
@@ -190,6 +191,7 @@ async function detectGoogleProvider() {
   formReady = true;
   applyMode(mode);
   ensureFooter();
+  initPwaInstall({ showBanner: true });
   icons();
   pageEnter();
 

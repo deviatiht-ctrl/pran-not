@@ -7,6 +7,12 @@
   <meta name="theme-color" content="#1B2A4A">
   <link rel="manifest" href="../manifest.json">
   <link rel="icon" href="../assets/icons/icon.svg" type="image/svg+xml">
+  <link rel="icon" href="../assets/icons/icon-192.png" sizes="192x192" type="image/png">
+  <link rel="apple-touch-icon" sizes="180x180" href="../assets/icons/apple-touch-icon.png">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Pran Nòt">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
@@ -211,6 +217,21 @@
           <strong class="text-sm" id="quota-text">0 / 60</strong>
         </div>
         <div class="progress"><span id="quota-bar" style="width:0%"></span></div>
+      </section>
+
+      <!-- Application mobile (PWA) -->
+      <section class="card" id="pwa-settings-card">
+        <div class="row-between mb-2" style="flex-wrap:wrap;gap:var(--sp-2);">
+          <h2 class="card-title mb-0" data-i18n="pwa.card_title"></h2>
+          <span class="badge badge-outline" data-pwa-status></span>
+        </div>
+        <p class="text-sm muted mb-4" data-i18n="pwa.card_sub"></p>
+        <div class="row-wrap">
+          <button type="button" class="btn btn-primary" id="settings-pwa-install-btn" data-pwa-install data-pwa-mode="always">
+            <i data-lucide="smartphone" aria-hidden="true"></i>
+            <span data-pwa-label data-i18n="pwa.install_phone"></span>
+          </button>
+        </div>
       </section>
 
       <!-- Déconnexion -->

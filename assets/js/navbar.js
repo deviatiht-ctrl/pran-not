@@ -11,6 +11,7 @@ import {
 } from './utils.js';
 import { askTutor } from './ai.js';
 import { initOffline } from './offline.js';
+import { initPwaInstall } from './pwa.js';
 
 let currentContext = {
   contextType: 'general',
@@ -108,6 +109,7 @@ export async function initAppChrome({
           <a href="${pageHref('pages/tutor.html')}" role="menuitem">${icon('sparkles')}<span>${esc(t('nav.tutor'))}</span></a>
           <a href="${pageHref('pages/settings.html#design-studio')}" role="menuitem">${icon('palette')}<span>${esc(t('nav.design_studio'))}</span></a>
           <a href="${pageHref('pages/settings.html')}" role="menuitem">${icon('settings')}<span>${esc(t('nav.settings'))}</span></a>
+          <button type="button" data-pwa-install data-pwa-mode="when-available" role="menuitem">${icon('smartphone')}<span data-pwa-label>${esc(t('pwa.install_phone'))}</span></button>
           <a href="${pageHref('pages/admin/dashboard.html')}" role="menuitem" id="nav-admin-link" hidden>${icon('shield')}<span>${esc(t('nav.admin'))}</span></a>
           <hr class="mt-2 mb-2">
           <button type="button" class="danger" id="nav-logout-btn" role="menuitem">${icon('log-out')}<span>${esc(t('nav.logout'))}</span></button>
@@ -129,6 +131,7 @@ export async function initAppChrome({
       <span>Pran N<span class="nav-brand-dot">ò</span>t</span>
     </a>
     <div class="mobile-top-actions">
+      <button type="button" class="btn-icon" id="mob-install-btn" data-pwa-install data-pwa-mode="when-available" aria-label="${esc(t('pwa.install_phone'))}" title="${esc(t('pwa.install_phone'))}">${icon('smartphone')}</button>
       <button type="button" class="btn-icon" id="mob-search-btn" aria-label="${esc(t('nav.search'))}">${icon('search')}</button>
       <a class="btn-icon" href="${pageHref('pages/library.html')}" aria-label="${esc(t('nav.library_full'))}">${icon('library')}</a>
       <a class="btn-icon" href="${pageHref('pages/planner.html')}" aria-label="${esc(t('nav.planner'))}">${icon('calendar')}</a>
@@ -222,6 +225,7 @@ export async function initAppChrome({
   // Charger les annonces actives (silencieux)
   loadAnnouncements();
 
+  initPwaInstall({ showBanner: true });
   icons(document.body);
 }
 

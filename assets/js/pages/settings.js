@@ -9,6 +9,7 @@ import { initAppChrome, setTutorContext } from '../navbar.js';
 import { t, getLang, setLang } from '../i18n.js';
 import { toast, handleError, setLoading, pageEnter, esc, icons } from '../utils.js';
 import { getQuotaStatus } from '../ai.js';
+import { initPwaInstall } from '../pwa.js';
 import {
   DISPLAY_FONTS, BODY_FONTS, THEME_PRESETS,
   getTheme, applyTheme, saveTheme, resetTheme,
@@ -228,4 +229,6 @@ function initDesignStudio(lang) {
   document.getElementById('quota-bar').style.width = `${pct}%`;
 
   document.getElementById('logout-btn').addEventListener('click', () => signOut());
+  initPwaInstall({ showBanner: false });
+  icons(document.getElementById('pwa-settings-card'));
 })();

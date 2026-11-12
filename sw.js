@@ -4,7 +4,7 @@
    navigation hors-ligne et déclenchement de synchronisation.
    ===================================================================== */
 
-const CACHE_NAME = 'prannot-shell-v6';
+const CACHE_NAME = 'prannot-shell-v7';
 const PRECACHE_URLS = [
   './',
   './index.html',
@@ -12,6 +12,10 @@ const PRECACHE_URLS = [
   './onboarding.html',
   './manifest.json',
   './assets/icons/icon.svg',
+  './assets/icons/icon-192.png',
+  './assets/icons/icon-512.png',
+  './assets/icons/icon-maskable-512.png',
+  './assets/icons/apple-touch-icon.png',
   './assets/css/variables.css',
   './assets/css/main.css',
   './assets/css/navbar.css',
@@ -26,6 +30,7 @@ const PRECACHE_URLS = [
   './assets/js/i18n.js',
   './assets/js/utils.js',
   './assets/js/navbar.js',
+  './assets/js/pwa.js',
   './assets/js/ai.js',
   './assets/js/offline.js',
   './assets/js/srs.js',

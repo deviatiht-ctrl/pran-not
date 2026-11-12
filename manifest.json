@@ -1,7 +1,8 @@
 {
+  "id": "/",
   "name": "Pran Nòt",
   "short_name": "Pran Nòt",
-  "description": "Konpayon etid entèlijan pou etidyan inivèsitè ayisyen — Nòt, kat memwa, tès, devwa ak titè IA.",
+  "description": "Konpayon etid entèlijan pou etidyan inivèsitè ayisyen — Nòt, bibliyotèk, kat memwa, tès, devwa ak titè IA.",
   "start_url": "./pages/dashboard.html",
   "scope": "./",
   "display": "standalone",
@@ -12,27 +13,54 @@
   "categories": ["education", "productivity"],
   "icons": [
     {
+      "src": "./assets/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./assets/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./assets/icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
       "src": "./assets/icons/icon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
-      "purpose": "any maskable"
+      "purpose": "any"
     }
   ],
   "shortcuts": [
     {
       "name": "Foto tablo / kaye",
       "short_name": "Foto",
-      "url": "./pages/note-capture.html?mode=photo"
+      "url": "./pages/note-capture.html?mode=photo",
+      "icons": [{ "src": "./assets/icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
     },
     {
       "name": "Anrejistre kou",
       "short_name": "Vwa",
-      "url": "./pages/note-capture.html?mode=audio"
+      "url": "./pages/note-capture.html?mode=audio",
+      "icons": [{ "src": "./assets/icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "Bibliyotèk ak liv",
+      "short_name": "Liv",
+      "url": "./pages/library.html",
+      "icons": [{ "src": "./assets/icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
     },
     {
       "name": "Revize kat memwa",
       "short_name": "Revize",
-      "url": "./pages/review.html"
+      "url": "./pages/review.html",
+      "icons": [{ "src": "./assets/icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
     }
   ]
 }
