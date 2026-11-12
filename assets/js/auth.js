@@ -106,7 +106,7 @@ function applyPreferences(profile) {
  * Garde d'accès pour les pages applicatives.
  * - Redirige vers login.html si pas de session.
  * - Redirige vers onboarding.html si le profil n'est pas complété.
- * Hors-ligne : utilise le profil mis en cache.
+ * Hors-ligne ou réseau lent : démarre immédiatement avec le profil en cache.
  * @returns {Promise<{session, user, profile}>}
  */
 export async function requireAuth({ requireOnboarded = true } = {}) {
@@ -117,13 +117,32 @@ export async function requireAuth({ requireOnboarded = true } = {}) {
     throw new Error('redirect_login');
   }
 
-  let profile = null;
+  let cachedProfile = null;
   try {
-    profile = await getProfile();
-  } catch (err) {
-    console.warn('[auth] profil indisponible, utilisation du cache', err);
-    const cached = localStorage.getItem('prannot.profile');
-    profile = cached ? JSON.parse(cached) : null;
+    const raw = localStorage.getItem('prannot.profile');
+    cachedProfile = raw ? JSON.parse(raw) : null;
+  } catch { /* ignore */ }
+
+  // Lancer i18n en parallèle sans attendre Supabase (gain ~150-500 ms par page)
+  const initialLang = localStorage.getItem('prannot.lang') || cachedProfile?.language || detectLang();
+  const i18nPromise = initI18n(initialLang);
+
+  let profile = null;
+  if (!navigator.onLine && cachedProfile) {
+    profile = cachedProfile;
+  } else {
+    try {
+      const fetchProfilePromise = getProfile();
+      profile = cachedProfile
+        ? await Promise.race([
+            fetchProfilePromise,
+            new Promise((resolve) => setTimeout(() => resolve(cachedProfile), 2500)),
+          ])
+        : await fetchProfilePromise;
+    } catch (err) {
+      console.warn('[auth] profil indisponible, utilisation du cache', err);
+      profile = cachedProfile;
+    }
   }
 
   if (profile?.is_banned) {
@@ -138,7 +157,10 @@ export async function requireAuth({ requireOnboarded = true } = {}) {
   }
 
   applyPreferences(profile);
-  await initI18n(localStorage.getItem('prannot.lang') || profile?.language || detectLang());
+  await i18nPromise;
+  if (!localStorage.getItem('prannot.lang') && profile?.language && profile.language !== initialLang) {
+    await initI18n(profile.language);
+  }
 
   // Ping silencieux d'activité (toutes les 15 min) pour garder last_seen_at exact sur toutes les pages
   if (requireOnboarded && navigator.onLine) {
@@ -156,13 +178,22 @@ export async function requireAuth({ requireOnboarded = true } = {}) {
 export async function isAdmin() {
   const user = await getUser();
   if (!user?.email) return false;
-  const { data, error } = await db
-    .from('pran_not_admin_users')
-    .select('email')
-    .eq('email', user.email.toLowerCase())
-    .maybeSingle();
-  if (error) return false;
-  return !!data;
+  if (!navigator.onLine) {
+    return sessionStorage.getItem('prannot.isAdmin') === '1';
+  }
+  try {
+    const { data, error } = await db
+      .from('pran_not_admin_users')
+      .select('email')
+      .eq('email', user.email.toLowerCase())
+      .maybeSingle();
+    if (error) return sessionStorage.getItem('prannot.isAdmin') === '1';
+    const ok = !!data;
+    sessionStorage.setItem('prannot.isAdmin', ok ? '1' : '0');
+    return ok;
+  } catch {
+    return sessionStorage.getItem('prannot.isAdmin') === '1';
+  }
 }
 
 /**

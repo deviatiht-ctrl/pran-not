@@ -184,30 +184,36 @@ function renderStats(stats, profile) {
     : 'autre';
   document.getElementById('challenge-text').textContent = t(`dashboard.challenges.${facKey}`);
 
-  let stats = null;
-  let plan = null;
-
-  try {
-    await recordActivity();
-    const [sRes, pRes] = await Promise.all([db.rpc('pran_not_get_dashboard_stats'), db.rpc('pran_not_get_daily_plan')]);
-    if (sRes.error) throw sRes.error;
-    if (pRes.error) throw pRes.error;
-    stats = sRes.data;
-    plan = pRes.data;
-    await cacheSet('dashboard_stats', stats);
-    await cacheSet('daily_plan', plan);
-  } catch (err) {
-    stats = await cacheGet('dashboard_stats');
-    plan = await cacheGet('daily_plan');
-    if (!stats && !plan) handleError(err);
-  }
+  const [cachedStats, cachedPlan] = await Promise.all([cacheGet('dashboard_stats'), cacheGet('daily_plan')]);
+  let stats = cachedStats;
+  let plan = cachedPlan;
 
   await initAppChrome({ profile, user, active: 'dashboard', dueCount: stats?.due_cards || 0 });
   setTutorContext({ contextType: 'general', contextTitle: t('nav.home') });
   pageEnter();
 
+  // Afficher instantanément les données locales en cache (< 5 ms), puis actualiser si en ligne
   if (stats) renderStats(stats, profile);
   if (plan) renderPlan(plan);
+
+  if (navigator.onLine) {
+    try {
+      recordActivity().catch(() => {});
+      const [sRes, pRes] = await Promise.all([db.rpc('pran_not_get_dashboard_stats'), db.rpc('pran_not_get_daily_plan')]);
+      if (sRes.error) throw sRes.error;
+      if (pRes.error) throw pRes.error;
+      stats = sRes.data;
+      plan = pRes.data;
+      await Promise.all([cacheSet('dashboard_stats', stats), cacheSet('daily_plan', plan)]);
+      if (stats) renderStats(stats, profile);
+      if (plan) renderPlan(plan);
+    } catch (err) {
+      if (!stats && !plan) handleError(err);
+    }
+  } else if (!stats && !plan) {
+    renderStats({}, profile);
+    renderPlan({ tasks: [] });
+  }
 
   document.getElementById('refresh-plan-btn').addEventListener('click', async (e) => {
     const btn = e.currentTarget;

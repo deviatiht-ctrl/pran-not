@@ -10,7 +10,7 @@ import {
   esc, icons, icon, openModal, debounce, renderMarkdown, toast, handleError,
 } from './utils.js';
 import { askTutor } from './ai.js';
-import { initOffline } from './offline.js';
+import { initOffline, cacheGet, getQueueItems } from './offline.js';
 import { initPwaInstall } from './pwa.js';
 
 let currentContext = {
@@ -326,6 +326,68 @@ export function openSearchModal() {
   const input = m.el.querySelector('#global-search-input');
   const resultsEl = m.el.querySelector('#global-search-results');
 
+  const runOfflineSearch = async (term) => {
+    const lower = term.toLowerCase();
+    const [notesCached, coursesCached, booksCached, qItems] = await Promise.all([
+      cacheGet('notes_list'),
+      cacheGet('courses_list'),
+      cacheGet('library_books_index'),
+      getQueueItems(),
+    ]);
+    const hits = [];
+    for (const q of (qItems || []).filter((x) => x.kind === 'note')) {
+      const p = q.payload || {};
+      if (`${p.title || ''} ${p.content_text || ''}`.toLowerCase().includes(lower)) {
+        hits.push({ kind: 'note', id: `local:${q.id}`, title: p.title || t('notes.untitled'), snippet: (p.content_text || '').slice(0, 110) });
+      }
+    }
+    for (const n of notesCached || []) {
+      if (`${n.title || ''} ${n.summary || ''} ${n.content_text || ''}`.toLowerCase().includes(lower)) {
+        hits.push({ kind: 'note', id: n.id, title: n.title || t('notes.untitled'), snippet: (n.summary || n.content_text || '').slice(0, 110) });
+      }
+    }
+    for (const c of coursesCached || []) {
+      if (`${c.name || ''} ${c.professor || ''}`.toLowerCase().includes(lower)) {
+        hits.push({ kind: 'course', id: c.id, title: c.name, snippet: c.professor || '' });
+      }
+    }
+    for (const b of booksCached || []) {
+      if (`${b.title || ''} ${b.author || ''} ${b.description || ''}`.toLowerCase().includes(lower)) {
+        hits.push({ kind: 'book', id: b.id, title: b.title, snippet: (b.description || b.author || '').slice(0, 110) });
+      }
+    }
+    return hits.slice(0, 20);
+  };
+
+  const renderSearchHits = (data, isLocal = false) => {
+    if (!data?.length) {
+      resultsEl.innerHTML = `<p class="muted text-sm">${esc(t('search.empty'))}</p>`;
+      return;
+    }
+    resultsEl.innerHTML = data.map((row) => {
+      const href = row.kind === 'note'
+        ? pageHref(`pages/note-view.html?id=${encodeURIComponent(row.id)}`)
+        : row.kind === 'course'
+          ? pageHref(`pages/course.html?id=${encodeURIComponent(row.id)}`)
+          : row.kind === 'book'
+            ? pageHref(`pages/library.html?book=${encodeURIComponent(row.id)}`)
+            : pageHref(`pages/flashcards.html?highlight=${encodeURIComponent(row.id)}`);
+      const badgeLabel = t(`search.kind_${row.kind}`);
+      const ic = row.kind === 'note' ? 'file-text' : row.kind === 'course' ? 'book-open' : row.kind === 'book' ? 'library' : 'layers';
+      return `<a class="search-result" href="${href}">
+        <span class="icon-chip sm">${icon(ic)}</span>
+        <div class="flex-1">
+          <div class="row-between">
+            <strong>${esc(row.title)}</strong>
+            <span class="badge">${esc(badgeLabel)}</span>
+          </div>
+          ${row.snippet ? `<div class="text-xs muted mt-1">${row.kind === 'note' && !isLocal ? row.snippet : esc(row.snippet)}</div>` : ''}
+        </div>
+      </a>`;
+    }).join('');
+    icons(resultsEl);
+  };
+
   const runSearch = debounce(async (q) => {
     const term = q.trim();
     if (term.length < 2) {
@@ -333,37 +395,18 @@ export function openSearchModal() {
       return;
     }
     resultsEl.innerHTML = `<div class="row text-sm muted"><span class="spinner"></span><span>${esc(t('common.loading'))}</span></div>`;
+    if (!navigator.onLine) {
+      renderSearchHits(await runOfflineSearch(term), true);
+      return;
+    }
     try {
       const { data, error } = await window.db.rpc('pran_not_search_all', { q: term, max_results: 25 });
       if (error) throw error;
-      if (!data?.length) {
-        resultsEl.innerHTML = `<p class="muted text-sm">${esc(t('search.empty'))}</p>`;
-        return;
-      }
-      resultsEl.innerHTML = data.map((row) => {
-        const href = row.kind === 'note'
-          ? pageHref(`pages/note-view.html?id=${row.id}`)
-          : row.kind === 'course'
-            ? pageHref(`pages/course.html?id=${row.id}`)
-            : row.kind === 'book'
-              ? pageHref(`pages/library.html?book=${row.id}`)
-              : pageHref(`pages/flashcards.html?highlight=${row.id}`);
-        const badgeLabel = t(`search.kind_${row.kind}`);
-        const ic = row.kind === 'note' ? 'file-text' : row.kind === 'course' ? 'book-open' : row.kind === 'book' ? 'library' : 'layers';
-        return `<a class="search-result" href="${href}">
-          <span class="icon-chip sm">${icon(ic)}</span>
-          <div class="flex-1">
-            <div class="row-between">
-              <strong>${esc(row.title)}</strong>
-              <span class="badge">${esc(badgeLabel)}</span>
-            </div>
-            ${row.snippet ? `<div class="text-xs muted mt-1">${row.kind === 'note' ? row.snippet : esc(row.snippet)}</div>` : ''}
-          </div>
-        </a>`;
-      }).join('');
-      icons(resultsEl);
+      renderSearchHits(data, false);
     } catch (err) {
-      resultsEl.innerHTML = `<p class="text-error text-sm">${esc(handleError(err))}</p>`;
+      const localHits = await runOfflineSearch(term);
+      if (localHits.length) renderSearchHits(localHits, true);
+      else resultsEl.innerHTML = `<p class="text-error text-sm">${esc(handleError(err))}</p>`;
     }
   }, 260);
 

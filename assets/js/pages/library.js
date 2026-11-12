@@ -17,7 +17,7 @@ import {
   searchLibraryWeb, analyzeLibrarySource, askLibrary, generateLibraryBook,
 } from '../ai.js';
 import { exportBookPdf, exportBookDocx } from '../export.js';
-import { cacheSet, cacheGet } from '../offline.js';
+import { cacheSet, cacheGet, cacheEntriesByPrefix, isDataSaver } from '../offline.js';
 
 const db = window.db;
 const MAX_LIBRARY_BYTES = 30 * 1024 * 1024;
@@ -117,28 +117,56 @@ function splitTextIntoChunks(rawText, totalPages = 1) {
    Chargement & rendu de la Bibliothèque
    ------------------------------------------------------------------ */
 async function loadBooks() {
-  try {
-    const { data, error } = await db
-      .from('pran_not_library_books')
-      .select('id, user_id, scope, faculty_id, category, title, author, country, publication_year, language, description, storage_path, source_url, mime, size_bytes, page_count, chunk_count, summary, tags, metadata, is_offline_cached, updated_at')
-      .order('scope', { ascending: true })
-      .order('updated_at', { ascending: false })
-      .limit(120);
-    if (error) throw error;
-    booksList = data || [];
-    await cacheSet('library_books_index', booksList);
-  } catch (err) {
-    const cached = await cacheGet('library_books_index');
-    if (cached) booksList = cached;
-    else handleError(err);
+  const cachedIndex = await cacheGet('library_books_index');
+  if (cachedIndex?.length) {
+    booksList = cachedIndex;
+    const cachedEntries = await cacheEntriesByPrefix('library_book_');
+    offlineCachedIds = new Set(cachedEntries.map((r) => String(r.key).slice('library_book_'.length)));
+    renderBookSelectors();
+    renderBooksGrid();
   }
 
-  for (const b of booksList) {
-    const localBook = await cacheGet(`library_book_${b.id}`);
-    if (localBook) offlineCachedIds.add(b.id);
+  if (navigator.onLine) {
+    try {
+      const { data, error } = await db
+        .from('pran_not_library_books')
+        .select('id, user_id, scope, faculty_id, category, title, author, country, publication_year, language, description, storage_path, source_url, mime, size_bytes, page_count, chunk_count, summary, tags, metadata, is_offline_cached, updated_at')
+        .order('scope', { ascending: true })
+        .order('updated_at', { ascending: false })
+        .limit(120);
+      if (error) throw error;
+      booksList = data || [];
+      await cacheSet('library_books_index', booksList);
+    } catch (err) {
+      if (!booksList.length && cachedIndex) booksList = cachedIndex;
+      else if (!booksList.length) handleError(err);
+    }
+  } else if (!booksList.length && cachedIndex) {
+    booksList = cachedIndex;
   }
+
+  const cachedEntries = await cacheEntriesByPrefix('library_book_');
+  offlineCachedIds = new Set(cachedEntries.map((r) => String(r.key).slice('library_book_'.length)));
   renderBookSelectors();
   renderBooksGrid();
+
+  // Pré-cacher en arrière-plan (hors économie de données) les ouvrages officiels pas encore en cache
+  if (navigator.onLine && !isDataSaver()) {
+    const missingOfficial = booksList
+      .filter((b) => b.scope === 'official' && !offlineCachedIds.has(b.id))
+      .slice(0, 12);
+    if (missingOfficial.length) {
+      Promise.allSettled(
+        missingOfficial.map(async (b) => {
+          const payload = await fetchFullBookData(b.id);
+          await cacheSet(`library_book_${b.id}`, payload);
+          offlineCachedIds.add(b.id);
+        })
+      ).then(() => {
+        if (missingOfficial.length) renderBooksGrid();
+      }).catch(() => {});
+    }
+  }
 }
 
 function renderBookSelectors() {
@@ -266,11 +294,70 @@ const runChunkSearch = debounce(async () => {
   const scope = document.getElementById('lib-scope-filter')?.value || null;
   const box = document.getElementById('lib-chunk-hits');
 
-  if (q.length < 2 || !navigator.onLine) {
+  if (q.length < 2) {
     matchedBookIdsFromChunks = null;
     renderBooksGrid();
     box.hidden = true;
     box.innerHTML = '';
+    return;
+  }
+
+  const renderLocalChunkHits = async () => {
+    const qFold = foldText(q);
+    const entries = await cacheEntriesByPrefix('library_book_');
+    const localHits = [];
+    for (const row of entries) {
+      const book = row?.data?.book;
+      const chunks = row?.data?.chunks || [];
+      if (!book) continue;
+      if (fac && book.faculty_id !== fac) continue;
+      if (scope && book.scope !== scope) continue;
+      for (const ch of chunks) {
+        if (foldText(`${ch.section_label || ''} ${ch.content || ''}`).includes(qFold)) {
+          const idx = foldText(ch.content || '').indexOf(qFold);
+          const start = Math.max(0, idx - 60);
+          const snippet = (ch.content || '').slice(start, start + 220);
+          localHits.push({ book_id: book.id, book_title: book.title, section_label: ch.section_label, snippet });
+          break;
+        }
+      }
+      if (localHits.length >= 6) break;
+    }
+    if (!localHits.length) {
+      matchedBookIdsFromChunks = null;
+      renderBooksGrid();
+      box.hidden = true;
+      box.innerHTML = '';
+      return;
+    }
+    matchedBookIdsFromChunks = new Set(localHits.map((h) => h.book_id));
+    renderBooksGrid();
+    box.hidden = false;
+    box.innerHTML = `
+      <div class="card card-sm">
+        <div class="ai-suggestion-label">${icon('search')}<span>${esc(t('library.web_lib_hits_title'))}</span></div>
+        <div class="stack-sm mt-2">
+          ${localHits.map((hit) => `
+            <div class="card card-sm card-flat card-muted">
+              <div class="row-between" style="flex-wrap:wrap;gap:6px;">
+                <strong class="text-sm">${esc(hit.book_title)}</strong>
+                ${hit.section_label ? `<span class="badge">${esc(hit.section_label)}</span>` : ''}
+              </div>
+              <div class="text-xs muted mt-1 mb-2">${esc(hit.snippet || '')}...</div>
+              <button type="button" class="btn btn-sm btn-secondary" data-open-hit="${esc(hit.book_id)}">
+                ${icon('book-open')}<span>${esc(t('library.read_btn'))}</span>
+              </button>
+            </div>`).join('')}
+        </div>
+      </div>`;
+    box.querySelectorAll('[data-open-hit]').forEach((btn) => {
+      btn.addEventListener('click', () => openBookReader(btn.dataset.openHit));
+    });
+    icons(box);
+  };
+
+  if (!navigator.onLine) {
+    await renderLocalChunkHits();
     return;
   }
 
@@ -314,7 +401,7 @@ const runChunkSearch = debounce(async () => {
     });
     icons(box);
   } catch {
-    box.hidden = true;
+    await renderLocalChunkHits();
   }
 }, 280);
 
@@ -339,7 +426,10 @@ async function fetchFullBookData(bookId) {
     .order('chunk_index', { ascending: true })
     .limit(180);
 
-  return { book, chunks: chunks || [] };
+  const payload = { book, chunks: chunks || [] };
+  await cacheSet(`library_book_${bookId}`, payload);
+  offlineCachedIds.add(bookId);
+  return payload;
 }
 
 async function openBookReader(bookId) {
@@ -917,15 +1007,30 @@ async function runGenerateBook() {
     runGenerateBook();
   });
 
-  try {
-    const { data: fData } = await db.from('pran_not_faculties').select('*').order('position');
+  const fillFaculties = (fData) => {
     faculties = fData || [];
     const fSel = document.getElementById('lib-faculty-filter');
+    const cur = fSel.value;
+    fSel.innerHTML = `<option value="" data-i18n="library.filter_faculty_all">${esc(t('library.filter_faculty_all'))}</option>`;
     faculties.forEach((f) => {
       const label = getLang() === 'fr' ? f.name_fr : f.name_ht;
       fSel.insertAdjacentHTML('beforeend', `<option value="${esc(f.id)}">${esc(label)}</option>`);
     });
-  } catch { /* fallback */ }
+    if (cur) fSel.value = cur;
+  };
+
+  const cachedFacs = await cacheGet('faculties_list');
+  if (cachedFacs?.length) fillFaculties(cachedFacs);
+
+  if (navigator.onLine) {
+    try {
+      const { data: fData } = await db.from('pran_not_faculties').select('*').order('position');
+      if (fData?.length) {
+        fillFaculties(fData);
+        await cacheSet('faculties_list', fData);
+      }
+    } catch { /* fallback */ }
+  }
 
   await loadBooks();
 

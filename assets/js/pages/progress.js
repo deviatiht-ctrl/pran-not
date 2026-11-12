@@ -9,6 +9,7 @@ import { initAppChrome, setTutorContext } from '../navbar.js';
 import { t } from '../i18n.js';
 import { icons, icon, esc, formatMinutes, loadScript, CDN, pageEnter } from '../utils.js';
 import { getThemeChartPalette } from '../theme.js';
+import { cacheSet, cacheGet } from '../offline.js';
 
 const db = window.db;
 
@@ -18,17 +19,29 @@ const db = window.db;
   setTutorContext({ contextType: 'general', contextTitle: t('progress.title') });
   pageEnter();
 
-  const [sessRes, attRes, cardRes, courseRes] = await Promise.all([
-    db.from('pran_not_study_sessions').select('duration_minutes, started_at').order('started_at', { ascending: false }).limit(200),
-    db.from('pran_not_test_attempts').select('percent, created_at').not('finished_at', 'is', null).order('created_at', { ascending: true }).limit(40),
-    db.from('pran_not_flashcards').select('interval_days').gte('interval_days', 7),
-    db.from('pran_not_courses').select('name, mastery, color').eq('archived', false),
-  ]);
+  let progData = await cacheGet('progress_data');
+  if (navigator.onLine) {
+    try {
+      const [sessRes, attRes, cardRes, courseRes] = await Promise.all([
+        db.from('pran_not_study_sessions').select('duration_minutes, started_at').order('started_at', { ascending: false }).limit(200),
+        db.from('pran_not_test_attempts').select('percent, created_at').not('finished_at', 'is', null).order('created_at', { ascending: true }).limit(40),
+        db.from('pran_not_flashcards').select('interval_days').gte('interval_days', 7),
+        db.from('pran_not_courses').select('name, mastery, color').eq('archived', false),
+      ]);
+      progData = {
+        sessions: sessRes.data || [],
+        attempts: attRes.data || [],
+        masteredCards: (cardRes.data || []).length,
+        courses: courseRes.data || [],
+      };
+      await cacheSet('progress_data', progData);
+    } catch { /* fallback cache */ }
+  }
 
-  const sessions = sessRes.data || [];
-  const attempts = attRes.data || [];
-  const masteredCards = (cardRes.data || []).length;
-  const courses = courseRes.data || [];
+  const sessions = progData?.sessions || [];
+  const attempts = progData?.attempts || [];
+  const masteredCards = progData?.masteredCards || 0;
+  const courses = progData?.courses || [];
 
   const totalMin = sessions.reduce((a, b) => a + (b.duration_minutes || 0), 0);
   const avgScore = attempts.length
@@ -64,7 +77,10 @@ const db = window.db;
     </article>`;
   icons(document.getElementById('prog-kpis'));
 
-  await loadScript(CDN.chart);
+  if (attempts.length || courses.length) {
+    try { await loadScript(CDN.chart); } catch { /* chart hors-ligne si non caché */ }
+  }
+  if (!window.Chart) return;
   const pal = getThemeChartPalette();
   const baseScales = {
     x: { ticks: { color: pal.muted }, grid: { color: pal.grid } },

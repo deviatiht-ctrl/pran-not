@@ -189,17 +189,29 @@ function openCourseModal(existing = null) {
   setTutorContext({ contextType: 'general', contextTitle: t('courses.title') });
   pageEnter();
 
-  try {
-    const { data, error } = await db.from('pran_not_courses').select('*').eq('archived', false).order('created_at', { ascending: false });
-    if (error) throw error;
-    courses = data || [];
-    await cacheSet('courses_list', courses);
-  } catch (err) {
-    courses = (await cacheGet('courses_list')) || [];
-    if (!courses.length) handleError(err);
+  const cached = await cacheGet('courses_list');
+  if (cached?.length) {
+    courses = cached;
+    renderCourses();
   }
 
-  renderCourses();
+  if (navigator.onLine) {
+    try {
+      const { data, error } = await db.from('pran_not_courses').select('*').eq('archived', false).order('created_at', { ascending: false });
+      if (error) throw error;
+      courses = data || [];
+      await cacheSet('courses_list', courses);
+      renderCourses();
+    } catch (err) {
+      if (!courses.length) {
+        renderCourses();
+        handleError(err);
+      }
+    }
+  } else if (!courses.length) {
+    renderCourses();
+  }
+
   document.getElementById('new-course-btn').addEventListener('click', () => openCourseModal());
   if (getParam('new') === '1') openCourseModal();
 })();

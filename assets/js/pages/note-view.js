@@ -13,7 +13,7 @@ import {
 } from '../utils.js';
 import { generateFlashcards, generateTest, explainText, processNote } from '../ai.js';
 import { exportNotePdf, exportNoteDocx, exportNoteMarkdown } from '../export.js';
-import { cacheSet, cacheGet, isDataSaver } from '../offline.js';
+import { cacheSet, cacheGet, isDataSaver, enqueue, getQueueItems, isNetworkError } from '../offline.js';
 
 const db = window.db;
 let note = null;
@@ -341,12 +341,39 @@ function bindActions() {
       const summary = m.el.querySelector('#ed-summary').value.trim();
       const contentText = m.el.querySelector('#ed-content').value.trim();
       const contentHtml = `<p>${esc(contentText).replace(/\n{2,}/g, '</p><p>').replace(/\n/g, '<br>')}</p>`;
-      const { error } = await db.from('pran_not_notes').update({ title, summary, content_text: contentText, content_html: contentHtml }).eq('id', note.id);
-      if (error) { handleError(error); return; }
-      note.title = title; note.summary = summary; note.content_text = contentText; note.content_html = contentHtml;
-      toast(t('common.saved'), 'success');
-      m.close();
-      renderNote();
+      const patch = { title, summary, content_text: contentText, content_html: contentHtml };
+
+      const applyLocalSave = async () => {
+        note.title = title; note.summary = summary; note.content_text = contentText; note.content_html = contentHtml;
+        if (!note.is_local_pending) {
+          await cacheSet(`note_${note.id}`, note);
+          await enqueue('note_update', { note_id: note.id, ...patch });
+        }
+        toast(t('offline.saved_locally'), 'info');
+        m.close();
+        renderNote();
+      };
+
+      if (!navigator.onLine || note.is_local_pending) {
+        await applyLocalSave();
+        return;
+      }
+
+      try {
+        const { error } = await db.from('pran_not_notes').update(patch).eq('id', note.id);
+        if (error) throw error;
+        note.title = title; note.summary = summary; note.content_text = contentText; note.content_html = contentHtml;
+        await cacheSet(`note_${note.id}`, note);
+        toast(t('common.saved'), 'success');
+        m.close();
+        renderNote();
+      } catch (err) {
+        if (isNetworkError(err)) {
+          await applyLocalSave();
+        } else {
+          handleError(err);
+        }
+      }
     });
   });
 
@@ -416,33 +443,80 @@ function bindActions() {
   await initAppChrome({ profile, user, active: 'notes' });
   pageEnter();
 
+  if (id && id.startsWith('local:')) {
+    const qId = id.slice('local:'.length);
+    const items = await getQueueItems();
+    const item = items.find((x) => x.id === qId && x.kind === 'note');
+    if (!item?.payload) {
+      document.getElementById('note-root').innerHTML = `<div class="alert alert-error">${esc(t('errors.not_found'))}</div>`;
+      return;
+    }
+    const p = item.payload;
+    note = {
+      id,
+      is_local_pending: true,
+      title: p.title || t('notes.untitled'),
+      content_html: p.content_html || '',
+      content_text: p.content_text || '',
+      raw_text: p.raw_text || null,
+      summary: (p.content_text || '').slice(0, 240),
+      course_id: p.course_id || null,
+      created_at: new Date(item.createdAt).toISOString(),
+      updated_at: new Date(item.createdAt).toISOString(),
+    };
+    if (note.course_id) {
+      const cachedCourses = (await cacheGet('courses_list')) || [];
+      course = cachedCourses.find((c) => c.id === note.course_id) || null;
+    }
+    await renderNote();
+    return;
+  }
+
   if (!isUuid(id)) {
     document.getElementById('note-root').innerHTML = `<div class="alert alert-error">${esc(t('errors.not_found'))}</div>`;
     return;
   }
 
-  try {
-    const { data, error } = await db.from('pran_not_notes').select('*').eq('id', id).maybeSingle();
-    if (error) throw error;
-    if (!data) throw new Error('not_found');
-    note = data;
-    await cacheSet(`note_${id}`, note);
-
+  // Rendu rapide depuis le cache si disponible
+  const cachedNote = await cacheGet(`note_${id}`);
+  if (cachedNote && !navigator.onLine) {
+    note = cachedNote;
     if (note.course_id) {
-      const { data: c } = await db.from('pran_not_courses').select('id, name, color').eq('id', note.course_id).maybeSingle();
-      course = c;
-    } else if (note.ai_course_suggestion) {
-      const { data: sc } = await db.from('pran_not_courses').select('id, name, color').eq('id', note.ai_course_suggestion).maybeSingle();
-      suggestedCourse = sc;
+      const cachedCourses = (await cacheGet('courses_list')) || [];
+      course = cachedCourses.find((c) => c.id === note.course_id) || null;
     }
+  } else {
+    try {
+      const { data, error } = await db.from('pran_not_notes').select('*').eq('id', id).maybeSingle();
+      if (error) throw error;
+      if (!data) throw new Error('not_found');
+      note = data;
+      await cacheSet(`note_${id}`, note);
 
-    const { data: sRows } = await db.from('pran_not_note_sources').select('*').eq('note_id', id).order('chunk_index');
-    sources = sRows || [];
-  } catch (err) {
-    note = await cacheGet(`note_${id}`);
-    if (!note) {
-      document.getElementById('note-root').innerHTML = `<div class="alert alert-error">${esc(t('errors.not_found'))}</div>`;
-      return;
+      if (note.course_id) {
+        const { data: c } = await db.from('pran_not_courses').select('id, name, color').eq('id', note.course_id).maybeSingle();
+        course = c;
+      } else if (note.ai_course_suggestion) {
+        const { data: sc } = await db.from('pran_not_courses').select('id, name, color').eq('id', note.ai_course_suggestion).maybeSingle();
+        suggestedCourse = sc;
+      }
+
+      const { data: sRows } = await db.from('pran_not_note_sources').select('*').eq('note_id', id).order('chunk_index');
+      sources = sRows || [];
+    } catch (err) {
+      note = cachedNote;
+      if (!note) {
+        const cachedList = (await cacheGet('notes_list')) || [];
+        note = cachedList.find((x) => x.id === id) || null;
+      }
+      if (!note) {
+        document.getElementById('note-root').innerHTML = `<div class="alert alert-error">${esc(t('errors.not_found'))}</div>`;
+        return;
+      }
+      if (note.course_id) {
+        const cachedCourses = (await cacheGet('courses_list')) || [];
+        course = cachedCourses.find((c) => c.id === note.course_id) || null;
+      }
     }
   }
 

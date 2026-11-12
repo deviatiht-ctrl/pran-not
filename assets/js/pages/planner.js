@@ -10,7 +10,7 @@ import { t, formatDate } from '../i18n.js';
 import {
   icons, icon, esc, formatDuration, toast, handleError, openModal, promptDialog, uid, pageEnter,
 } from '../utils.js';
-import { enqueue } from '../offline.js';
+import { enqueue, cacheSet, cacheGet } from '../offline.js';
 
 const db = window.db;
 let userRef = null;
@@ -148,9 +148,20 @@ async function generateBackwardsPlan() {
    Groupes d'étude et partage
    ------------------------------------------------------------------ */
 async function loadGroups() {
-  const { data } = await db.from('pran_not_study_groups').select('*').order('created_at', { ascending: false });
-  groups = data || [];
-  renderGroups();
+  const cached = await cacheGet('study_groups');
+  if (cached) {
+    groups = cached;
+    renderGroups();
+  }
+  if (!navigator.onLine) return;
+  try {
+    const { data } = await db.from('pran_not_study_groups').select('*').order('created_at', { ascending: false });
+    if (data) {
+      groups = data;
+      await cacheSet('study_groups', groups);
+      renderGroups();
+    }
+  } catch { /* offline fallback */ }
 }
 
 function renderGroups() {
@@ -251,16 +262,33 @@ async function openGroupDetail(groupId) {
   setTutorContext({ contextType: 'general', contextTitle: t('planner.title') });
   pageEnter();
 
-  const { data: cData } = await db.from('pran_not_courses').select('id, name, exam_date').eq('archived', false).order('name');
-  courses = cData || [];
+  const populateCourseSelects = (cList) => {
+    courses = cList || [];
+    const pomoSel = document.getElementById('pomo-course');
+    const planSel = document.getElementById('plan-course');
+    pomoSel.innerHTML = `<option value="">${esc(t('common.no_course'))}</option>`;
+    planSel.innerHTML = `<option value="">${esc(t('common.no_course'))}</option>`;
+    courses.forEach((c) => {
+      pomoSel.insertAdjacentHTML('beforeend', `<option value="${esc(c.id)}">${esc(c.name)}</option>`);
+      planSel.insertAdjacentHTML('beforeend', `<option value="${esc(c.id)}">${esc(c.name)}</option>`);
+    });
+    if (courses[0]?.exam_date) document.getElementById('plan-exam-date').value = courses[0].exam_date;
+  };
 
-  const pomoSel = document.getElementById('pomo-course');
+  const cachedCourses = await cacheGet('courses_list');
+  if (cachedCourses) populateCourseSelects(cachedCourses);
+
+  if (navigator.onLine) {
+    try {
+      const { data: cData } = await db.from('pran_not_courses').select('id, name, exam_date').eq('archived', false).order('name');
+      if (cData) {
+        populateCourseSelects(cData);
+        await cacheSet('courses_list', cData);
+      }
+    } catch { /* offline fallback */ }
+  }
+
   const planSel = document.getElementById('plan-course');
-  courses.forEach((c) => {
-    pomoSel.insertAdjacentHTML('beforeend', `<option value="${esc(c.id)}">${esc(c.name)}</option>`);
-    planSel.insertAdjacentHTML('beforeend', `<option value="${esc(c.id)}">${esc(c.name)}</option>`);
-  });
-  if (courses[0]?.exam_date) document.getElementById('plan-exam-date').value = courses[0].exam_date;
   planSel.addEventListener('change', () => {
     const c = courses.find((x) => x.id === planSel.value);
     document.getElementById('plan-exam-date').value = c?.exam_date || '';

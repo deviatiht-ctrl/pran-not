@@ -9,22 +9,45 @@
 const SUPPORTED = ['ht', 'fr'];
 const STORAGE_KEY = 'prannot.lang';
 const I18N_VERSION = '20261112b';
+const LS_CACHE_PREFIX = 'prannot.i18n.';
 const dictionaries = {};
 let current = 'ht';
 let readyPromise = null;
 const listeners = new Set();
 
-/** Charge un dictionnaire JSON (mis en cache par le service worker). */
+function readLocalDict(lang) {
+  try {
+    const raw = localStorage.getItem(`${LS_CACHE_PREFIX}${lang}`);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (parsed?.v === I18N_VERSION && parsed?.data) return parsed.data;
+  } catch { /* ignore */ }
+  return null;
+}
+
+function writeLocalDict(lang, data) {
+  try {
+    localStorage.setItem(`${LS_CACHE_PREFIX}${lang}`, JSON.stringify({ v: I18N_VERSION, data }));
+  } catch { /* quota localStorage */ }
+}
+
+/** Charge un dictionnaire JSON (instantané via localStorage / Service Worker, repli réseau). */
 async function load(lang) {
-  if (dictionaries[lang]) return dictionaries[lang];
+  if (dictionaries[lang] && Object.keys(dictionaries[lang]).length > 0) return dictionaries[lang];
+  const local = readLocalDict(lang);
+  if (local) {
+    dictionaries[lang] = local;
+    return local;
+  }
   try {
     const url = new URL(`../i18n/${lang}.json?v=${I18N_VERSION}`, import.meta.url);
-    const res = await fetch(url, { cache: 'no-cache' });
+    const res = await fetch(url);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     dictionaries[lang] = await res.json();
+    writeLocalDict(lang, dictionaries[lang]);
   } catch (err) {
-    console.error(`[i18n] Impossible de charger ${lang}.json`, err);
-    dictionaries[lang] = {};
+    console.warn(`[i18n] Impossible de charger ${lang}.json`, err);
+    dictionaries[lang] = local || {};
   }
   return dictionaries[lang];
 }
@@ -45,8 +68,11 @@ export function initI18n(lang) {
   if (readyPromise && !lang) return readyPromise;
   current = SUPPORTED.includes(lang) ? lang : detectLang();
   document.documentElement.lang = current === 'ht' ? 'ht' : 'fr';
-  readyPromise = Promise.all([load(current), load(current === 'ht' ? 'fr' : 'ht')]).then(() => {
+  const fallback = current === 'ht' ? 'fr' : 'ht';
+  readyPromise = load(current).then(() => {
     applyI18n(document);
+    // Pré-chauffer la deuxième langue en arrière-plan sans bloquer le premier affichage
+    load(fallback).catch(() => {});
     return current;
   });
   return readyPromise;

@@ -9,6 +9,7 @@ import { t, getLang } from '../i18n.js';
 import {
   icons, icon, esc, toast, handleError, setLoading, compressImage, checkFileSize, pageEnter, normalizeWhatsAppPhone,
 } from '../utils.js';
+import { cacheSet, cacheGet } from '../offline.js';
 
 const db = window.db;
 
@@ -35,12 +36,23 @@ const db = window.db;
   document.getElementById('pf-rem').value = (profile?.reminder_time || '19:00').slice(0, 5);
   document.getElementById('pf-wa').value = profile?.whatsapp_phone || '';
 
-  const [{ data: facs }, { data: allBadges }, { data: myBadges }, { data: streak }] = await Promise.all([
-    db.from('pran_not_faculties').select('*').order('position'),
-    db.from('pran_not_badges').select('*').order('position'),
-    db.from('pran_not_user_badges').select('badge_id, earned_at'),
-    db.from('pran_not_streaks').select('*').eq('user_id', user.id).maybeSingle(),
-  ]);
+  let profMeta = await cacheGet(`profile_meta_${user.id}`);
+  if (navigator.onLine) {
+    try {
+      const [{ data: f }, { data: ab }, { data: mb }, { data: st }] = await Promise.all([
+        db.from('pran_not_faculties').select('*').order('position'),
+        db.from('pran_not_badges').select('*').order('position'),
+        db.from('pran_not_user_badges').select('badge_id, earned_at'),
+        db.from('pran_not_streaks').select('*').eq('user_id', user.id).maybeSingle(),
+      ]);
+      profMeta = { facs: f || [], allBadges: ab || [], myBadges: mb || [], streak: st || null };
+      await cacheSet(`profile_meta_${user.id}`, profMeta);
+    } catch { /* fallback cache */ }
+  }
+  const facs = profMeta?.facs || (await cacheGet('faculties_list')) || [];
+  const allBadges = profMeta?.allBadges || [];
+  const myBadges = profMeta?.myBadges || [];
+  const streak = profMeta?.streak || null;
 
   const facSel = document.getElementById('pf-fac');
   facSel.innerHTML = (facs || []).map((f) => `<option value="${esc(f.id)}" ${f.id === profile?.faculty_id ? 'selected' : ''}>${esc(lang === 'fr' ? f.name_fr : f.name_ht)}</option>`).join('');

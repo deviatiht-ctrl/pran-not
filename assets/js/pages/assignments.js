@@ -9,6 +9,7 @@ import { t, formatDate, formatRelative } from '../i18n.js';
 import {
   icons, icon, esc, emptyState, openModal, confirmDialog, toast, handleError, setLoading, getParam, animateIn, pageEnter,
 } from '../utils.js';
+import { cacheSet, cacheGet } from '../offline.js';
 
 const db = window.db;
 let userRef = null;
@@ -132,14 +133,40 @@ function openNewModal() {
   setTutorContext({ contextType: 'general', contextTitle: t('assignments.title') });
   pageEnter();
 
-  const [cRes, aRes] = await Promise.all([
-    db.from('pran_not_courses').select('id, name').eq('archived', false).order('name'),
-    db.from('pran_not_assignments').select('*').order('due_at', { ascending: true, nullsFirst: false }),
+  const [cachedCourses, cachedAsgs] = await Promise.all([
+    cacheGet('courses_list'),
+    cacheGet('assignments_list'),
   ]);
-  courses = cRes.data || [];
-  assignments = aRes.data || [];
+  if (cachedCourses) courses = cachedCourses;
+  if (cachedAsgs) {
+    assignments = cachedAsgs;
+    renderList();
+  }
 
-  renderList();
+  if (navigator.onLine) {
+    try {
+      const [cRes, aRes] = await Promise.all([
+        db.from('pran_not_courses').select('id, name').eq('archived', false).order('name'),
+        db.from('pran_not_assignments').select('*').order('due_at', { ascending: true, nullsFirst: false }),
+      ]);
+      if (cRes.data) {
+        courses = cRes.data;
+        await cacheSet('courses_list', courses);
+      }
+      if (aRes.data) {
+        assignments = aRes.data;
+        await cacheSet('assignments_list', assignments);
+      }
+      renderList();
+    } catch (err) {
+      if (!assignments.length) {
+        renderList();
+        handleError(err);
+      }
+    }
+  } else if (!assignments.length) {
+    renderList();
+  }
 
   document.getElementById('new-assignment-btn').addEventListener('click', openNewModal);
   document.querySelectorAll('#asg-filters button').forEach((b) => {

@@ -12,6 +12,7 @@ import {
 } from '../utils.js';
 import { generateTest } from '../ai.js';
 import { getThemeChartPalette } from '../theme.js';
+import { cacheSet, cacheGet } from '../offline.js';
 
 const db = window.db;
 let userRef = null;
@@ -229,22 +230,49 @@ function renderLists() {
   setTutorContext({ contextType: 'general', contextTitle: t('tests.title') });
   pageEnter();
 
-  const [cRes, uRes, tRes, aRes, kRes] = await Promise.all([
-    db.from('pran_not_courses').select('id, name, mastery').eq('archived', false).order('name'),
-    db.from('pran_not_syllabus_units').select('id, course_id, title, description, keywords').order('position'),
-    db.from('pran_not_tests').select('*').order('created_at', { ascending: false }).limit(20),
-    db.from('pran_not_test_attempts').select('*, test:pran_not_tests(title)').not('finished_at', 'is', null).order('created_at', { ascending: false }).limit(15),
-    db.from('pran_not_keywords').select('term, weakness, course_id').gte('weakness', 35).order('weakness', { ascending: false }).limit(12),
-  ]);
+  const cachedTests = await cacheGet('tests_overview');
+  const applyTestsState = (st) => {
+    courses = st.courses || [];
+    units = st.units || [];
+    tests = st.tests || [];
+    attempts = st.attempts || [];
+    weakKeywords = st.weakKeywords || [];
+  };
+  if (cachedTests) {
+    applyTestsState(cachedTests);
+    renderLists();
+    renderChart();
+  }
 
-  courses = cRes.data || [];
-  units = uRes.data || [];
-  tests = tRes.data || [];
-  attempts = aRes.data || [];
-  weakKeywords = kRes.data || [];
-
-  renderLists();
-  renderChart();
+  if (navigator.onLine) {
+    try {
+      const [cRes, uRes, tRes, aRes, kRes] = await Promise.all([
+        db.from('pran_not_courses').select('id, name, mastery').eq('archived', false).order('name'),
+        db.from('pran_not_syllabus_units').select('id, course_id, title, description, keywords').order('position'),
+        db.from('pran_not_tests').select('*').order('created_at', { ascending: false }).limit(20),
+        db.from('pran_not_test_attempts').select('*, test:pran_not_tests(title)').not('finished_at', 'is', null).order('created_at', { ascending: false }).limit(15),
+        db.from('pran_not_keywords').select('term, weakness, course_id').gte('weakness', 35).order('weakness', { ascending: false }).limit(12),
+      ]);
+      const fresh = {
+        courses: cRes.data || [],
+        units: uRes.data || [],
+        tests: tRes.data || [],
+        attempts: aRes.data || [],
+        weakKeywords: kRes.data || [],
+      };
+      applyTestsState(fresh);
+      await cacheSet('tests_overview', fresh);
+      renderLists();
+      renderChart();
+    } catch (err) {
+      if (!cachedTests) {
+        renderLists();
+        handleError(err);
+      }
+    }
+  } else if (!cachedTests) {
+    renderLists();
+  }
 
   document.getElementById('new-test-btn').addEventListener('click', openGenerateModal);
   document.getElementById('remedial-btn').addEventListener('click', (e) => {

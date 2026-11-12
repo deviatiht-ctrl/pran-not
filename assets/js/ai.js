@@ -332,10 +332,19 @@ export async function explainText({ text, mode = 'simple', language, faculty, le
 
 /** Statut du quota journalier de l'étudiant. */
 export async function getQuotaStatus() {
+  if (!navigator.onLine) {
+    try {
+      const cached = localStorage.getItem('prannot.quota');
+      if (cached) return JSON.parse(cached);
+    } catch { /* ignore */ }
+    return { used: 0, quota: 60 };
+  }
   try {
     const { data, error } = await window.db.rpc('pran_not_ai_quota_status');
     if (error) throw error;
-    return data || { used: 0, quota: 60 };
+    const res = data || { used: 0, quota: 60 };
+    try { localStorage.setItem('prannot.quota', JSON.stringify(res)); } catch { /* ignore */ }
+    return res;
   } catch {
     return { used: 0, quota: 60 };
   }

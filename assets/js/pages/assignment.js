@@ -13,6 +13,7 @@ import {
 } from '../utils.js';
 import { assistAssignment } from '../ai.js';
 import { exportAssignmentPdf, exportAssignmentDocx } from '../export.js';
+import { cacheSet, cacheGet, enqueue, isNetworkError } from '../offline.js';
 
 const db = window.db;
 let userRef = null;
@@ -184,22 +185,54 @@ async function renderPage() {
 
   icons(root);
 
-  loadStyle(CDN.quillCss);
-  await loadScript(CDN.quillJs);
-  quill = new window.Quill('#asg-quill', {
-    theme: 'snow',
-    placeholder: 'Kòmanse ekri travay ou a... Itilize tit H1/H2 pou jenere tab matyè a otomatikman nan PDF/Word.',
-    modules: {
-      toolbar: [
-        [{ header: [1, 2, 3, false] }],
-        ['bold', 'italic', 'underline'],
-        [{ list: 'ordered' }, { list: 'bullet' }],
-        ['blockquote', 'clean'],
-      ],
-    },
-  });
-  if (assignment.content_html) {
-    quill.root.innerHTML = sanitizeHtml(assignment.content_html);
+  try {
+    loadStyle(CDN.quillCss);
+    await loadScript(CDN.quillJs);
+    quill = new window.Quill('#asg-quill', {
+      theme: 'snow',
+      placeholder: 'Kòmanse ekri travay ou a... Itilize tit H1/H2 pou jenere tab matyè a otomatikman nan PDF/Word.',
+      modules: {
+        toolbar: [
+          [{ header: [1, 2, 3, false] }],
+          ['bold', 'italic', 'underline'],
+          [{ list: 'ordered' }, { list: 'bullet' }],
+          ['blockquote', 'clean'],
+        ],
+      },
+    });
+    if (assignment.content_html) {
+      quill.root.innerHTML = sanitizeHtml(assignment.content_html);
+    }
+  } catch {
+    const host = document.getElementById('asg-quill');
+    if (host) {
+      const tmp = document.createElement('div');
+      tmp.innerHTML = sanitizeHtml(assignment.content_html || '');
+      const plain = tmp.innerText || tmp.textContent || '';
+      host.innerHTML = `<textarea class="textarea" id="asg-quill-fallback" rows="12" placeholder="Kòmanse ekri travay ou a...">${esc(plain)}</textarea>`;
+      const getTa = () => host.querySelector('#asg-quill-fallback');
+      quill = {
+        getText: () => getTa()?.value || '',
+        getLength: () => (getTa()?.value || '').length + 1,
+        insertText: (_idx, txt) => {
+          const ta = getTa();
+          if (ta) ta.value += txt;
+        },
+        root: {
+          get innerHTML() {
+            const val = getTa()?.value || '';
+            return `<p>${esc(val).replace(/\n{2,}/g, '</p><p>').replace(/\n/g, '<br>')}</p>`;
+          },
+          set innerHTML(html) {
+            const ta = getTa();
+            if (!ta) return;
+            const d = document.createElement('div');
+            d.innerHTML = html;
+            ta.value = d.innerText || d.textContent || '';
+          },
+        },
+      };
+    }
   }
   if (assignment.plan) renderAiPlan(assignment.plan);
 
@@ -222,14 +255,26 @@ async function renderPage() {
   document.getElementById('asg-save-btn').addEventListener('click', async (e) => {
     const btn = e.currentTarget;
     setLoading(btn, true);
+    const patch = gatherState();
+    const saveOffline = async () => {
+      assignment = { ...assignment, ...patch };
+      await cacheSet(`assignment_${assignment.id}`, { assignment, course });
+      await enqueue('assignment_update', { assignment_id: assignment.id, patch });
+      toast(t('offline.saved_locally'), 'info');
+    };
+    if (!navigator.onLine) {
+      try { await saveOffline(); } finally { setLoading(btn, false); }
+      return;
+    }
     try {
-      const patch = gatherState();
       const { data, error } = await db.from('pran_not_assignments').update(patch).eq('id', assignment.id).select().single();
       if (error) throw error;
       assignment = data;
+      await cacheSet(`assignment_${assignment.id}`, { assignment, course });
       toast(t('common.saved'), 'success');
     } catch (err) {
-      handleError(err);
+      if (isNetworkError(err)) await saveOffline();
+      else handleError(err);
     } finally {
       setLoading(btn, false);
     }
@@ -287,7 +332,13 @@ async function renderPage() {
 
 async function loadAttachedFiles() {
   const box = document.getElementById('asg-files-list');
+  if (!navigator.onLine) {
+    const cachedFiles = await cacheGet(`assignment_files_${assignment.id}`);
+    box.innerHTML = (cachedFiles || []).map((f) => `<div class="text-xs muted truncate">${esc(f.name)}</div>`).join('');
+    return;
+  }
   const { data } = await db.from('pran_not_assignment_files').select('*').eq('assignment_id', assignment.id);
+  if (data) await cacheSet(`assignment_files_${assignment.id}`, data);
   box.innerHTML = (data || []).map((f) => `<div class="text-xs muted truncate">${esc(f.name)}</div>`).join('');
 }
 
@@ -305,16 +356,30 @@ async function loadAttachedFiles() {
     return;
   }
 
-  const { data, error } = await db.from('pran_not_assignments').select('*').eq('id', id).maybeSingle();
-  if (error || !data) {
-    document.getElementById('assignment-root').innerHTML = `<div class="alert alert-error">${esc(t('errors.not_found'))}</div>`;
-    return;
-  }
-  assignment = data;
+  const cachedAsg = await cacheGet(`assignment_${id}`);
+  if (cachedAsg?.assignment && !navigator.onLine) {
+    assignment = cachedAsg.assignment;
+    course = cachedAsg.course || null;
+  } else {
+    try {
+      const { data, error } = await db.from('pran_not_assignments').select('*').eq('id', id).maybeSingle();
+      if (error || !data) throw error || new Error('not_found');
+      assignment = data;
 
-  if (assignment.course_id) {
-    const { data: c } = await db.from('pran_not_courses').select('*').eq('id', assignment.course_id).maybeSingle();
-    course = c;
+      if (assignment.course_id) {
+        const { data: c } = await db.from('pran_not_courses').select('*').eq('id', assignment.course_id).maybeSingle();
+        course = c;
+      }
+      await cacheSet(`assignment_${id}`, { assignment, course });
+    } catch {
+      if (cachedAsg?.assignment) {
+        assignment = cachedAsg.assignment;
+        course = cachedAsg.course || null;
+      } else {
+        document.getElementById('assignment-root').innerHTML = `<div class="alert alert-error">${esc(t('errors.not_found'))}</div>`;
+        return;
+      }
+    }
   }
 
   setTutorContext({

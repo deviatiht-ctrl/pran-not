@@ -16,7 +16,7 @@ import {
   loadScript, loadStyle, CDN, sanitizeHtml, htmlToText, promptDialog, formatDuration, pageEnter,
 } from '../utils.js';
 import { ocrBoard, transcribeAudio, processNote } from '../ai.js';
-import { enqueue, isDataSaver } from '../offline.js';
+import { enqueue, isDataSaver, cacheGet, cacheSet, isNetworkError } from '../offline.js';
 
 const db = window.db;
 const SEGMENT_ROTATE_SECONDS = 45;
@@ -72,20 +72,40 @@ function mimeToExt(mime = '') {
 }
 
 async function initQuill() {
-  loadStyle(CDN.quillCss);
-  await loadScript(CDN.quillJs);
-  quill = new window.Quill('#quill-editor', {
-    theme: 'snow',
-    placeholder: 'Ekri oswa kole nòt ou a isit la...',
-    modules: {
-      toolbar: [
-        [{ header: [1, 2, 3, false] }],
-        ['bold', 'italic', 'underline', { background: [] }],
-        [{ list: 'ordered' }, { list: 'bullet' }],
-        ['blockquote', 'code-block', 'clean'],
-      ],
-    },
-  });
+  try {
+    loadStyle(CDN.quillCss);
+    await loadScript(CDN.quillJs);
+    quill = new window.Quill('#quill-editor', {
+      theme: 'snow',
+      placeholder: 'Ekri oswa kole nòt ou a isit la...',
+      modules: {
+        toolbar: [
+          [{ header: [1, 2, 3, false] }],
+          ['bold', 'italic', 'underline', { background: [] }],
+          [{ list: 'ordered' }, { list: 'bullet' }],
+          ['blockquote', 'code-block', 'clean'],
+        ],
+      },
+    });
+  } catch {
+    // Repli hors-ligne si Quill CDN n'était pas encore en cache
+    const host = document.getElementById('quill-editor');
+    if (host && !host.querySelector('textarea')) {
+      host.innerHTML = `<textarea class="textarea" id="quill-fallback-ta" rows="10" placeholder="Ekri oswa kole nòt ou a isit la..."></textarea>`;
+      const getText = () => host.querySelector('#quill-fallback-ta')?.value || '';
+      quill = {
+        root: {
+          get innerHTML() {
+            return `<p>${esc(getText()).replace(/\n{2,}/g, '</p><p>').replace(/\n/g, '<br>')}</p>`;
+          },
+          set innerHTML(html) {
+            const ta = host.querySelector('#quill-fallback-ta');
+            if (ta) ta.value = htmlToText(html);
+          },
+        },
+      };
+    }
+  }
 }
 
 function setAudioProfile(profile) {
@@ -920,28 +940,33 @@ async function saveNote() {
   setLoading(btn, true);
   const clientId = uid();
 
+  const saveLocallyToQueue = async () => {
+    const files = [
+      ...photoBlobs.map((p) => ({ kind: 'image', blob: p.blob, mime: 'image/jpeg', ext: 'jpg' })),
+      ...audioChunksBlobs.map((a) => ({ kind: 'audio', blob: a.blob, mime: a.mime, ext: a.ext || mimeToExt(a.mime) })),
+      ...importedFiles.map((imp) => ({ kind: 'pdf', blob: imp.file, mime: imp.file.type || 'application/pdf', ext: 'pdf' })),
+    ];
+    await enqueue('note', {
+      client_id: clientId,
+      course_id: courseId,
+      unit_id: unitId,
+      title,
+      content_html: finalHtml,
+      content_text: finalText,
+      raw_text: rawText || null,
+      language: lang,
+      capture_mode: currentMode,
+      process_ai: !structuredData && (files.length > 0 || Boolean(rawText)),
+      files,
+    });
+    toast(t('offline.saved_locally'), 'success');
+    location.href = appUrl('pages/notes.html');
+  };
+
   // Mode hors-ligne : file d'attente IndexedDB avec les blobs originaux
   if (!navigator.onLine) {
     try {
-      const files = [
-        ...photoBlobs.map((p) => ({ kind: 'image', blob: p.blob, mime: 'image/jpeg', ext: 'jpg' })),
-        ...audioChunksBlobs.map((a) => ({ kind: 'audio', blob: a.blob, mime: a.mime, ext: a.ext || mimeToExt(a.mime) })),
-      ];
-      await enqueue('note', {
-        client_id: clientId,
-        course_id: courseId,
-        unit_id: unitId,
-        title,
-        content_html: finalHtml,
-        content_text: finalText,
-        raw_text: rawText || null,
-        language: lang,
-        capture_mode: currentMode,
-        process_ai: !structuredData && (files.length > 0 || Boolean(rawText)),
-        files,
-      });
-      toast(t('offline.saved_locally'), 'success');
-      location.href = appUrl('pages/notes.html');
+      await saveLocallyToQueue();
     } catch (err) {
       handleError(err);
     } finally {
@@ -1042,12 +1067,22 @@ async function saveNote() {
       }
     }
 
+    await cacheSet(`note_${saved.id}`, saved);
     await recordActivity();
     await awardXp(15, 'note_capture', saved.id);
     toast(t('common.saved'), 'success');
     location.href = appUrl(`pages/note-view.html?id=${saved.id}`);
   } catch (err) {
-    handleError(err);
+    if (isNetworkError(err)) {
+      try {
+        await saveLocallyToQueue();
+        return;
+      } catch (qErr) {
+        handleError(qErr);
+      }
+    } else {
+      handleError(err);
+    }
     setLoading(btn, false);
   }
 }
@@ -1149,21 +1184,44 @@ async function saveNote() {
   initQuill().catch(() => {});
 
   try {
-    const { data: cData } = await db.from('pran_not_courses').select('id, name').eq('archived', false).order('name');
-    coursesList = cData || [];
     const cSel = document.getElementById('note-course');
-    coursesList.forEach((c) => cSel.insertAdjacentHTML('beforeend', `<option value="${esc(c.id)}">${esc(c.name)}</option>`));
     const preCourse = getParam('course');
-    if (preCourse) cSel.value = preCourse;
+    const populateCourses = (list) => {
+      coursesList = list || [];
+      cSel.innerHTML = `<option value="">${esc(t('common.none'))}</option>`;
+      coursesList.forEach((c) => cSel.insertAdjacentHTML('beforeend', `<option value="${esc(c.id)}">${esc(c.name)}</option>`));
+      if (preCourse) cSel.value = preCourse;
+    };
 
     const loadUnits = async (cid) => {
       const uSel = document.getElementById('note-unit');
       uSel.innerHTML = `<option value="">${esc(t('common.none'))}</option>`;
       if (!cid) return;
+      const cachedUnits = await cacheGet(`course_units_${cid}`);
+      if (cachedUnits?.length) {
+        cachedUnits.forEach((u) => uSel.insertAdjacentHTML('beforeend', `<option value="${esc(u.id)}">${esc(u.title)}</option>`));
+      }
+      if (!navigator.onLine) return;
       const { data: uData } = await db.from('pran_not_syllabus_units').select('id, title').eq('course_id', cid).order('position');
-      (uData || []).forEach((u) => uSel.insertAdjacentHTML('beforeend', `<option value="${esc(u.id)}">${esc(u.title)}</option>`));
+      if (uData) {
+        await cacheSet(`course_units_${cid}`, uData);
+        uSel.innerHTML = `<option value="">${esc(t('common.none'))}</option>`;
+        uData.forEach((u) => uSel.insertAdjacentHTML('beforeend', `<option value="${esc(u.id)}">${esc(u.title)}</option>`));
+      }
     };
+
     cSel.addEventListener('change', () => loadUnits(cSel.value));
+
+    const cachedCourses = await cacheGet('courses_list');
+    if (cachedCourses?.length) populateCourses(cachedCourses);
+
+    if (navigator.onLine) {
+      const { data: cData } = await db.from('pran_not_courses').select('id, name').eq('archived', false).order('name');
+      if (cData) {
+        await cacheSet('courses_list', cData);
+        populateCourses(cData);
+      }
+    }
     if (preCourse) await loadUnits(preCourse);
   } catch { /* hors-ligne */ }
 })();

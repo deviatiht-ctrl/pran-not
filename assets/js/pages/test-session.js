@@ -12,6 +12,7 @@ import {
   icons, icon, esc, getParam, isUuid, toast, handleError, setLoading, openModal, renderMarkdown, pageEnter,
 } from '../utils.js';
 import { gradeAnswer, explainText } from '../ai.js';
+import { cacheSet, cacheGet } from '../offline.js';
 
 const db = window.db;
 let userRef = null;
@@ -236,17 +237,30 @@ function renderResults(results, percent, weakKeywords) {
     return;
   }
 
-  const [tRes, qRes] = await Promise.all([
-    db.from('pran_not_tests').select('*').eq('id', id).maybeSingle(),
-    db.from('pran_not_test_questions').select('*').eq('test_id', id).order('position'),
-  ]);
-  if (tRes.error || !tRes.data) {
-    document.getElementById('test-session-root').innerHTML = `<div class="alert alert-error">${esc(t('errors.not_found'))}</div>`;
-    return;
+  const cachedSession = await cacheGet(`test_session_${id}`);
+  if (cachedSession?.testRow && !navigator.onLine) {
+    testRow = cachedSession.testRow;
+    questions = cachedSession.questions || [];
+  } else {
+    try {
+      const [tRes, qRes] = await Promise.all([
+        db.from('pran_not_tests').select('*').eq('id', id).maybeSingle(),
+        db.from('pran_not_test_questions').select('*').eq('test_id', id).order('position'),
+      ]);
+      if (tRes.error || !tRes.data) throw tRes.error || new Error('not_found');
+      testRow = tRes.data;
+      questions = qRes.data || [];
+      await cacheSet(`test_session_${id}`, { testRow, questions });
+    } catch {
+      if (cachedSession?.testRow) {
+        testRow = cachedSession.testRow;
+        questions = cachedSession.questions || [];
+      } else {
+        document.getElementById('test-session-root').innerHTML = `<div class="alert alert-error">${esc(t('errors.not_found'))}</div>`;
+        return;
+      }
+    }
   }
-
-  testRow = tRes.data;
-  questions = qRes.data || [];
 
   setTutorContext({
     contextType: 'test',

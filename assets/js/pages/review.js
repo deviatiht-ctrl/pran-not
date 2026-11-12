@@ -168,6 +168,11 @@ async function submitRating(rating) {
       durationMs,
       clientId,
     });
+    const remaining = queue.slice(index);
+    const dk = getParam('deck');
+    const cr = getParam('course');
+    const cKey = dk ? `due_cards_deck_${dk}` : cr ? `due_cards_course_${cr}` : 'due_cards';
+    await cacheSet(cKey, remaining);
     return;
   }
 
@@ -209,18 +214,27 @@ document.addEventListener('keydown', (e) => {
 
   const deckParam = getParam('deck');
   const courseParam = getParam('course');
+  const cacheKey = deckParam ? `due_cards_deck_${deckParam}` : courseParam ? `due_cards_course_${courseParam}` : 'due_cards';
 
-  try {
-    let q = db.from('pran_not_flashcards').select('*').eq('suspended', false).lte('due_at', new Date().toISOString()).order('due_at').limit(40);
-    if (deckParam) q = q.eq('deck_id', deckParam);
-    if (courseParam) q = q.eq('course_id', courseParam);
-    const { data, error } = await q;
-    if (error) throw error;
-    queue = data || [];
-    await cacheSet('due_cards', queue);
-  } catch (err) {
-    queue = (await cacheGet('due_cards')) || [];
-    if (!queue.length) handleError(err);
+  const cachedQueue = (await cacheGet(cacheKey)) || (await cacheGet('due_cards')) || [];
+  const filterCached = (arr) => arr.filter((c) => (!deckParam || c.deck_id === deckParam) && (!courseParam || c.course_id === courseParam));
+
+  if (!navigator.onLine) {
+    queue = filterCached(cachedQueue);
+  } else {
+    try {
+      let q = db.from('pran_not_flashcards').select('*').eq('suspended', false).lte('due_at', new Date().toISOString()).order('due_at').limit(40);
+      if (deckParam) q = q.eq('deck_id', deckParam);
+      if (courseParam) q = q.eq('course_id', courseParam);
+      const { data, error } = await q;
+      if (error) throw error;
+      queue = data || [];
+      await cacheSet(cacheKey, queue);
+      if (cacheKey === 'due_cards') await cacheSet('due_cards', queue);
+    } catch (err) {
+      queue = filterCached(cachedQueue);
+      if (!queue.length) handleError(err);
+    }
   }
 
   await initAppChrome({ profile, user, active: 'review', dueCount: queue.length });

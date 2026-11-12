@@ -1,11 +1,14 @@
 /* =====================================================================
    PRAN NÒT - sw.js
-   Service Worker PWA : mise en cache des pages/ressources statiques,
-   navigation hors-ligne et déclenchement de synchronisation.
+   Service Worker PWA haute performance :
+   - Pré-cache complet de l'app shell + bibliothèques cœur (offline dès l'installation)
+   - Cache-First / Stale-While-Revalidate sur CSS/JS/JSON/Images/CDN (< 5 ms)
+   - Navigation HTML rapide (repli cache immédiat hors-ligne ou réseau > 1.2 s)
+   - Déclenchement synchronisation Background Sync
    ===================================================================== */
 
-const CACHE_NAME = 'prannot-shell-v9';
-const PRECACHE_URLS = [
+const CACHE_NAME = 'prannot-shell-v10';
+const PRECACHE_LOCAL = [
   './',
   './index.html',
   './login.html',
@@ -24,8 +27,8 @@ const PRECACHE_URLS = [
   './assets/css/mobile-nav.css',
   './assets/css/components.css',
   './assets/css/admin.css',
-  './assets/i18n/ht.json',
-  './assets/i18n/fr.json',
+  './assets/i18n/ht.json?v=20261112b',
+  './assets/i18n/fr.json?v=20261112b',
   './assets/js/supabase.js',
   './assets/js/theme.js',
   './assets/js/auth.js',
@@ -79,11 +82,31 @@ const PRECACHE_URLS = [
   './pages/settings.html',
 ];
 
+const PRECACHE_CDN = [
+  'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2',
+  'https://cdn.jsdelivr.net/npm/lucide@0.468.0/dist/umd/lucide.min.js',
+  'https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js',
+  'https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.min.js',
+  'https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.snow.css',
+  'https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js',
+];
+
+function isOnline() {
+  return self.navigator?.onLine !== false;
+}
+
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then(async (cache) => {
-      // Cache tolérant : n'échoue pas tout si une page est ajoutée ensuite
-      await Promise.allSettled(PRECACHE_URLS.map((u) => cache.add(u)));
+      await Promise.allSettled([
+        ...PRECACHE_LOCAL.map((u) => cache.add(u)),
+        ...PRECACHE_CDN.map((u) =>
+          fetch(u, { mode: 'cors', credentials: 'omit' }).then((res) => {
+            if (res && res.ok) return cache.put(u, res);
+            return null;
+          })
+        ),
+      ]);
     })
   );
   self.skipWaiting();
@@ -98,7 +121,7 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-async function fetchWithTimeout(input, init = {}, timeoutMs = 3500) {
+async function fetchWithTimeout(input, init = {}, timeoutMs = 1500) {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
@@ -108,73 +131,128 @@ async function fetchWithTimeout(input, init = {}, timeoutMs = 3500) {
   }
 }
 
+async function matchCachedHtml(cache, req, pathname) {
+  return (await cache.match(req, { ignoreSearch: true }))
+    || (await cache.match(pathname))
+    || (pathname === '/' ? await cache.match('./index.html') : null)
+    || (await cache.match('./pages/dashboard.html'))
+    || (await cache.match('./index.html'));
+}
+
 self.addEventListener('fetch', (event) => {
   const req = event.request;
   if (req.method !== 'GET') return;
 
   const url = new URL(req.url);
-  // Ne jamais mettre en cache les appels API / Storage Supabase
+
+  // Ne jamais mettre en cache les appels API / Storage / Auth / Edge Functions Supabase
   if (url.hostname.includes('supabase.co') || url.pathname.includes('/functions/v1/')) {
     return;
   }
 
-  // Navigations HTML : réseau d'abord (avec délai court), repli cache
+  // 1. Navigations HTML : offline -> cache immédiat (< 5 ms), online -> timeout court 1.2 s puis cache
   if (req.mode === 'navigate') {
-    event.respondWith(
-      fetchWithTimeout(req)
-        .then((res) => {
-          if (res.ok) {
-            const copy = res.clone();
-            caches.open(CACHE_NAME).then((c) => c.put(url.pathname, copy));
-          }
-          return res;
-        })
-        .catch(async () => {
-          const cache = await caches.open(CACHE_NAME);
-          return (await cache.match(req, { ignoreSearch: true }))
-            || (await cache.match(url.pathname))
-            || (await cache.match('./pages/dashboard.html'))
-            || (await cache.match('./index.html'));
-        })
-    );
-    return;
-  }
-
-  // Fichiers locaux (.js, .css, .json, .svg) : réseau d'abord sans cache périmé pour éviter tout décalage HTML/JS
-  if (url.origin === self.location.origin) {
-    event.respondWith(
-      caches.open(CACHE_NAME).then(async (cache) => {
-        try {
-          const netRes = await fetchWithTimeout(req.url, { cache: 'no-cache' });
-          if (netRes && netRes.ok) {
-            cache.put(req, netRes.clone());
-            return netRes;
-          }
-          return (await cache.match(req, { ignoreSearch: true })) || netRes;
-        } catch {
-          const cached = await cache.match(req, { ignoreSearch: true });
-          if (cached) return cached;
-          throw new Error('offline_asset_unavailable');
+    event.respondWith((async () => {
+      const cache = await caches.open(CACHE_NAME);
+      if (!isOnline()) {
+        const cached = await matchCachedHtml(cache, req, url.pathname);
+        if (cached) return cached;
+      }
+      try {
+        const netRes = await fetchWithTimeout(req, {}, 1200);
+        if (netRes && netRes.ok) {
+          event.waitUntil(cache.put(url.pathname, netRes.clone()));
+          return netRes;
         }
-      })
-    );
+        const cached = await matchCachedHtml(cache, req, url.pathname);
+        return cached || netRes;
+      } catch {
+        const cached = await matchCachedHtml(cache, req, url.pathname);
+        if (cached) return cached;
+        return new Response('<!DOCTYPE html><meta charset="utf-8"><title>Pran Nòt</title><body style="font-family:sans-serif;padding:24px;"><h2>Mòd san entènèt</h2><p>Paj sa a poko nan kach lokal la. Retounen sou <a href="/pages/dashboard.html">Akèy la</a>.</p></body>', {
+          status: 503,
+          headers: { 'Content-Type': 'text/html; charset=utf-8' },
+        });
+      }
+    })());
     return;
   }
 
-  // Ressources CDN figées : stale-while-revalidate (économie de données mobiles)
+  // 2. Fichiers locaux (.css, .js, .json, .png, .svg, .webmanifest) : Cache-First + Stale-While-Revalidate
+  if (url.origin === self.location.origin) {
+    event.respondWith((async () => {
+      const cache = await caches.open(CACHE_NAME);
+      const cached = (await cache.match(req))
+        || (await cache.match(req, { ignoreSearch: true }))
+        || (await cache.match(url.pathname));
+
+      if (cached) {
+        if (isOnline()) {
+          event.waitUntil(
+            fetchWithTimeout(req.url, { cache: 'no-cache' }, 4000)
+              .then((netRes) => {
+                if (netRes && netRes.ok) return cache.put(req, netRes.clone());
+                return null;
+              })
+              .catch(() => {})
+          );
+        }
+        return cached;
+      }
+
+      if (!isOnline()) {
+        return Response.error();
+      }
+
+      try {
+        const netRes = await fetchWithTimeout(req, {}, 4000);
+        if (netRes && netRes.ok) {
+          event.waitUntil(cache.put(req, netRes.clone()));
+        }
+        return netRes;
+      } catch {
+        return Response.error();
+      }
+    })());
+    return;
+  }
+
+  // 3. CDN figés & Google Fonts : Cache-First + Stale-While-Revalidate + repli non-bloquant hors-ligne
   if (url.hostname.includes('jsdelivr.net') || url.hostname.includes('fonts.')) {
-    event.respondWith(
-      caches.open(CACHE_NAME).then(async (cache) => {
-        const cached = await cache.match(req);
-        const networkPromise = fetch(req)
-          .then((res) => {
-            if (res && res.ok) cache.put(req, res.clone());
-            return res;
-          })
-          .catch(() => cached);
-        return cached || networkPromise;
-      })
-    );
+    event.respondWith((async () => {
+      const cache = await caches.open(CACHE_NAME);
+      const cached = (await cache.match(req)) || (await cache.match(req, { ignoreSearch: true }));
+      if (cached) {
+        if (isOnline() && url.hostname.includes('fonts.googleapis.com')) {
+          event.waitUntil(
+            fetchWithTimeout(req, {}, 3000)
+              .then((res) => (res && res.ok ? cache.put(req, res.clone()) : null))
+              .catch(() => {})
+          );
+        }
+        return cached;
+      }
+
+      if (!isOnline()) {
+        if (url.hostname === 'fonts.googleapis.com') {
+          return new Response('', { status: 200, headers: { 'Content-Type': 'text/css; charset=utf-8' } });
+        }
+        return Response.error();
+      }
+
+      try {
+        const netRes = await fetchWithTimeout(req, {}, 3500);
+        if (netRes && netRes.ok) {
+          event.waitUntil(cache.put(req, netRes.clone()));
+        }
+        return netRes;
+      } catch {
+        if (url.hostname === 'fonts.googleapis.com') {
+          return new Response('', { status: 200, headers: { 'Content-Type': 'text/css; charset=utf-8' } });
+        }
+        return Response.error();
+      }
+    })());
   }
 });
 

@@ -12,6 +12,7 @@ import {
 } from '../utils.js';
 import { generateTest } from '../ai.js';
 import { getThemeChartPalette } from '../theme.js';
+import { cacheSet, cacheGet } from '../offline.js';
 
 const db = window.db;
 let course = null;
@@ -280,29 +281,53 @@ async function renderCourse() {
     return;
   }
 
-  try {
-    const [cRes, uRes, nRes, kRes, dRes, fRes, aRes, asgRes] = await Promise.all([
-      db.from('pran_not_courses').select('*').eq('id', id).maybeSingle(),
-      db.from('pran_not_syllabus_units').select('*').eq('course_id', id).order('position'),
-      db.from('pran_not_notes').select('id, title, summary, content_text, updated_at, created_at').eq('course_id', id).order('updated_at', { ascending: false }),
-      db.from('pran_not_keywords').select('*').eq('course_id', id).order('weakness', { ascending: false }).limit(20),
-      db.from('pran_not_flashcard_decks').select('id, title').eq('course_id', id),
-      db.from('pran_not_flashcards').select('front, back, lapses, ease').eq('course_id', id).order('lapses', { ascending: false }).limit(8),
-      db.from('pran_not_test_attempts').select('percent, created_at').eq('course_id', id).not('finished_at', 'is', null).order('created_at'),
-      db.from('pran_not_assignments').select('id, title, status').eq('course_id', id),
-    ]);
-    if (cRes.error || !cRes.data) throw new Error('not_found');
-    course = cRes.data;
-    units = uRes.data || [];
-    notes = nRes.data || [];
-    keywords = kRes.data || [];
-    decks = dRes.data || [];
-    hardCards = fRes.data || [];
-    attempts = aRes.data || [];
-    assignments = asgRes.data || [];
-  } catch (err) {
-    document.getElementById('course-root').innerHTML = `<div class="alert alert-error">${esc(t('errors.not_found'))}</div>`;
-    return;
+  const cachedDetail = await cacheGet(`course_detail_${id}`);
+  const applyDetail = (d) => {
+    course = d.course;
+    units = d.units || [];
+    notes = d.notes || [];
+    keywords = d.keywords || [];
+    decks = d.decks || [];
+    hardCards = d.hardCards || [];
+    attempts = d.attempts || [];
+    assignments = d.assignments || [];
+  };
+
+  if (cachedDetail?.course && !navigator.onLine) {
+    applyDetail(cachedDetail);
+  } else {
+    try {
+      const [cRes, uRes, nRes, kRes, dRes, fRes, aRes, asgRes] = await Promise.all([
+        db.from('pran_not_courses').select('*').eq('id', id).maybeSingle(),
+        db.from('pran_not_syllabus_units').select('*').eq('course_id', id).order('position'),
+        db.from('pran_not_notes').select('id, title, summary, content_text, updated_at, created_at').eq('course_id', id).order('updated_at', { ascending: false }),
+        db.from('pran_not_keywords').select('*').eq('course_id', id).order('weakness', { ascending: false }).limit(20),
+        db.from('pran_not_flashcard_decks').select('id, title').eq('course_id', id),
+        db.from('pran_not_flashcards').select('front, back, lapses, ease').eq('course_id', id).order('lapses', { ascending: false }).limit(8),
+        db.from('pran_not_test_attempts').select('percent, created_at').eq('course_id', id).not('finished_at', 'is', null).order('created_at'),
+        db.from('pran_not_assignments').select('id, title, status').eq('course_id', id),
+      ]);
+      if (cRes.error || !cRes.data) throw new Error('not_found');
+      const fresh = {
+        course: cRes.data,
+        units: uRes.data || [],
+        notes: nRes.data || [],
+        keywords: kRes.data || [],
+        decks: dRes.data || [],
+        hardCards: fRes.data || [],
+        attempts: aRes.data || [],
+        assignments: asgRes.data || [],
+      };
+      applyDetail(fresh);
+      await cacheSet(`course_detail_${id}`, fresh);
+    } catch (err) {
+      if (cachedDetail?.course) {
+        applyDetail(cachedDetail);
+      } else {
+        document.getElementById('course-root').innerHTML = `<div class="alert alert-error">${esc(t('errors.not_found'))}</div>`;
+        return;
+      }
+    }
   }
 
   setTutorContext({

@@ -444,7 +444,7 @@ export function getTheme() {
 /** Applique puis sauvegarde sur le profil Supabase. */
 export async function saveTheme(rawConfig, { persistProfile = true } = {}) {
   const cfg = applyTheme(rawConfig, { persistLocal: true });
-  if (persistProfile && window.db) {
+  if (persistProfile && window.db && navigator.onLine) {
     try {
       const { data: sess } = await window.db.auth.getSession();
       const uid = sess?.session?.user?.id;

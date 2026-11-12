@@ -9,7 +9,7 @@ import { t, formatRelative } from '../i18n.js';
 import {
   icons, icon, esc, emptyState, debounce, animateIn, pageEnter, handleError, confirmDialog, toast,
 } from '../utils.js';
-import { cacheSet, cacheGet } from '../offline.js';
+import { cacheSet, cacheGet, getQueueItems } from '../offline.js';
 
 const db = window.db;
 const PAGE_SIZE = 18;
@@ -54,17 +54,20 @@ function renderList(append = false) {
     const ic = modeIcons[n.capture_mode] || 'file-text';
     return `<article class="card card-sm" style="display:flex;flex-direction:column;gap:10px;">
       <div class="row-between">
-        <span class="badge">${icon(ic)}<span>${esc(t(`capture.mode_${n.capture_mode}`) || n.capture_mode)}</span></span>
-        <div class="row" style="gap:4px;">
+        <div class="row-wrap" style="gap:6px;">
+          <span class="badge">${icon(ic)}<span>${esc(t(`capture.mode_${n.capture_mode}`) || n.capture_mode)}</span></span>
+          ${n.is_local_pending ? `<span class="badge badge-warning">${icon('wifi-off')}<span>Lokal</span></span>` : ''}
+        </div>
+        ${n.is_local_pending ? '' : `<div class="row" style="gap:4px;">
           <button type="button" class="btn-icon" data-pin="${esc(n.id)}" aria-label="Pin" title="Pin">
             ${icon(n.is_pinned ? 'bookmark-check' : 'bookmark')}
           </button>
           <button type="button" class="btn-icon" data-del="${esc(n.id)}" aria-label="${esc(t('common.delete'))}">
             ${icon('trash-2')}
           </button>
-        </div>
+        </div>`}
       </div>
-      <a href="./note-view.html?id=${esc(n.id)}" style="text-decoration:none;flex:1;">
+      <a href="./note-view.html?id=${esc(encodeURIComponent(n.id))}" style="text-decoration:none;flex:1;">
         <h3 class="card-title line-clamp-2">${esc(n.title || t('notes.untitled'))}</h3>
         <p class="text-sm muted line-clamp-3 mb-0">${esc(n.summary || n.content_text || '')}</p>
       </a>
@@ -113,10 +116,53 @@ function renderList(append = false) {
   animateIn('#notes-grid article');
 }
 
+async function getPendingNotes() {
+  const qItems = await getQueueItems();
+  return qItems
+    .filter((x) => x.kind === 'note' && x.payload)
+    .map((x) => ({
+      id: `local:${x.id}`,
+      title: x.payload.title || t('notes.untitled'),
+      summary: (x.payload.content_text || '').slice(0, 200),
+      content_text: x.payload.content_text || '',
+      course_id: x.payload.course_id || null,
+      capture_mode: x.payload.capture_mode || 'text',
+      is_pinned: false,
+      is_local_pending: true,
+      created_at: new Date(x.createdAt).toISOString(),
+      updated_at: new Date(x.createdAt).toISOString(),
+    }))
+    .reverse();
+}
+
+function populateCoursesFilter(cData) {
+  const cSel = document.getElementById('notes-course-filter');
+  const prev = cSel.value;
+  cSel.innerHTML = `<option value="" data-i18n="notes.filter_course">${esc(t('notes.filter_course'))}</option>`;
+  coursesMap.clear();
+  (cData || []).forEach((c) => {
+    coursesMap.set(c.id, c);
+    cSel.insertAdjacentHTML('beforeend', `<option value="${esc(c.id)}">${esc(c.name)}</option>`);
+  });
+  if (prev && coursesMap.has(prev)) cSel.value = prev;
+}
+
 async function fetchNotes(reset = true) {
-  if (reset) { page = 0; allNotes = []; }
+  if (reset) { page = 0; }
+  const pending = await getPendingNotes();
   const from = page * PAGE_SIZE;
   const to = from + PAGE_SIZE - 1;
+
+  if (!navigator.onLine) {
+    if (reset) {
+      const cached = (await cacheGet('notes_list')) || [];
+      allNotes = [...pending, ...cached];
+      hasMore = false;
+    }
+    renderList();
+    return;
+  }
+
   try {
     const { data, error } = await db
       .from('pran_not_notes')
@@ -126,11 +172,13 @@ async function fetchNotes(reset = true) {
       .range(from, to);
     if (error) throw error;
     hasMore = (data || []).length === PAGE_SIZE;
-    allNotes = reset ? (data || []) : [...allNotes, ...(data || [])];
-    await cacheSet('notes_list', allNotes);
+    const remote = reset ? (data || []) : [...allNotes.filter((n) => !n.is_local_pending), ...(data || [])];
+    await cacheSet('notes_list', remote);
+    allNotes = reset ? [...pending, ...remote] : [...allNotes, ...(data || [])];
   } catch (err) {
     if (reset) {
-      allNotes = (await cacheGet('notes_list')) || [];
+      const cached = (await cacheGet('notes_list')) || [];
+      allNotes = [...pending, ...cached];
     }
     if (!allNotes.length) handleError(err);
   }
@@ -143,14 +191,28 @@ async function fetchNotes(reset = true) {
   setTutorContext({ contextType: 'general', contextTitle: t('notes.title') });
   pageEnter();
 
-  try {
-    const { data: cData } = await db.from('pran_not_courses').select('id, name, color').eq('archived', false).order('name');
-    const cSel = document.getElementById('notes-course-filter');
-    (cData || []).forEach((c) => {
-      coursesMap.set(c.id, c);
-      cSel.insertAdjacentHTML('beforeend', `<option value="${esc(c.id)}">${esc(c.name)}</option>`);
-    });
-  } catch { /* hors-ligne */ }
+  // Affichage immédiat depuis le cache local (< 5 ms), puis actualisation si en ligne
+  const [cachedCourses, cachedNotes, pendingNotes] = await Promise.all([
+    cacheGet('courses_list'),
+    cacheGet('notes_list'),
+    getPendingNotes(),
+  ]);
+  if (cachedCourses?.length) populateCoursesFilter(cachedCourses);
+  if (pendingNotes.length || cachedNotes?.length) {
+    allNotes = [...pendingNotes, ...(cachedNotes || [])];
+    renderList();
+  }
+
+  if (navigator.onLine) {
+    db.from('pran_not_courses').select('id, name, color').eq('archived', false).order('name')
+      .then(async ({ data: cData }) => {
+        if (cData) {
+          populateCoursesFilter(cData);
+          await cacheSet('courses_list', cData);
+        }
+      })
+      .catch(() => {});
+  }
 
   await fetchNotes(true);
 

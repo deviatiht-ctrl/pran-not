@@ -12,6 +12,7 @@ import {
   setLoading, getParam, isUuid, animateIn, pageEnter,
 } from '../utils.js';
 import { generateFlashcards } from '../ai.js';
+import { cacheSet, cacheGet } from '../offline.js';
 
 const db = window.db;
 let userRef = null;
@@ -79,10 +80,28 @@ function renderDecks() {
 }
 
 async function openDeck(deckId) {
-  const { data: d } = await db.from('pran_not_flashcard_decks').select('*').eq('id', deckId).maybeSingle();
-  if (!d) return;
+  let d = decks.find((x) => x.id === deckId) || null;
+  let cards = (await cacheGet(`flashcards_deck_${deckId}`)) || null;
+
+  if (navigator.onLine) {
+    try {
+      const [{ data: remoteDeck }, { data: remoteCards }] = await Promise.all([
+        db.from('pran_not_flashcard_decks').select('*').eq('id', deckId).maybeSingle(),
+        db.from('pran_not_flashcards').select('*').eq('deck_id', deckId).order('created_at', { ascending: false }),
+      ]);
+      if (remoteDeck) d = remoteDeck;
+      if (remoteCards) {
+        cards = remoteCards;
+        await cacheSet(`flashcards_deck_${deckId}`, cards);
+      }
+    } catch { /* fallback cache */ }
+  }
+
+  if (!d) {
+    toast(t('errors.not_found'), 'error');
+    return;
+  }
   activeDeck = d;
-  const { data: cards } = await db.from('pran_not_flashcards').select('*').eq('deck_id', deckId).order('created_at', { ascending: false });
   deckCards = cards || [];
   renderDeckDetail();
 }
@@ -285,16 +304,62 @@ async function dedupeCards() {
   setTutorContext({ contextType: 'general', contextTitle: t('flashcards.title') });
   pageEnter();
 
-  const [cRes, dRes] = await Promise.all([
-    db.from('pran_not_courses').select('id, name').eq('archived', false).order('name'),
-    db.from('pran_not_flashcard_decks').select('*').order('created_at', { ascending: false }),
+  const [cachedCourses, cachedDecks] = await Promise.all([
+    cacheGet('courses_list'),
+    cacheGet('flashcard_decks'),
   ]);
-  courses = cRes.data || [];
-  decks = dRes.data || [];
+  if (cachedCourses) courses = cachedCourses;
+  if (cachedDecks) {
+    decks = cachedDecks;
+    const deckParamCached = getParam('deck');
+    if (isUuid(deckParamCached)) await openDeck(deckParamCached);
+    else renderDecks();
+  }
 
-  const deckParam = getParam('deck');
-  if (isUuid(deckParam)) await openDeck(deckParam);
-  else renderDecks();
+  if (navigator.onLine) {
+    try {
+      const [cRes, dRes] = await Promise.all([
+        db.from('pran_not_courses').select('id, name').eq('archived', false).order('name'),
+        db.from('pran_not_flashcard_decks').select('*').order('created_at', { ascending: false }),
+      ]);
+      if (cRes.data) {
+        courses = cRes.data;
+        await cacheSet('courses_list', courses);
+      }
+      if (dRes.data) {
+        decks = dRes.data;
+        await cacheSet('flashcard_decks', decks);
+      }
+
+      const deckParam = getParam('deck');
+      if (isUuid(deckParam)) await openDeck(deckParam);
+      else renderDecks();
+
+      // Pré-cacher en arrière-plan les cartes des paquets récents pour révision hors-ligne
+      if (decks.length) {
+        db.from('pran_not_flashcards').select('*').in('deck_id', decks.slice(0, 12).map((d) => d.id))
+          .then(async ({ data: allCards }) => {
+            if (!allCards?.length) return;
+            const byDeck = new Map();
+            allCards.forEach((c) => {
+              if (!byDeck.has(c.deck_id)) byDeck.set(c.deck_id, []);
+              byDeck.get(c.deck_id).push(c);
+            });
+            for (const [did, list] of byDeck.entries()) {
+              await cacheSet(`flashcards_deck_${did}`, list);
+            }
+          })
+          .catch(() => {});
+      }
+    } catch (err) {
+      if (!decks.length) {
+        renderDecks();
+        handleError(err);
+      }
+    }
+  } else if (!decks.length) {
+    renderDecks();
+  }
 
   document.getElementById('new-deck-btn').addEventListener('click', openDeckModal);
 })();

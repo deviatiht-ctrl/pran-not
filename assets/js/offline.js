@@ -51,6 +51,14 @@ export function isDataSaver() {
   return document.body.classList.contains('data-saver') || localStorage.getItem('prannot.dataSaver') === '1';
 }
 
+export function isNetworkError(err) {
+  if (!navigator.onLine) return true;
+  if (!err) return false;
+  const msg = String(err?.message || err || '');
+  return err?.name === 'TypeError'
+    || /failed to fetch|networkerror|load failed|network request failed|internet|offline|timeout|aborted/i.test(msg);
+}
+
 /** Stocke une donnée en cache local pour lecture hors-ligne. */
 export async function cacheSet(key, data) {
   try {
@@ -67,6 +75,24 @@ export async function cacheGet(key) {
     return row?.data ?? null;
   } catch {
     return null;
+  }
+}
+
+/** Lit toutes les entrées du cache dont la clé commence par un préfixe. */
+export async function cacheEntriesByPrefix(prefix) {
+  try {
+    const db = await openDb();
+    return await new Promise((resolve) => {
+      const txx = db.transaction(STORE_CACHE, 'readonly');
+      const req = txx.objectStore(STORE_CACHE).getAll();
+      req.onsuccess = () => {
+        const rows = (req.result || []).filter((r) => String(r.key || '').startsWith(prefix));
+        resolve(rows);
+      };
+      req.onerror = () => resolve([]);
+    });
+  } catch {
+    return [];
   }
 }
 
@@ -338,6 +364,34 @@ async function syncSessionItem(db, userId, payload) {
   if (error) throw error;
 }
 
+/** Synchronise la modification d'une note existante hors-ligne. */
+async function syncNoteUpdateItem(db, userId, payload) {
+  if (!payload?.note_id) return;
+  const patch = {
+    title: payload.title,
+    summary: payload.summary,
+    content_text: payload.content_text,
+    content_html: payload.content_html,
+  };
+  const { error } = await db
+    .from('pran_not_notes')
+    .update(patch)
+    .eq('id', payload.note_id)
+    .eq('user_id', userId);
+  if (error) throw error;
+}
+
+/** Synchronise la modification d'un devoir hors-ligne. */
+async function syncAssignmentUpdateItem(db, userId, payload) {
+  if (!payload?.assignment_id) return;
+  const { error } = await db
+    .from('pran_not_assignments')
+    .update(payload.patch || {})
+    .eq('id', payload.assignment_id)
+    .eq('user_id', userId);
+  if (error) throw error;
+}
+
 /** Vide la file d'attente hors-ligne dès que la connexion est active. */
 export async function flushQueue({ silent = false } = {}) {
   if (flushing || !navigator.onLine || !window.db) return 0;
@@ -360,6 +414,8 @@ export async function flushQueue({ silent = false } = {}) {
       if (!navigator.onLine) break;
       try {
         if (item.kind === 'note') await syncNoteItem(window.db, userId, item.payload);
+        else if (item.kind === 'note_update') await syncNoteUpdateItem(window.db, userId, item.payload);
+        else if (item.kind === 'assignment_update') await syncAssignmentUpdateItem(window.db, userId, item.payload);
         else if (item.kind === 'review') await syncReviewItem(window.db, userId, item.payload);
         else if (item.kind === 'session') await syncSessionItem(window.db, userId, item.payload);
         await removeQueueItem(item.id);
