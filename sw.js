@@ -4,18 +4,20 @@
    navigation hors-ligne et déclenchement de synchronisation.
    ===================================================================== */
 
-const CACHE_NAME = 'prannot-shell-v7';
+const CACHE_NAME = 'prannot-shell-v8';
 const PRECACHE_URLS = [
   './',
   './index.html',
   './login.html',
   './onboarding.html',
   './manifest.json',
-  './assets/icons/icon.svg',
+  './assets/icons/icon-nav.png',
   './assets/icons/icon-192.png',
   './assets/icons/icon-512.png',
   './assets/icons/icon-maskable-512.png',
   './assets/icons/apple-touch-icon.png',
+  './assets/logos/logo-sans-bg-light.png',
+  './assets/logos/logo-horizontal.png',
   './assets/css/variables.css',
   './assets/css/main.css',
   './assets/css/navbar.css',

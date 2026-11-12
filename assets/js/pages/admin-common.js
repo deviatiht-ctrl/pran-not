@@ -31,7 +31,7 @@ export async function initAdminPage(activeKey) {
     sidebar.innerHTML = `
       <div class="admin-brand">
         <a class="nav-brand" href="${appUrl('pages/admin/dashboard.html')}">
-          <span class="nav-brand-mark">${icon('shield')}</span>
+          <span class="nav-brand-mark"><img src="${appUrl('assets/icons/icon-nav.png')}" alt=""></span>
           <span>Pran N<span class="nav-brand-dot">ò</span>t</span>
         </a>
         <span class="badge badge-accent">Admin</span>

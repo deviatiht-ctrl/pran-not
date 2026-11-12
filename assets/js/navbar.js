@@ -75,7 +75,7 @@ export async function initAppChrome({
 
   pill.innerHTML = `
     <a class="nav-brand" href="${pageHref('pages/dashboard.html')}">
-      <span class="nav-brand-mark">${icon('notebook-pen')}</span>
+      <span class="nav-brand-mark"><img src="${pageHref('assets/icons/icon-nav.png')}" alt=""></span>
       <span>Pran N<span class="nav-brand-dot">ò</span>t</span>
     </a>
     <div class="nav-links">
@@ -127,7 +127,7 @@ export async function initAppChrome({
   }
   mobileTop.innerHTML = `
     <a class="nav-brand" href="${pageHref('pages/dashboard.html')}">
-      <span class="nav-brand-mark">${icon('notebook-pen')}</span>
+      <span class="nav-brand-mark"><img src="${pageHref('assets/icons/icon-nav.png')}" alt=""></span>
       <span>Pran N<span class="nav-brand-dot">ò</span>t</span>
     </a>
     <div class="mobile-top-actions">
@@ -249,7 +249,7 @@ export function renderPublicNav() {
   pill.className = 'nav-pill public';
   pill.innerHTML = `
     <a class="nav-brand" href="${pageHref('index.html')}">
-      <span class="nav-brand-mark">${icon('notebook-pen')}</span>
+      <span class="nav-brand-mark"><img src="${pageHref('assets/icons/icon-nav.png')}" alt=""></span>
       <span>Pran N<span class="nav-brand-dot">ò</span>t</span>
     </a>
     <div class="nav-links">
