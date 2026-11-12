@@ -320,6 +320,8 @@
     "professor": "Non pwofesè a",
     "semester": "Semès",
     "credits": "Kredi",
+    "credits_optional": "Kredi (opsyonèl / si inivèsite a genyen l)",
+    "credits_placeholder": "Opsyonèl (ex: 3, 0)",
     "exam_date": "Dat egzamen final (si ou konnen l)",
     "days": "Jou kou",
     "start_time": "Lè kou a kòmanse",
@@ -782,6 +784,21 @@
     "finish_sub": "Lè pwofesè a fini, sove nòt ou a pou IA a byen estriktire l epi prepare w pou revizyon kalm.",
     "finish_ai_btn": "Fini kou a ak Estriktire ak IA",
     "save_quick_btn": "Sove vit (san tann / san entènèt)",
-    "saved_success": "Kou a sove byen! W ap jwenn tout plan an nan nòt ou."
+    "saved_success": "Kou a sove byen! W ap jwenn tout plan an nan nòt ou.",
+    "time_adjust_label": "Lè kou a :",
+    "delay_start": "Poko kòmanse",
+    "mark_finished": "Make kòm Fini",
+    "transfer_btn": "Pataje sou sit la",
+    "receive_btn": "Resevwa nòt",
+    "exam_history_btn": "Revizyon Egzamen",
+    "thoughts_title": "Espas Panse & Ide Rapid",
+    "thoughts_hint": "Tout sa k vin nan tèt ou",
+    "thoughts_placeholder": "Ekri kesyon pou pwofesè a, ide flash, refleksyon pèsonèl...",
+    "homework_title": "Devwa & Travay pou Fè",
+    "homework_sub": "Si pwofesè a bay yon travay oswa devwa, ekri l la dirèkteman san w pa soti sou paj la.",
+    "hw_title_ph": "Tit devwa a (ex: Egzèsis 4 paj 45)",
+    "hw_desc_ph": "Detay, enstriksyon pwofesè a bay oswa konsiy...",
+    "add_hw": "Ajoute",
+    "translate_btn": "Tradui nòt la (Kreyòl / Français)"
   }
 }

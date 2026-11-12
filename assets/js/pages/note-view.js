@@ -14,6 +14,8 @@ import {
 import { generateFlashcards, generateTest, explainText, processNote } from '../ai.js';
 import { exportNotePdf, exportNoteDocx, exportNoteMarkdown } from '../export.js';
 import { cacheSet, cacheGet, isDataSaver, enqueue, getQueueItems, updateQueuedNotePayload, isNetworkError } from '../offline.js';
+import { openSendTransferModal, openReceiveTransferModal } from '../live-transfer.js';
+import { playNotificationSound } from '../notifications.js';
 
 const db = window.db;
 let note = null;
@@ -31,6 +33,10 @@ async function renderNote() {
   const takeaways = Array.isArray(st.takeaways) ? st.takeaways : [];
   const implied = Array.isArray(st.implied_points) ? st.implied_points : [];
   const keywords = Array.isArray(st.keywords) ? st.keywords : [];
+  const corrections = Array.isArray(st.corrections) ? st.corrections : [];
+  const homework = Array.isArray(st.homework) ? st.homework : [];
+  const researchTopics = Array.isArray(st.research_topics) ? st.research_topics : [];
+  const verbatimRaw = st.verbatim_raw || '';
 
   root.innerHTML = `
     <div class="page-head">
@@ -48,8 +54,14 @@ async function renderNote() {
         <h1>${esc(note.title || t('notes.untitled'))}</h1>
       </div>
       <div class="page-head-actions">
+        <button type="button" class="btn btn-secondary btn-sm" id="btn-live-transfer" title="Pataje nòt sa dirèkteman sou sit la avèk yon kòd 6 chif">
+          ${icon('share-2')}<span>Transfè sou sit la</span>
+        </button>
+        <button type="button" class="btn btn-secondary btn-sm" id="btn-translate-note" title="Tradui ant Kreyòl ak Fransè">
+          ${icon('languages')}<span>Tradui</span>
+        </button>
         <button type="button" class="btn btn-secondary btn-sm" id="btn-edit-note">${icon('edit-3')}<span>${esc(t('common.edit'))}</span></button>
-        <button type="button" class="btn btn-secondary btn-sm" id="btn-share-note">${icon('share-2')}<span>Pataje</span></button>
+        <button type="button" class="btn btn-secondary btn-sm" id="btn-share-note">${icon('users')}<span>Gwoup</span></button>
         <button type="button" class="btn btn-secondary btn-sm" id="btn-export-note">${icon('download')}<span>${esc(t('notes.btn_export'))}</span></button>
         <button type="button" class="btn btn-danger btn-sm" id="btn-delete-note">${icon('trash-2')}</button>
       </div>
@@ -84,6 +96,64 @@ async function renderNote() {
         <article class="card prose">
           ${note.content_html ? sanitizeHtml(note.content_html) : `<p>${esc(note.content_text || note.raw_text || '')}</p>`}
         </article>
+
+        ${corrections.length ? `
+          <section class="card card-accent mb-4">
+            <div class="row-between mb-2">
+              <h3 class="card-title mb-0 text-sm font-bold" style="color:var(--c-accent);">
+                ${icon('check-check')}<span>Koreksyon & Amelyorasyon IA (${corrections.length})</span>
+              </h3>
+              <span class="text-xs muted">San chanje sans prof la</span>
+            </div>
+            <div class="stack-sm">
+              ${corrections.map((c) => `
+                <div class="card card-sm card-muted">
+                  <div class="text-xs" style="text-decoration:line-through;color:var(--c-muted);">Orijinal : "${esc(c.original)}"</div>
+                  <div class="text-sm font-bold text-success">Korije : "${esc(c.corrected)}"</div>
+                  ${c.reason ? `<div class="text-xs muted">${esc(c.reason)}</div>` : ''}
+                </div>
+              `).join('')}
+            </div>
+          </section>` : ''}
+
+        ${homework.length ? `
+          <section class="card card-accent mb-4">
+            <div class="row-between mb-2">
+              <h3 class="card-title mb-0 text-sm font-bold">
+                ${icon('calendar-check')}<span>Devwa & Travay Detekte (${homework.length})</span>
+              </h3>
+            </div>
+            <div class="stack-sm">
+              ${homework.map((hw, idx) => `
+                <div class="card card-sm card-muted row-between">
+                  <div>
+                    <strong>${esc(hw.title)}</strong>
+                    ${hw.due_hint ? `<div class="text-xs text-warning">Échéance : ${esc(hw.due_hint)}</div>` : ''}
+                    ${hw.description ? `<div class="text-xs muted">${esc(hw.description)}</div>` : ''}
+                  </div>
+                  <button type="button" class="btn btn-sm btn-primary add-detected-hw-btn" data-hw-idx="${idx}">
+                    ${icon('plus')}<span>Ajoute</span>
+                  </button>
+                </div>
+              `).join('')}
+            </div>
+          </section>` : ''}
+
+        ${verbatimRaw ? `
+          <details class="card card-sm card-muted mb-4">
+            <summary class="font-bold text-sm cursor-pointer">${icon('file-text')} Retranskripsyon Fidèl (Tout sa pwofesè a te di nèt)</summary>
+            <div class="text-xs whitespace-pre-wrap mt-3 pt-3" style="border-top:1px solid var(--c-border);max-height:300px;overflow-y:auto;">
+              ${esc(verbatimRaw)}
+            </div>
+          </details>` : ''}
+
+        ${researchTopics.length ? `
+          <section class="card mb-4">
+            <h3 class="card-title text-sm mb-2">${icon('book-open')} Rechèch & Liv pou apwofondi</h3>
+            <ul class="list stack-sm">
+              ${researchTopics.map((rt) => `<li class="list-item text-xs">${icon('search')}<span>${esc(rt)}</span></li>`).join('')}
+            </ul>
+          </section>` : ''}
 
         ${implied.length ? `
           <section class="ai-suggestion">
@@ -544,6 +614,97 @@ function bindActions() {
         } else {
           handleError(err);
         }
+      }
+    });
+  });
+
+  // Transfè an dirèk sou sit la avèk kòd 6 chif
+  document.getElementById('btn-live-transfer')?.addEventListener('click', () => {
+    openSendTransferModal({
+      id: note.id,
+      title: note.title,
+      content_html: note.content_html,
+      content_text: note.content_text,
+      summary: note.summary,
+      keywords: Array.isArray(note.structured?.keywords) ? note.structured.keywords : [],
+      homework: Array.isArray(note.structured?.homework) ? note.structured.homework : [],
+      structured: note.structured,
+      course_name: course?.name || '',
+    });
+  });
+
+  // Tradiksyon rapid ant Kreyòl ak Fransè
+  document.getElementById('btn-translate-note')?.addEventListener('click', async (e) => {
+    const btn = e.currentTarget;
+    setLoading(btn, true);
+    try {
+      const srcText = note.content_text || note.raw_text || '';
+      if (!srcText) {
+        toast(t('errors.required'), 'warning');
+        return;
+      }
+      const isFrench = /^(le|la|les|des|un|une|dans|pour|avec|nous|vous|est|sont)\b/i.test(srcText);
+      const targetMode = isFrench ? 'harmonize_ht' : 'harmonize_fr';
+      const targetLang = isFrench ? 'ht' : 'fr';
+
+      const res = await processNote({
+        rawText: srcText,
+        mode: targetMode,
+        language: targetLang,
+        faculty: profileRef?.faculty_id || 'autre',
+        level: profileRef?.level || 'L1',
+      });
+
+      if (res?.content_html) {
+        note.content_html = res.content_html;
+        note.content_text = res.content_text || srcText;
+        if (res.title) note.title = res.title;
+        if (res.summary) note.summary = res.summary;
+        await renderNote();
+        playNotificationSound('success');
+        toast(`Nòt la tradui an ${targetLang === 'ht' ? 'Kreyòl' : 'Français'}!`, 'success');
+
+        // Sove nan DB si posib
+        if (navigator.onLine && !note.is_local_pending && isUuid(note.id)) {
+          await db.from('pran_not_notes').update({
+            title: note.title,
+            summary: note.summary,
+            content_html: note.content_html,
+            content_text: note.content_text,
+          }).eq('id', note.id);
+        }
+      }
+    } catch (err) {
+      handleError(err);
+    } finally {
+      setLoading(btn, false);
+    }
+  });
+
+  // Ajoute devwa detekte pa IA a dirèkteman nan lis devwa etidyan an
+  document.querySelectorAll('.add-detected-hw-btn').forEach((btn) => {
+    btn.addEventListener('click', async (e) => {
+      const hwIdx = Number(e.currentTarget.dataset.hwIdx);
+      const hwItem = (note.structured?.homework || [])[hwIdx];
+      if (!hwItem) return;
+      setLoading(e.currentTarget, true);
+      try {
+        await db.from('pran_not_assignments').insert({
+          user_id: userRef.id,
+          course_id: note.course_id || null,
+          title: hwItem.title,
+          description: hwItem.description || '',
+          due_at: hwItem.due_hint ? new Date(Date.now() + 7 * 86400000).toISOString() : null,
+          status: 'todo',
+        });
+        playNotificationSound('success');
+        toast('Devwa anrejistre nan lis devwa ou yo!', 'success');
+        e.currentTarget.disabled = true;
+        e.currentTarget.innerHTML = `${icon('check')}<span>Ajoute</span>`;
+        icons(e.currentTarget);
+      } catch (err) {
+        handleError(err);
+        setLoading(e.currentTarget, false);
       }
     });
   });

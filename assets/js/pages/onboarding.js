@@ -178,7 +178,8 @@ function renderStep() {
         setLoading(finishBtn, false);
         return;
       }
-      const notifyWhatsapp = document.getElementById('onb-notify-wa')?.checked !== false;
+      const waToggle = document.getElementById('onb-notify-wa');
+      const notifyWhatsapp = waToggle ? Boolean(waToggle.checked) : true;
 
       await updateProfile({
         full_name: fullName,

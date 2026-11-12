@@ -20,6 +20,9 @@ import {
   mergeCourseSchedules, getCourseLiveStatus, formatCourseScheduleBadge,
   triggerWhatsAppClassAlert, playNotificationSound,
 } from '../notifications.js';
+import {
+  openSendTransferModal, openReceiveTransferModal, openExamRevisionModal,
+} from '../live-transfer.js';
 
 const db = window.db;
 const DRAFT_KEY = 'prannot.liveClassDraft';
@@ -32,6 +35,9 @@ let units = [];
 let selectedCourseId = '';
 let selectedUnitId = '';
 let searchTab = 'library';
+let sessionStartedAt = new Date().toISOString();
+let homeworkList = []; // { id, title, due, description }
+let lastAutoSaveTime = 0;
 
 // Chrono session & audio
 let classElapsedSec = 0;
@@ -71,21 +77,74 @@ function formatStamp() {
   return `[${formatDuration(recTotalSec > 0 ? recTotalSec : classElapsedSec)}]`;
 }
 
-function saveDraft() {
+function saveDraft({ showBadge = true } = {}) {
   try {
-    localStorage.setItem(DRAFT_KEY, JSON.stringify({
+    const title = document.getElementById('live-note-title')?.value || '';
+    const body = document.getElementById('live-notes-area')?.value || '';
+    const thoughts = document.getElementById('live-thoughts-area')?.value || '';
+    const payload = {
       courseId: selectedCourseId,
       unitId: selectedUnitId,
-      title: document.getElementById('live-note-title')?.value || '',
-      body: document.getElementById('live-notes-area')?.value || '',
+      title,
+      body,
+      thoughts,
+      homework: homeworkList,
       keywords: keywordsLog,
       savedAt: Date.now(),
-    }));
+      classElapsedSec,
+      recTotalSec,
+      sessionStartedAt,
+    };
+    localStorage.setItem(DRAFT_KEY, JSON.stringify(payload));
+    lastAutoSaveTime = Date.now();
+
+    if (showBadge) {
+      const badgeText = document.getElementById('live-autosave-text');
+      if (badgeText) {
+        const d = new Date();
+        const hh = String(d.getHours()).padStart(2, '0');
+        const mm = String(d.getMinutes()).padStart(2, '0');
+        const ss = String(d.getSeconds()).padStart(2, '0');
+        badgeText.textContent = `Sove ${hh}:${mm}:${ss}`;
+      }
+    }
   } catch { /* ignore */ }
 }
 
 function clearDraft() {
   try { localStorage.removeItem(DRAFT_KEY); } catch { /* ignore */ }
+}
+
+function renderHomeworkList() {
+  const box = document.getElementById('live-hw-list');
+  const countBadge = document.getElementById('live-hw-count');
+  if (countBadge) countBadge.textContent = `${homeworkList.length} devwa`;
+  if (!box) return;
+  if (!homeworkList.length) {
+    box.innerHTML = '';
+    return;
+  }
+  box.innerHTML = homeworkList.map((hw, idx) => `
+    <div class="card card-sm card-muted row-between">
+      <div class="flex-1">
+        <div class="text-sm font-bold">${esc(hw.title)}</div>
+        ${hw.due ? `<div class="text-xs text-warning">Dat limit : ${esc(hw.due)}</div>` : ''}
+        ${hw.description ? `<div class="text-xs muted">${esc(hw.description)}</div>` : ''}
+      </div>
+      <button type="button" class="btn btn-ghost btn-xs text-error live-hw-del-btn" data-hw-idx="${idx}" aria-label="Supprimer">
+        ${icon('trash-2')}
+      </button>
+    </div>
+  `).join('');
+  icons(box);
+  box.querySelectorAll('.live-hw-del-btn').forEach((b) => {
+    b.addEventListener('click', (e) => {
+      const i = Number(e.currentTarget.dataset.hwIdx);
+      homeworkList.splice(i, 1);
+      renderHomeworkList();
+      saveDraft();
+    });
+  });
 }
 
 function restoreDraft(targetCourseId) {
@@ -95,12 +154,18 @@ function restoreDraft(targetCourseId) {
     const d = JSON.parse(raw);
     if (!d || Date.now() - Number(d.savedAt || 0) > 18 * 3600 * 1000) return;
     if (targetCourseId && d.courseId && d.courseId !== targetCourseId) return;
-    if (d.title) document.getElementById('live-note-title').value = d.title;
-    if (d.body) document.getElementById('live-notes-area').value = d.body;
+    if (d.title && document.getElementById('live-note-title')) document.getElementById('live-note-title').value = d.title;
+    if (d.body && document.getElementById('live-notes-area')) document.getElementById('live-notes-area').value = d.body;
+    if (d.thoughts && document.getElementById('live-thoughts-area')) document.getElementById('live-thoughts-area').value = d.thoughts;
+    if (Array.isArray(d.homework)) {
+      homeworkList.splice(0, homeworkList.length, ...d.homework);
+      renderHomeworkList();
+    }
     if (Array.isArray(d.keywords)) {
       keywordsLog.splice(0, keywordsLog.length, ...d.keywords);
       renderKeywords();
     }
+    if (d.sessionStartedAt) sessionStartedAt = d.sessionStartedAt;
   } catch { /* ignore */ }
 }
 
@@ -328,7 +393,8 @@ function startSpeechPreview() {
     speechRec = new SR();
     speechRec.continuous = true;
     speechRec.interimResults = true;
-    speechRec.lang = getLang() === 'fr' ? 'fr-FR' : 'fr-HT';
+    // fr-FR avec repli automatique pour la reconnaissance vocale
+    speechRec.lang = 'fr-FR';
     document.getElementById('live-speech-box').hidden = false;
 
     let finalPart = '';
@@ -342,6 +408,12 @@ function startSpeechPreview() {
       liveSpeechBuffer = `${finalPart}${interim}`.trim();
       const preview = document.getElementById('live-speech-preview');
       if (preview) preview.textContent = liveSpeechBuffer.slice(-280) || '...';
+
+      // Si hors-ligne, injecter périodiquement les phrases complétées dans le brouillon
+      if (!navigator.onLine && finalPart.length > 50) {
+        insertIntoNotes(`${formatStamp()} ${finalPart.trim()}`);
+        finalPart = '';
+      }
     };
     speechRec.onend = () => {
       if (isRecording && speechRec) {
@@ -466,9 +538,9 @@ async function startLiveAudio() {
     rawStream = await navigator.mediaDevices.getUserMedia({
       audio: {
         channelCount: 1,
-        echoCancellation: false,
-        noiseSuppression: false,
-        autoGainControl: false,
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
       },
     });
 
@@ -477,14 +549,25 @@ async function startLiveAudio() {
       audioCtx = new AC();
       if (audioCtx.state === 'suspended') await audioCtx.resume();
       const src = audioCtx.createMediaStreamSource(rawStream);
+
+      // Filtre coupe-bas à 125 Hz pour éliminer bruits de table, coups et grondements
       const hp = audioCtx.createBiquadFilter();
-      hp.type = 'highpass'; hp.frequency.value = 85;
+      hp.type = 'highpass'; hp.frequency.value = 125;
+
+      // Filtre coupe-haut à 3800 Hz pour éliminer chuchotements aigus et froissements de feuilles
+      const lp = audioCtx.createBiquadFilter();
+      lp.type = 'lowpass'; lp.frequency.value = 3800;
+
+      // Renfort des formants de la voix du professeur (2600 Hz)
       const presence = audioCtx.createBiquadFilter();
-      presence.type = 'peaking'; presence.frequency.value = 2600; presence.Q.value = 1.1; presence.gain.value = 4.5;
+      presence.type = 'peaking'; presence.frequency.value = 2600; presence.Q.value = 1.2; presence.gain.value = 5.0;
+
+      // Compresseur pour amplifier les paroles distantes du prof et calmer les bruits proches
       const comp = audioCtx.createDynamicsCompressor();
-      comp.threshold.value = -26; comp.ratio.value = 3.5;
+      comp.threshold.value = -24; comp.ratio.value = 4.0; comp.attack.value = 0.005; comp.release.value = 0.15;
+
       const gain = audioCtx.createGain();
-      gain.gain.value = 2.0;
+      gain.gain.value = 2.2;
 
       analyserNode = audioCtx.createAnalyser();
       analyserNode.fftSize = 1024;
@@ -493,7 +576,8 @@ async function startLiveAudio() {
       zeroSink.gain.value = 0;
 
       src.connect(hp);
-      hp.connect(presence);
+      hp.connect(lp);
+      lp.connect(presence);
       presence.connect(comp);
       comp.connect(gain);
       gain.connect(analyserNode);
@@ -741,17 +825,22 @@ async function runQuickSearch(query) {
 function buildCompiledContent() {
   const courseObj = courses.find((x) => x.id === selectedCourseId);
   const unitObj = units.find((x) => x.id === selectedUnitId);
-  const titleInput = document.getElementById('live-note-title').value.trim();
+  const titleInput = document.getElementById('live-note-title')?.value.trim() || '';
   const title = titleInput
     || (courseObj ? `${courseObj.name} — ${new Date().toLocaleDateString()}` : `${t('live.title')} — ${new Date().toLocaleDateString()}`);
 
-  const scratch = document.getElementById('live-notes-area').value.trim();
+  const scratch = document.getElementById('live-notes-area')?.value.trim() || '';
+  const thoughts = document.getElementById('live-thoughts-area')?.value.trim() || '';
+  const thoughtsSection = thoughts ? `\n\n## Ide & Panse Rapid\n${thoughts}` : '';
+  const hwSection = homeworkList.length
+    ? `\n\n## Devwa & Travay pou Fè\n` + homeworkList.map((h) => `- ${h.title}${h.due ? ` (Dat: ${h.due})` : ''}${h.description ? ` : ${h.description}` : ''}`).join('\n')
+    : '';
   const kwSection = keywordsLog.length
     ? `\n\n## ${t('live.keywords_title')}\n` + keywordsLog.map((k) => `- ${k.stamp} [${k.tag.toUpperCase()}] ${k.term}`).join('\n')
     : '';
   const unitHeader = unitObj ? `Chapit: ${unitObj.title}\n\n` : '';
-  const rawText = `${unitHeader}${scratch}${kwSection}`.trim();
-  return { title, rawText, scratch };
+  const rawText = `${unitHeader}${scratch}${thoughtsSection}${hwSection}${kwSection}`.trim();
+  return { title, rawText, scratch, thoughts, homework: homeworkList };
 }
 
 async function finishLiveClass({ withAi = true } = {}) {
@@ -844,6 +933,9 @@ async function finishLiveClass({ withAi = true } = {}) {
       language: getLang(),
       capture_mode: captureMode,
       status: 'ready',
+      live_started_at: sessionStartedAt,
+      live_ended_at: new Date().toISOString(),
+      live_duration_seconds: classElapsedSec,
     }, { onConflict: 'user_id,client_id' }).select().single();
 
     if (error) throw error;
@@ -1032,6 +1124,157 @@ async function finishLiveClass({ withAi = true } = {}) {
       setLoading(btn, false);
     }
   });
+
+  // Devwa & Travay pou fè pandan kou a
+  document.getElementById('live-hw-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const title = document.getElementById('live-hw-title')?.value.trim();
+    const due = document.getElementById('live-hw-due')?.value || '';
+    const desc = document.getElementById('live-hw-desc')?.value.trim() || '';
+    if (!title) return;
+    const hwItem = { id: uid(), title, due, description: desc, course_id: selectedCourseId || null };
+    homeworkList.push(hwItem);
+    renderHomeworkList();
+    document.getElementById('live-hw-title').value = '';
+    document.getElementById('live-hw-due').value = '';
+    document.getElementById('live-hw-desc').value = '';
+    insertIntoNotes(`\n[DEVWA] ${title}${due ? ` (Dat limit : ${due})` : ''}${desc ? ` : ${desc}` : ''}\n`);
+    saveDraft();
+    playNotificationSound('success');
+    toast('Devwa anrejistre pou kou a!', 'success');
+
+    if (navigator.onLine && userRef) {
+      try {
+        await db.from('pran_not_assignments').insert({
+          user_id: userRef.id,
+          course_id: selectedCourseId || null,
+          title,
+          description: desc,
+          due_at: due ? new Date(due).toISOString() : null,
+          status: 'todo',
+        });
+      } catch { /* sera synchronisé */ }
+    }
+  });
+
+  document.getElementById('live-thoughts-area')?.addEventListener('input', () => {
+    saveDraft({ showBadge: true });
+  });
+
+  // Pwolonje lè kou a (+15 min, +30 min, +60 min)
+  const extendClassTime = async (minutes) => {
+    const c = courses.find((x) => x.id === selectedCourseId);
+    if (!c) {
+      toast(`Ajoute ${minutes} min sou sesyon an!`, 'info');
+      return;
+    }
+    const endStr = c.schedule_end_time || '';
+    let newEndStr = endStr;
+    if (endStr) {
+      const parts = endStr.split(':');
+      let hh = Number(parts[0]);
+      let mm = Number(parts[1]) + minutes;
+      while (mm >= 60) { mm -= 60; hh = (hh + 1) % 24; }
+      newEndStr = `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
+      c.schedule_end_time = newEndStr;
+    }
+    updateHeaderStatus();
+    playNotificationSound('chime');
+    toast(`Kou a pwolonje de +${minutes} minit!`, 'success');
+
+    if (navigator.onLine && c.id) {
+      try {
+        await db.from('pran_not_courses').update({ schedule_end_time: newEndStr }).eq('id', c.id);
+      } catch { /* ignore */ }
+    }
+  };
+
+  document.getElementById('live-add-15-btn')?.addEventListener('click', () => extendClassTime(15));
+  document.getElementById('live-add-30-btn')?.addEventListener('click', () => extendClassTime(30));
+  document.getElementById('live-add-60-btn')?.addEventListener('click', () => extendClassTime(60));
+
+  document.getElementById('live-delay-start-btn')?.addEventListener('click', () => {
+    classElapsedSec = 0;
+    const clock = document.getElementById('live-clock-badge');
+    if (clock) clock.textContent = '00:00';
+    toast('Kòmansman kou a repòte.', 'info');
+  });
+
+  document.getElementById('live-mark-finished-btn')?.addEventListener('click', async () => {
+    if (isRecording) stopLiveAudio();
+    playNotificationSound('chime');
+    toast(`Kou a fini (${formatDuration(classElapsedSec)}). Nap prepare nòt la...`, 'info');
+    await finishLiveClass({ withAi: true });
+  });
+
+  // Transfè nòt an dirèk sou sit la
+  document.getElementById('live-transfer-btn')?.addEventListener('click', () => {
+    const compiled = buildCompiledContent();
+    const c = courses.find((x) => x.id === selectedCourseId);
+    openSendTransferModal({
+      title: compiled.title,
+      content_html: `<p>${esc(compiled.rawText).replace(/\n/g, '<br>')}</p>`,
+      content_text: compiled.rawText,
+      summary: compiled.rawText.slice(0, 240),
+      keywords: keywordsLog,
+      homework: homeworkList,
+      course_name: c?.name || '',
+    });
+  });
+
+  document.getElementById('live-receive-btn')?.addEventListener('click', () => {
+    openReceiveTransferModal((newNote) => {
+      location.href = appUrl(`pages/note-view.html?id=${newNote.id}`);
+    });
+  });
+
+  // Revizyon egzamen pa peryòd dat
+  document.getElementById('live-exam-history-btn')?.addEventListener('click', () => {
+    openExamRevisionModal({ courseId: selectedCourseId, courses });
+  });
+
+  // Tradiksyon rapid Kreyòl <-> Français
+  document.getElementById('live-translate-btn')?.addEventListener('click', async (e) => {
+    const area = document.getElementById('live-notes-area');
+    const text = area?.value.trim();
+    if (!text) {
+      toast(t('errors.required'), 'warning');
+      return;
+    }
+    const btn = e.currentTarget;
+    setLoading(btn, true);
+    try {
+      // Detekte lang dominan pou tradiksyon
+      const isMostlyFrench = /^(le|la|les|des|un|une|dans|pour|avec|nous|vous|est|sont)\b/i.test(text);
+      const targetMode = isMostlyFrench ? 'harmonize_ht' : 'harmonize_fr';
+      const res = await processNote({
+        rawText: text,
+        mode: targetMode,
+        language: isMostlyFrench ? 'ht' : 'fr',
+        faculty: profileRef?.faculty_id || 'autre',
+        level: profileRef?.level || 'L1',
+      });
+      if (res?.content_text) {
+        area.value = res.content_text;
+        saveDraft();
+        playNotificationSound('success');
+        toast('Nòt la tradui ak siksè!', 'success');
+      } else {
+        toast('Tradiksyon an pa t ka konplete', 'warning');
+      }
+    } catch (err) {
+      handleError(err);
+    } finally {
+      setLoading(btn, false);
+    }
+  });
+
+  // Auto-save en arrière-plan chak 10 segonn
+  setInterval(() => {
+    if (document.getElementById('live-notes-area')?.value) {
+      saveDraft({ showBadge: false });
+    }
+  }, 10000);
 
   // Sauvegarde finale
   document.getElementById('live-finish-ai-btn').addEventListener('click', () => finishLiveClass({ withAi: true }));

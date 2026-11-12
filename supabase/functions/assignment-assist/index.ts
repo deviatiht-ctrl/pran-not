@@ -148,7 +148,7 @@ Texte à reformuler :
 ${content.slice(0, 6000)}`;
     }
 
-    const out = await runAiTask(auth.admin, auth.user.id, auth.profile?.ai_daily_quota || 60, {
+    const out = await runAiTask(auth.admin, auth.user.id, auth.profile?.ai_daily_quota || 500, {
       task: 'assignment_assist',
       faculty,
       level,

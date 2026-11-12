@@ -588,7 +588,7 @@ Deno.serve(async (req) => {
     const faculty = String(body.faculty || auth.profile?.faculty_id || 'autre');
     const level = String(body.level || auth.profile?.level || 'L1');
     const language = (body.language || auth.profile?.language || 'ht') as 'ht' | 'fr' | 'mix';
-    const userQuota = auth.profile?.ai_daily_quota || 60;
+    const userQuota = auth.profile?.ai_daily_quota || 500;
 
     /* ================================================================
        ACTION 1 : RECHERCHE UNIVERSELLE (BIBLIOTHÈQUE + WEB MULTI-MOTEURS)

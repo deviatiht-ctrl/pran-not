@@ -76,7 +76,7 @@ function renderCourses() {
         ${isSoon ? `<span class="badge badge-accent">${icon('clock')}<span>${esc(t('live.badge_soon', { min: liveStatus.minutesToStart }))}</span></span>` : ''}
         ${days ? `<span class="badge">${esc(days)}</span>` : ''}
         ${timeBadge ? `<span class="badge badge-outline">${icon('clock')}<span>${esc(timeBadge)}</span></span>` : ''}
-        ${c.credits ? `<span class="badge">${c.credits} ${esc(t('courses.credits'))}</span>` : ''}
+        ${c.credits && Number(c.credits) > 0 ? `<span class="badge">${c.credits} ${esc(t('courses.credits'))}</span>` : ''}
         ${c.exam_date ? `<span class="badge badge-warning">${icon('calendar')}<span>${esc(formatDate(c.exam_date))}</span></span>` : ''}
       </div>
 
@@ -141,8 +141,8 @@ function openCourseModal(existing = null) {
         </div>
         <div class="form-row">
           <div class="field">
-            <label for="c-cred">${esc(t('courses.credits'))}</label>
-            <input class="input" id="c-cred" type="number" min="0" max="30" value="${esc(existing?.credits ?? 3)}">
+            <label for="c-cred">${esc(t('courses.credits_optional'))}</label>
+            <input class="input" id="c-cred" type="number" min="0" max="30" value="${esc(existing?.credits !== undefined && existing?.credits !== null ? existing.credits : '')}" placeholder="${esc(t('courses.credits_placeholder'))}">
           </div>
           <div class="field">
             <label for="c-exam">${esc(t('courses.exam_date'))}</label>
@@ -209,7 +209,7 @@ function openCourseModal(existing = null) {
         name,
         professor: m.el.querySelector('#c-prof').value.trim() || null,
         semester: m.el.querySelector('#c-sem').value.trim() || null,
-        credits: Number(m.el.querySelector('#c-cred').value || 0),
+        credits: m.el.querySelector('#c-cred').value.trim() !== '' ? Number(m.el.querySelector('#c-cred').value) : null,
         exam_date: m.el.querySelector('#c-exam').value || null,
         schedule_days: scheduleDays,
         color: m.el.querySelector('input[name="color"]:checked')?.value || '#F97316',

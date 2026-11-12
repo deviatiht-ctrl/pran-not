@@ -23,11 +23,17 @@ Deno.serve(async (req) => {
     const level = body.level || auth.profile?.level || 'L1';
     const language = body.language || auth.profile?.language || 'ht';
 
-    const prompt = `Analyse ce syllabus universitaire. Découpe-le en chapitres / unités d'apprentissage claires et exploitables par l'étudiant.
+    const prompt = `Analyse ce syllabus universitaire (droit, médecine, économie, génie, sciences, etc.).
+Découpe-le en chapitres / unités d'apprentissage claires et exploitables par l'étudiant.
+Extrais également les livres ou codes recommandés (ex : Code civil, Constitution, manuels), les devoirs et pondérations d'examen.
+
 Retourne STRICTEMENT ce JSON :
 {
+  "course_title": "Titre exact du cours",
+  "professor": "Nom de l'enseignant si présent",
   "objectives": ["Objectif général 1", "Objectif 2"],
   "evaluation": "Résumé clair du poids des évaluations (ex : Intra 30 %, TP 20 %, Final 50 %)",
+  "recommended_books": ["Livre ou code juridique recommandé 1", "Livre 2"],
   "study_order": ["Titre unité 1", "Titre unité 2"],
   "units": [
     {
@@ -44,7 +50,7 @@ Retourne STRICTEMENT ce JSON :
 Contenu du syllabus :
 ${text.slice(0, 28000)}`;
 
-    const out = await runAiTask(auth.admin, auth.user.id, auth.profile?.ai_daily_quota || 60, {
+    const out = await runAiTask(auth.admin, auth.user.id, auth.profile?.ai_daily_quota || 500, {
       task: 'process_syllabus',
       faculty,
       level,

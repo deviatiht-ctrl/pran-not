@@ -36,11 +36,37 @@
           </span>
           <span class="badge badge-outline" id="live-clock-badge">00:00</span>
           <span class="badge" id="live-schedule-badge" hidden></span>
+          <span class="badge badge-success text-xs" id="live-autosave-badge">
+            <i data-lucide="check" style="width:12px;height:12px;" aria-hidden="true"></i>
+            <span id="live-autosave-text">Sove</span>
+          </span>
         </div>
         <h1 id="live-heading" data-i18n="live.title"></h1>
         <p id="live-sub" data-i18n="live.subtitle"></p>
+
+        <!-- Kontwòl tan adisyonèl & Fini kou -->
+        <div class="row-wrap mt-2" style="gap:6px;">
+          <span class="text-xs muted" data-i18n="live.time_adjust_label">Lè kou a :</span>
+          <button type="button" class="btn btn-xs btn-outline" id="live-add-15-btn">+15 min</button>
+          <button type="button" class="btn btn-xs btn-outline" id="live-add-30-btn">+30 min</button>
+          <button type="button" class="btn btn-xs btn-outline" id="live-add-60-btn">+60 min</button>
+          <button type="button" class="btn btn-xs btn-outline" id="live-delay-start-btn" data-i18n="live.delay_start">Poko kòmanse</button>
+          <button type="button" class="btn btn-xs btn-secondary" id="live-mark-finished-btn" data-i18n="live.mark_finished">Make kòm Fini</button>
+        </div>
       </div>
       <div class="page-head-actions">
+        <button type="button" class="btn btn-sm btn-secondary" id="live-transfer-btn" title="Pataje nòt sa dirèkteman sou sit la">
+          <i data-lucide="share-2" aria-hidden="true"></i>
+          <span data-i18n="live.transfer_btn">Pataje sou sit la</span>
+        </button>
+        <button type="button" class="btn btn-sm btn-secondary" id="live-receive-btn" title="Resevwa yon nòt avèk yon kòd">
+          <i data-lucide="download" aria-hidden="true"></i>
+          <span data-i18n="live.receive_btn">Resevwa nòt</span>
+        </button>
+        <button type="button" class="btn btn-sm btn-outline" id="live-exam-history-btn" title="Gade tout sesyon ak nòt pou revizyon egzamen pa dat">
+          <i data-lucide="calendar" aria-hidden="true"></i>
+          <span data-i18n="live.exam_history_btn">Revizyon Egzamen</span>
+        </button>
         <button type="button" class="btn btn-sm btn-secondary" id="live-wa-btn">
           <i data-lucide="message-circle" aria-hidden="true"></i>
           <span data-i18n="live.send_wa_alert"></span>
@@ -140,6 +166,40 @@
           <textarea class="textarea" id="live-notes-area" rows="10" data-i18n-placeholder="live.scratchpad_placeholder"></textarea>
         </section>
 
+        <!-- Espas Panse & Ide Rapid (Scratchpad ide / kesyon pou pwofesè a) -->
+        <section class="card">
+          <div class="row-between mb-2">
+            <h2 class="card-title mb-0" data-i18n="live.thoughts_title">Espas Panse & Ide Rapid</h2>
+            <span class="text-xs muted" data-i18n="live.thoughts_hint">Tout sa k vin nan tèt ou</span>
+          </div>
+          <textarea class="textarea" id="live-thoughts-area" rows="3" data-i18n-placeholder="live.thoughts_placeholder" placeholder="Ekri kesyon pou pwofesè a, ide flash, refleksyon pèsonèl..."></textarea>
+        </section>
+
+        <!-- Devwa & Travay pou Fè pandan Kou a (pa bezwen soti sou paj la) -->
+        <section class="card">
+          <div class="row-between mb-2">
+            <div class="row" style="gap:8px;">
+              <h2 class="card-title mb-0" data-i18n="live.homework_title">Devwa & Travay pou Fè</h2>
+              <span class="badge badge-accent" id="live-hw-count">0 devwa</span>
+            </div>
+          </div>
+          <p class="text-xs muted mb-3" data-i18n="live.homework_sub">Si pwofesè a bay yon travay oswa devwa, ekri l la dirèkteman san w pa soti sou paj la.</p>
+
+          <form id="live-hw-form" class="stack-sm mb-3">
+            <div class="row-wrap" style="gap:8px;">
+              <input class="input flex-1" id="live-hw-title" type="text" data-i18n-placeholder="live.hw_title_ph" placeholder="Tit devwa a (ex: Egzèsis 4 paj 45)" required style="min-width:180px;">
+              <input class="input" id="live-hw-due" type="date" style="width:auto;" title="Dat limit">
+              <button type="submit" class="btn btn-primary btn-sm">
+                <i data-lucide="plus" aria-hidden="true"></i>
+                <span data-i18n="live.add_hw">Ajoute</span>
+              </button>
+            </div>
+            <input class="input" id="live-hw-desc" type="text" data-i18n-placeholder="live.hw_desc_ph" placeholder="Detay, enstriksyon pwofesè a bay oswa konsiy...">
+          </form>
+
+          <div id="live-hw-list" class="stack-sm"></div>
+        </section>
+
         <!-- Étape 3 : Mots-clés pendant le cours -->
         <section class="card">
           <h2 class="card-title mb-2" data-i18n="live.keywords_title"></h2>
@@ -205,6 +265,10 @@
             <button type="button" class="btn btn-secondary btn-block" id="live-save-quick-btn">
               <i data-lucide="save" aria-hidden="true"></i>
               <span data-i18n="live.save_quick_btn"></span>
+            </button>
+            <button type="button" class="btn btn-outline btn-block" id="live-translate-btn">
+              <i data-lucide="languages" aria-hidden="true"></i>
+              <span id="live-translate-label" data-i18n="live.translate_btn">Tradui nòt la (Kreyòl / Français)</span>
             </button>
           </div>
         </section>

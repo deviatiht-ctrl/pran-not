@@ -23,12 +23,14 @@ Deno.serve(async (req) => {
     const language = body.language || auth.profile?.language || 'ht';
 
     const prompt = `Analyse attentivement ces photos de tableau ou de cahier universitaire.
-Reconstitue fidèlement tout le texte (français, créole haïtien ou mélange des deux), les formules mathématiques/chimiques, et décris les schémas entre crochets [Schéma : ...].
+Reconstitue fidèlement toute la structure logique (colonnes de gauche à droite, titres, définitions, théorèmes, formules mathématiques/chimiques/physiques, et exercices/devoirs éventuels).
+Décris précisément les schémas et graphiques entre crochets [Schéma : ...].
+Garde le bilinguisme naturel (français et créole haïtien).
 Pour tout mot ou symbole difficile à lire ou incertain, ajoute une entrée dans "uncertain".
 
 Retourne STRICTEMENT un objet JSON de la forme :
 {
-  "text": "texte complet reconstitué avec sauts de ligne",
+  "text": "texte complet reconstitué avec sauts de ligne et hiérarchie logique",
   "formulas": ["formule 1", "formule 2"],
   "diagrams": ["description schéma 1"],
   "uncertain": [
@@ -36,7 +38,7 @@ Retourne STRICTEMENT un objet JSON de la forme :
   ]
 }`;
 
-    const out = await runAiTask(auth.admin, auth.user.id, auth.profile?.ai_daily_quota || 60, {
+    const out = await runAiTask(auth.admin, auth.user.id, auth.profile?.ai_daily_quota || 500, {
       task: 'ocr_board',
       faculty,
       level,

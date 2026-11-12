@@ -320,6 +320,8 @@
     "professor": "Professeur",
     "semester": "Semestre",
     "credits": "Crédits",
+    "credits_optional": "Crédits (facultatif / si l'université l'utilise)",
+    "credits_placeholder": "Facultatif (ex : 3, 0)",
     "exam_date": "Date d'examen (facultatif)",
     "days": "Jours de cours",
     "start_time": "Heure de début",
@@ -782,6 +784,21 @@
     "finish_sub": "À la fin du cours, enregistrez et laissez l'IA organiser votre plan pour une révision sereine.",
     "finish_ai_btn": "Terminer le cours & Structurer par IA",
     "save_quick_btn": "Sauvegarder vite (sans attendre / hors-ligne)",
-    "saved_success": "Cours enregistré ! Retrouvez votre note structurée prête à réviser."
+    "saved_success": "Cours enregistré ! Retrouvez votre note structurée prête à réviser.",
+    "time_adjust_label": "Horaire du cours :",
+    "delay_start": "Pas encore commencé",
+    "mark_finished": "Marquer comme terminé",
+    "transfer_btn": "Partager sur le site",
+    "receive_btn": "Recevoir une note",
+    "exam_history_btn": "Révision Examen",
+    "thoughts_title": "Espace Idées & Pensées Rapides",
+    "thoughts_hint": "Toutes vos pensées spontanées",
+    "thoughts_placeholder": "Questions pour le professeur, idées flash, réflexions personnelles...",
+    "homework_title": "Devoirs & Travaux à Faire",
+    "homework_sub": "Notez immédiatement les devoirs donnés par le professeur sans quitter la page.",
+    "hw_title_ph": "Titre du devoir (ex : Exercice 4 page 45)",
+    "hw_desc_ph": "Consignes, détails donnés par le professeur...",
+    "add_hw": "Ajouter",
+    "translate_btn": "Traduire la note (Créole / Français)"
   }
 }

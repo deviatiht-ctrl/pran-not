@@ -162,7 +162,7 @@ Deno.serve(async (req) => {
           .map((m: { role: 'user' | 'assistant'; content: string }) => ({ role: m.role, content: String(m.content).slice(0, 2000) }))
       : [];
 
-    const out = await runAiTask(auth.admin, auth.user.id, auth.profile?.ai_daily_quota || 60, {
+    const out = await runAiTask(auth.admin, auth.user.id, auth.profile?.ai_daily_quota || 500, {
       task: 'tutor',
       faculty,
       level,

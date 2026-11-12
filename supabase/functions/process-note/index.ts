@@ -36,34 +36,49 @@ Deno.serve(async (req) => {
       ? 'Harmonise et traduis proprement tout le texte en créole haïtien clair (garde les termes techniques entre parenthèses).'
       : mode === 'harmonize_fr'
         ? 'Harmonise et traduis proprement tout le texte en français universitaire clair.'
-        : `Produis la fiche propre principalement en ${language === 'fr' ? 'français' : 'créole haïtien'}, en corrigeant l'orthographe et les erreurs de transcription.`;
+        : `Produis la fiche propre principalement en ${language === 'fr' ? 'français' : 'créole haïtien'}, en corrigeant l'orthographe, les lapsus et les erreurs de transcription tout en respectant scrupuleusement la logique du professeur.`;
 
     const prompt = `${langDirective}
+
+RÈGLES IMPORTANTES :
+1. FIDÉLITÉ LOGIQUE : Ne change jamais le raisonnement ou la pensée du professeur.
+2. CORRECTION INTELLIGENTE : Si un mot ou une phrase a été mal transcrit(e) ou mal articulé(e), reformule-le/la correctement et liste la correction dans "corrections".
+3. DÉTECTION DES DEVOIRS : Si le professeur a mentionné un devoir, exercice à rendre ou travail pratique, ajoute-le dans "homework".
+4. RECHERCHES & LIVRES : Propose les thèmes ou livres clés à consulter dans "research_topics".
+5. BILINGUISME HARMONISÉ : Conserve l'équilibre créole haïtien et français universitaire.
 
 Cours existants de l'étudiant : ${JSON.stringify(courses.map((c: { id: string; name: string }) => ({ id: c.id, name: c.name })))}
 
 Retourne STRICTEMENT ce JSON :
 {
   "title": "Titre court et précis de la séance",
-  "summary": "Résumé clair en 5 lignes maximum",
-  "content_html": "HTML propre utilisant uniquement <h2>, <h3>, <p>, <ul>, <ol>, <li>, <strong>, <em>, <code>, <blockquote> (plan structuré, définitions, points clés, exemples, formules)",
-  "takeaways": ["Point clé 1 à retenir", "Point clé 2", "Point clé 3"],
+  "summary": "Résumé clair et complet en 4 à 6 lignes",
+  "verbatim_raw": "Retranscription fidèle de tout ce qui a été dit dans l'extrait",
+  "content_html": "HTML propre utilisant uniquement <h2>, <h3>, <p>, <ul>, <ol>, <li>, <strong>, <em>, <code>, <blockquote> (plan structuré, définitions, explications détaillées, points clés, exemples)",
+  "takeaways": ["Point clé 1 pour examen", "Point clé 2", "Point clé 3"],
   "keywords": ["mot-clé 1", "mot-clé 2", "mot-clé 3", "mot-clé 4"],
-  "implied_points": ["Déduction ou idée implicite du professeur clairement formulée comme suggestion d'étude (et non comme propos littéral du professeur)"],
+  "corrections": [
+    { "original": "mot ou phrase approximative", "corrected": "formulation exacte et académique", "reason": "faute de transcription ou lapsus oral" }
+  ],
+  "homework": [
+    { "title": "Devoir ou travail mentionné", "due_hint": "Échéance ou date mentionnée", "description": "Consignes données" }
+  ],
+  "research_topics": ["Thème ou ressource de droit/médecine/ingénierie à approfondir"],
+  "implied_points": ["Déduction ou idée implicite formulée sobrement"],
   "suggested_course_id": "uuid du cours le plus pertinent parmi les cours existants, ou null"
 }
 
 Note brute à traiter :
-${rawText.slice(0, 18000)}`;
+${rawText.slice(0, 22000)}`;
 
-    const out = await runAiTask(auth.admin, auth.user.id, auth.profile?.ai_daily_quota || 60, {
+    const out = await runAiTask(auth.admin, auth.user.id, auth.profile?.ai_daily_quota || 500, {
       task: 'process_note',
       faculty,
       level,
       language,
       prompt,
       expectJson: true,
-      cacheKeyPayload: { rawText: rawText.slice(0, 18000), mode, language },
+      cacheKeyPayload: { rawText: rawText.slice(0, 22000), mode, language },
     });
 
     const structured = out.result as Record<string, unknown>;

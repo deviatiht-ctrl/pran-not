@@ -47,15 +47,27 @@ function ensureAudioContext() {
 function bindAudioUnlock() {
   if (audioUnlocked || typeof window === 'undefined') return;
   const unlock = () => {
-    const ctx = ensureAudioContext();
-    if (ctx && ctx.state === 'running') {
+    try {
+      const ctx = ensureAudioContext();
+      if (!ctx) return;
+      if (ctx.state === 'suspended') {
+        ctx.resume().catch(() => {});
+      }
+      // Jouer un micro-tampon silencieux pour déverrouiller le matériel audio sur iOS Safari et Chrome Android
+      const buf = ctx.createBuffer(1, 1, 22050);
+      const src = ctx.createBufferSource();
+      src.buffer = buf;
+      src.connect(ctx.destination);
+      src.start(0);
       audioUnlocked = true;
-      window.removeEventListener('pointerdown', unlock);
-      window.removeEventListener('keydown', unlock);
-    }
+      ['pointerdown', 'touchstart', 'touchend', 'click', 'keydown'].forEach((evt) => {
+        window.removeEventListener(evt, unlock);
+      });
+    } catch { /* ignore */ }
   };
-  window.addEventListener('pointerdown', unlock, { passive: true });
-  window.addEventListener('keydown', unlock, { passive: true });
+  ['pointerdown', 'touchstart', 'touchend', 'click', 'keydown'].forEach((evt) => {
+    window.addEventListener(evt, unlock, { passive: true, once: false });
+  });
 }
 bindAudioUnlock();
 
@@ -86,7 +98,7 @@ export function setClassNotifyEnabled(enabled) {
 }
 
 /**
- * Joue un carillon synthétisé doux sans connexion réseau.
+ * Joue un carillon acoustique riche avec harmoniques naturelles sans connexion réseau.
  * @param {'chime'|'live_class'|'deadline'|'success'|'pomodoro'} kind
  */
 export function playNotificationSound(kind = 'chime', { force = false } = {}) {
@@ -103,45 +115,66 @@ export function playNotificationSound(kind = 'chime', { force = false } = {}) {
     if (ctx.state === 'suspended') {
       ctx.resume().catch(() => {});
     }
-    const now = ctx.currentTime + 0.02;
+    const now = ctx.currentTime + 0.015;
+
+    // Motifs harmoniques mélodieux (fondamentale + harmonique 2.76x et 5.4x type cloche/marimba)
     const patterns = {
       live_class: [
-        { freq: 523.25, dur: 0.16, delay: 0.0, vol: 0.22 },
-        { freq: 659.25, dur: 0.16, delay: 0.14, vol: 0.22 },
-        { freq: 783.99, dur: 0.18, delay: 0.28, vol: 0.24 },
-        { freq: 1046.5, dur: 0.34, delay: 0.44, vol: 0.20 },
+        { freq: 659.25, dur: 0.38, delay: 0.0, vol: 0.28 },  // E5
+        { freq: 783.99, dur: 0.42, delay: 0.16, vol: 0.30 }, // G5
+        { freq: 1046.5, dur: 0.60, delay: 0.34, vol: 0.32 }, // C6
       ],
       deadline: [
-        { freq: 587.33, dur: 0.18, delay: 0.0, vol: 0.22 },
-        { freq: 440.0, dur: 0.18, delay: 0.20, vol: 0.20 },
-        { freq: 587.33, dur: 0.28, delay: 0.40, vol: 0.22 },
+        { freq: 587.33, dur: 0.35, delay: 0.0, vol: 0.26 },  // D5
+        { freq: 440.0, dur: 0.32, delay: 0.18, vol: 0.24 },  // A4
+        { freq: 587.33, dur: 0.48, delay: 0.36, vol: 0.28 }, // D5
       ],
       pomodoro: [
-        { freq: 659.25, dur: 0.2, delay: 0.0, vol: 0.22 },
-        { freq: 880.0, dur: 0.36, delay: 0.2, vol: 0.24 },
+        { freq: 659.25, dur: 0.32, delay: 0.0, vol: 0.26 },
+        { freq: 880.0, dur: 0.50, delay: 0.18, vol: 0.30 },
       ],
       success: [
-        { freq: 523.25, dur: 0.12, delay: 0.0, vol: 0.18 },
-        { freq: 783.99, dur: 0.22, delay: 0.11, vol: 0.20 },
+        { freq: 523.25, dur: 0.24, delay: 0.0, vol: 0.24 },  // C5
+        { freq: 783.99, dur: 0.45, delay: 0.12, vol: 0.28 }, // G5
       ],
       chime: [
-        { freq: 587.33, dur: 0.14, delay: 0.0, vol: 0.18 },
-        { freq: 880.0, dur: 0.24, delay: 0.13, vol: 0.18 },
+        { freq: 587.33, dur: 0.30, delay: 0.0, vol: 0.24 },  // D5
+        { freq: 880.0, dur: 0.48, delay: 0.14, vol: 0.26 },  // A5
       ],
     };
+
     const notes = patterns[kind] || patterns.chime;
+    const masterGain = ctx.createGain();
+    masterGain.gain.setValueAtTime(1.0, now);
+    masterGain.connect(ctx.destination);
+
     for (const n of notes) {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(n.freq, now + n.delay);
-      gain.gain.setValueAtTime(0.0001, now + n.delay);
-      gain.gain.exponentialRampToValueAtTime(n.vol, now + n.delay + 0.02);
-      gain.gain.exponentialRampToValueAtTime(0.0001, now + n.delay + n.dur);
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start(now + n.delay);
-      osc.stop(now + n.delay + n.dur + 0.04);
+      const noteStart = now + n.delay;
+      // Fondamentale
+      const osc1 = ctx.createOscillator();
+      const g1 = ctx.createGain();
+      osc1.type = 'sine';
+      osc1.frequency.setValueAtTime(n.freq, noteStart);
+      g1.gain.setValueAtTime(0.0001, noteStart);
+      g1.gain.exponentialRampToValueAtTime(n.vol, noteStart + 0.008);
+      g1.gain.exponentialRampToValueAtTime(0.0001, noteStart + n.dur);
+      osc1.connect(g1);
+      g1.connect(masterGain);
+      osc1.start(noteStart);
+      osc1.stop(noteStart + n.dur + 0.05);
+
+      // Harmonique de résonance cristalline (timbre cloche douce)
+      const osc2 = ctx.createOscillator();
+      const g2 = ctx.createGain();
+      osc2.type = 'sine';
+      osc2.frequency.setValueAtTime(n.freq * 2.756, noteStart);
+      g2.gain.setValueAtTime(0.0001, noteStart);
+      g2.gain.exponentialRampToValueAtTime(n.vol * 0.32, noteStart + 0.006);
+      g2.gain.exponentialRampToValueAtTime(0.0001, noteStart + (n.dur * 0.65));
+      osc2.connect(g2);
+      g2.connect(masterGain);
+      osc2.start(noteStart);
+      osc2.stop(noteStart + (n.dur * 0.65) + 0.05);
     }
     return true;
   } catch {

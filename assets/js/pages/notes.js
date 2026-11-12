@@ -11,6 +11,7 @@ import {
 } from '../utils.js';
 import { cacheSet, cacheGet, getQueueItems, updateQueuedNotePayload, enqueue, isNetworkError } from '../offline.js';
 import { mergeCourseSchedules } from '../notifications.js';
+import { openReceiveTransferModal, openExamRevisionModal } from '../live-transfer.js';
 
 const db = window.db;
 const PAGE_SIZE = 18;
@@ -290,6 +291,14 @@ async function fetchNotes(reset = true) {
   }
 
   await fetchNotes(true);
+
+  document.getElementById('notes-receive-btn')?.addEventListener('click', () => {
+    openReceiveTransferModal(() => fetchNotes(true));
+  });
+
+  document.getElementById('notes-exam-btn')?.addEventListener('click', () => {
+    openExamRevisionModal({ courses: Array.from(coursesMap.values()) });
+  });
 
   document.getElementById('notes-search').addEventListener('input', debounce(() => renderList(), 200));
   document.getElementById('notes-course-filter').addEventListener('change', () => renderList());

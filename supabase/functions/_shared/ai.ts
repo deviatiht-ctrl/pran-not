@@ -12,6 +12,7 @@ export interface AiRequest {
   expectJson?: boolean;
   cacheKeyPayload?: unknown;
   useCache?: boolean;
+  exemptQuota?: boolean;
   temperature?: number;
   maxTokens?: number;
   messages?: Array<{ role: 'user' | 'assistant'; content: string }>;
@@ -250,19 +251,23 @@ export async function runAiTask(
 
   // 1. Vérifier le quota journalier de l'étudiant
   const todayIso = new Date().toISOString().slice(0, 10);
-  const { count: usedToday } = await admin
-    .from('pran_not_ai_usage')
-    .select('id', { count: 'exact', head: true })
-    .eq('user_id', userId)
-    .eq('cached', false)
-    .eq('success', true)
-    .gte('created_at', `${todayIso}T00:00:00.000Z`);
+  const effectiveQuota = Math.max(userQuota || 500, 500);
 
-  if ((usedToday ?? 0) >= (userQuota || 60)) {
-    const msg = lang === 'fr'
-      ? 'Limite quotidienne IA atteinte. Mettez la tâche en file ou réessayez demain.'
-      : 'Ou rive nan limit IA jodi a. Ou ka mete travay la nan fil atant oswa eseye demen.';
-    throw new QuotaExceededError(msg);
+  if (!req.exemptQuota) {
+    const { count: usedToday } = await admin
+      .from('pran_not_ai_usage')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .eq('cached', false)
+      .eq('success', true)
+      .gte('created_at', `${todayIso}T00:00:00.000Z`);
+
+    if ((usedToday ?? 0) >= effectiveQuota) {
+      const msg = lang === 'fr'
+        ? 'Limite quotidienne IA atteinte. Mettez la tâche en file ou réessayez demain.'
+        : 'Ou rive nan limit IA jodi a. Ou ka mete travay la nan fil atant oswa eseye demen.';
+      throw new QuotaExceededError(msg);
+    }
   }
 
   // 2. Vérifier le cache (si activé)

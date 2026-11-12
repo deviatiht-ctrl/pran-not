@@ -46,7 +46,7 @@ Barème max : ${Number(payload.maxPoints || 2)}`;
       prompt = typeof payload === 'string' ? payload : JSON.stringify(payload);
     }
 
-    const out = await runAiTask(auth.admin, auth.user.id, auth.profile?.ai_daily_quota || 60, {
+    const out = await runAiTask(auth.admin, auth.user.id, auth.profile?.ai_daily_quota || 500, {
       task,
       faculty,
       level,

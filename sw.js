@@ -7,7 +7,7 @@
    - Déclenchement synchronisation Background Sync
    ===================================================================== */
 
-const CACHE_NAME = 'prannot-shell-v11';
+const CACHE_NAME = 'prannot-shell-v12';
 const PRECACHE_LOCAL = [
   './',
   './index.html',
@@ -27,8 +27,8 @@ const PRECACHE_LOCAL = [
   './assets/css/mobile-nav.css',
   './assets/css/components.css',
   './assets/css/admin.css',
-  './assets/i18n/ht.json?v=20261112c',
-  './assets/i18n/fr.json?v=20261112c',
+  './assets/i18n/ht.json?v=20261112d',
+  './assets/i18n/fr.json?v=20261112d',
   './assets/js/supabase.js',
   './assets/js/theme.js',
   './assets/js/auth.js',
@@ -36,6 +36,7 @@ const PRECACHE_LOCAL = [
   './assets/js/utils.js',
   './assets/js/navbar.js',
   './assets/js/notifications.js',
+  './assets/js/live-transfer.js',
   './assets/js/pwa.js',
   './assets/js/ai.js',
   './assets/js/offline.js',

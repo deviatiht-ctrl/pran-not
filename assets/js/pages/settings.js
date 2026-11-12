@@ -198,21 +198,22 @@ function initDesignStudio(lang) {
   const nSound = document.getElementById('set-n-sound');
   const nWa = document.getElementById('set-n-whatsapp');
 
-  langSel.value = profile?.language || lang;
-  dsChk.checked = Boolean(profile?.data_saver);
-  nDaily.checked = profile?.notify_email !== false;
-  nWeekly.checked = profile?.notify_weekly !== false;
-  nDead.checked = profile?.notify_deadlines !== false;
-  nClasses.checked = isClassNotifyEnabled();
-  nSound.checked = isSoundEnabled();
-  nWa.checked = profile?.notify_whatsapp !== false;
+  if (langSel) langSel.value = profile?.language || lang;
+  if (dsChk) dsChk.checked = Boolean(profile?.data_saver);
+  if (nDaily) nDaily.checked = profile?.notify_email !== false;
+  if (nWeekly) nWeekly.checked = profile?.notify_weekly !== false;
+  if (nDead) nDead.checked = profile?.notify_deadlines !== false;
+  if (nClasses) nClasses.checked = isClassNotifyEnabled();
+  if (nSound) nSound.checked = isSoundEnabled();
+  if (nWa) nWa.checked = profile?.notify_whatsapp !== false;
 
-  langSel.addEventListener('change', async () => {
+  langSel?.addEventListener('change', async () => {
     await setLang(langSel.value);
     location.reload();
   });
 
   const bindToggle = (el, field) => {
+    if (!el) return;
     el.addEventListener('change', async () => {
       try {
         if (field === 'notify_sound') setSoundEnabled(el.checked);

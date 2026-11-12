@@ -200,8 +200,9 @@ async function runGeminiAudio(params: {
   const systemInstruction = [
     'Tu es un transcripteur universitaire haïtien spécialisé dans la prise de notes en amphithéâtre.',
     'Le professeur parle parfois vite, loin du microphone ou à volume modéré en Kreyòl ayisyen et Français.',
+    'PRIORITÉ ABSOLUE : ISOLE LA VOIX DU PROFESSEUR. Ignore les chuchotements, rires, froissements de papier et bavardages parasites des étudiants en arrière-plan. Si un étudiant pose une question audible au professeur, indique sobrement "[Kesyon] ..." puis transcris la réponse du professeur.',
     langGuide,
-    'RÈGLE STRICTE DE FIDÉLITÉ : transcris fidèlement ce qui est prononcé dans l’audio. N’invente jamais de contenu hors sujet.',
+    'RÈGLE STRICTE DE FIDÉLITÉ : transcris fidèlement ce qui est prononcé dans l’audio. N’invente jamais de contenu hors sujet et ne modifie pas la logique du cours.',
     silenceRule,
     'Structure légèrement avec des retours à la ligne ou puces sobres si le professeur énumère des points, définitions ou formules.',
     'RÈGLE OBLIGATOIRE : ZÉRO emoji ou pictogramme dans la réponse.',
@@ -272,6 +273,7 @@ Deno.serve(async (req) => {
     }
 
     const todayIso = new Date().toISOString().slice(0, 10);
+    const effectiveQuota = Math.max(auth.profile?.ai_daily_quota || 500, 500) * 4; // Quota étendu pour les segments de cours en direct
     const { count: usedToday } = await auth.admin
       .from('pran_not_ai_usage')
       .select('id', { count: 'exact', head: true })
@@ -280,8 +282,8 @@ Deno.serve(async (req) => {
       .eq('success', true)
       .gte('created_at', `${todayIso}T00:00:00.000Z`);
 
-    if ((usedToday ?? 0) >= (auth.profile?.ai_daily_quota || 60)) {
-      throw new QuotaExceededError('Ou rive nan limit IA jodi a. Eseye demen.');
+    if ((usedToday ?? 0) >= effectiveQuota) {
+      throw new QuotaExceededError('Ou rive nan limit segman IA jodi a. Ou ka kontinye pran nòt dirèk alamen san entèripsyon.');
     }
 
     const body = await req.json();
@@ -319,7 +321,8 @@ Deno.serve(async (req) => {
     const geminiModelPrimary = geminiCfg?.model_audio || 'gemini-3.5-flash-lite';
 
     const whisperPrompt = [
-      'Kou inivèsite an Ayiti. Melanj natirèl Kreyòl ayisyen ak Fransè.',
+      'Kou inivèsitè an Ayiti. Melanj natirèl Kreyòl ayisyen ak Fransè.',
+      'Konsantre sou vwa pwofesè a. Inyore chwichwi ak bri etidyan.',
       courseName ? `Matyè : ${courseName}.` : '',
       faculty ? `Fakilte : ${faculty}.` : '',
       previousContext ? previousContext.slice(-220) : '',
