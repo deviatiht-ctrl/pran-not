@@ -106,70 +106,103 @@ async function callGemini(
   systemPrompt: string,
   req: AiRequest,
 ) {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${apiKey}`;
+  // Cascading list of Gemini vision & text models to handle any 503 high demand or 429 spike
+  const modelCandidates = [
+    model,
+    'gemini-2.5-flash',
+    'gemini-3.5-flash',
+    'gemini-3-flash-preview',
+    'gemini-3.5-flash-lite',
+    'gemini-flash-lite-latest',
+  ].filter((m, i, arr) => m && arr.indexOf(m) === i);
 
-  const contents: Array<{ role: string; parts: Array<Record<string, unknown>> }> = [];
-  if (req.messages?.length) {
-    for (const m of req.messages) {
-      contents.push({
-        role: m.role === 'assistant' ? 'model' : 'user',
-        parts: [{ text: m.content }],
+  let lastErr: Error | null = null;
+
+  for (let i = 0; i < modelCandidates.length; i++) {
+    const candidateModel = modelCandidates[i];
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(candidateModel)}:generateContent?key=${apiKey}`;
+
+    try {
+      const contents: Array<{ role: string; parts: Array<Record<string, unknown>> }> = [];
+      if (req.messages?.length) {
+        for (const m of req.messages) {
+          contents.push({
+            role: m.role === 'assistant' ? 'model' : 'user',
+            parts: [{ text: m.content }],
+          });
+        }
+      }
+
+      const lastParts: Array<Record<string, unknown>> = [{ text: req.prompt }];
+      if (req.imagesBase64?.length) {
+        for (const b64 of req.imagesBase64) {
+          lastParts.push({
+            inlineData: {
+              mimeType: 'image/jpeg',
+              data: b64,
+            },
+          });
+        }
+      }
+      contents.push({ role: 'user', parts: lastParts });
+
+      const generationConfig: Record<string, unknown> = {
+        temperature: req.temperature ?? 0.35,
+        maxOutputTokens: req.maxTokens ?? 4096,
+      };
+      if (req.expectJson) {
+        generationConfig.responseMimeType = 'application/json';
+      }
+
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        signal: AbortSignal.timeout(45000),
+        body: JSON.stringify({
+          systemInstruction: { parts: [{ text: systemPrompt }] },
+          contents,
+          generationConfig,
+        }),
       });
+
+      if (!res.ok) {
+        const errText = await res.text();
+        const err = new Error(`gemini_${res.status}: ${errText.slice(0, 300)}`);
+        (err as Error & { status?: number }).status = res.status;
+        if ((res.status === 503 || res.status === 429 || res.status === 404 || res.status >= 500) && i < modelCandidates.length - 1) {
+          console.warn(`[gemini] Model ${candidateModel} returned ${res.status}. Falling back to ${modelCandidates[i + 1]}...`);
+          lastErr = err;
+          await new Promise((r) => setTimeout(r, 500));
+          continue;
+        }
+        throw err;
+      }
+
+      const data = await res.json();
+      const allParts = data?.candidates?.[0]?.content?.parts || [];
+      const visibleParts = allParts.filter((p: { thought?: boolean; text?: string }) => !p.thought && Boolean(p.text));
+      const text = (visibleParts.length ? visibleParts : allParts)
+        .map((p: { text?: string }) => p.text || '')
+        .join('\n')
+        .trim();
+      const usage = data?.usageMetadata || {};
+      return {
+        text,
+        tokensIn: usage.promptTokenCount || 0,
+        tokensOut: usage.candidatesTokenCount || 0,
+      };
+    } catch (err: any) {
+      lastErr = err;
+      if (i < modelCandidates.length - 1 && (err.status === 503 || err.status === 429 || err.status === 404 || /503|429|404|demand|unavailable/i.test(err.message))) {
+        console.warn(`[gemini] Model ${candidateModel} failed. Falling back to ${modelCandidates[i + 1]}...`);
+        await new Promise((r) => setTimeout(r, 500));
+        continue;
+      }
+      throw err;
     }
   }
 
-  const lastParts: Array<Record<string, unknown>> = [{ text: req.prompt }];
-  if (req.imagesBase64?.length) {
-    for (const b64 of req.imagesBase64) {
-      lastParts.push({
-        inlineData: {
-          mimeType: 'image/jpeg',
-          data: b64,
-        },
-      });
-    }
-  }
-  contents.push({ role: 'user', parts: lastParts });
-
-  const generationConfig: Record<string, unknown> = {
-    temperature: req.temperature ?? 0.35,
-    maxOutputTokens: req.maxTokens ?? 4096,
-  };
-  if (req.expectJson) {
-    generationConfig.responseMimeType = 'application/json';
-  }
-
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    signal: AbortSignal.timeout(45000),
-    body: JSON.stringify({
-      systemInstruction: { parts: [{ text: systemPrompt }] },
-      contents,
-      generationConfig,
-    }),
-  });
-
-  if (!res.ok) {
-    const errText = await res.text();
-    const err = new Error(`gemini_${res.status}: ${errText.slice(0, 200)}`);
-    (err as Error & { status?: number }).status = res.status;
-    throw err;
-  }
-
-  const data = await res.json();
-  const allParts = data?.candidates?.[0]?.content?.parts || [];
-  const visibleParts = allParts.filter((p: { thought?: boolean; text?: string }) => !p.thought && Boolean(p.text));
-  const text = (visibleParts.length ? visibleParts : allParts)
-    .map((p: { text?: string }) => p.text || '')
-    .join('\n')
-    .trim();
-  const usage = data?.usageMetadata || {};
-  return {
-    text,
-    tokensIn: usage.promptTokenCount || 0,
-    tokensOut: usage.candidatesTokenCount || 0,
-  };
+  throw lastErr || new Error('All Gemini model fallbacks failed');
 }
 
 async function callOpenAiCompat(
