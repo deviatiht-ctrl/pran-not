@@ -283,7 +283,8 @@
     "audio_import_hint": "MP3, M4A, WAV, OGG, WEBM",
     "audio_segment_auto": "Chak 45 segonn yon nouvo segman transkri otomatikman pou vwa a rete presi.",
     "audio_retry_btn": "Retranskri",
-    "audio_transcribing": "Ap analize vwa pwofesè a..."
+    "audio_transcribing": "Ap analize vwa pwofesè a...",
+    "import_word_loaded": "Dokiman Word enpòte avèk siksè !"
   },
   "notes": {
     "title": "Nòt mwen yo",
@@ -319,6 +320,7 @@
     "name": "Non kou a",
     "professor": "Non pwofesè a",
     "semester": "Semès",
+    "sem_all": "Tout",
     "credits": "Kredi",
     "credits_optional": "Kredi (opsyonèl / si inivèsite a genyen l)",
     "credits_placeholder": "Opsyonèl (ex: 3, 0)",
@@ -532,7 +534,21 @@
     "notify_sound": "Jwe yon son karilon ak vibrasyon pou alèt yo (mache san entènèt)",
     "notify_whatsapp": "Rapèl sou WhatsApp pou kou k ap kòmanse, devwa ak inaktivite",
     "test_whatsapp_btn": "Teste rapèl WhatsApp mwen",
-    "ai_quota": "Itilizasyon IA jodi a"
+    "ai_quota": "Itilizasyon IA jodi a",
+    "export_title": "Ekspòtasyon / Enpòtasyon",
+    "export_sub": "Telechaje tout done ou oswa enpòte yon dokiman Word pou kreye yon nòt.",
+    "export_json": "Ekspòte JSON",
+    "import_word": "Enpòte Word",
+    "export_success": "Done yo ekspòte avèk siksè !",
+    "import_loading": "L ap analize fichye Word la...",
+    "import_empty": "Fichye Word la sanble vid oswa pa ka li.",
+    "danger_title": "Zòn Danjere",
+    "danger_sub": "Aksyon sa yo pa ka anile. Pran prekosyon.",
+    "delete_account": "Efase Kont Mwen",
+    "delete_confirm1": "Èske ou sèten ou vle efase kont ou ak tout nòt, kou, ak devwa ou yo nèt ? Aksyon sa a pa ka anile.",
+    "delete_confirm2": "Pou konfime, tanpri tape 'EFASE' an majiskil :",
+    "delete_cancelled": "Sipresyon anile.",
+    "delete_success": "Kont ou efase avèk siksè. Orevwa !"
   },
   "search": {
     "title": "Rechèch global",
@@ -800,5 +816,20 @@
     "hw_desc_ph": "Detay, enstriksyon pwofesè a bay oswa konsiy...",
     "add_hw": "Ajoute",
     "translate_btn": "Tradui nòt la (Kreyòl / Français)"
+  },
+  "history": {
+    "title": "Istorik Kou",
+    "subtitle": "Kou pase yo klase pa semès ak ane akademik",
+    "search_placeholder": "Chèche yon kou oswa pwofesè...",
+    "year_all": "Tout ane yo",
+    "close_sem_btn": "Fèmen Semès sa a",
+    "close_sem_confirm": "Èske ou vle fèmen semès sa a? Tout kou ki ladan l ap vin nan achiv.",
+    "no_courses": "Pa gen kou nan semès sa a.",
+    "courses_count": "{n} kou",
+    "notes_count": "{n} nòt",
+    "mastery_avg": "Mwayèn metriz : {pct}%",
+    "no_semester_group": "Lòt kou (san semès presize)",
+    "active_badge": "Semès Aktif",
+    "closed_badge": "Fèmen / Achive"
   }
 }

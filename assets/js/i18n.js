@@ -8,7 +8,7 @@
 
 const SUPPORTED = ['ht', 'fr'];
 const STORAGE_KEY = 'prannot.lang';
-const I18N_VERSION = '20261112d';
+const I18N_VERSION = '20261112e';
 const LS_CACHE_PREFIX = 'prannot.i18n.';
 const dictionaries = {};
 let current = 'ht';

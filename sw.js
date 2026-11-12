@@ -7,7 +7,7 @@
    - Déclenchement synchronisation Background Sync
    ===================================================================== */
 
-const CACHE_NAME = 'prannot-shell-v12';
+const CACHE_NAME = 'prannot-shell-v13';
 const PRECACHE_LOCAL = [
   './',
   './index.html',
@@ -27,8 +27,8 @@ const PRECACHE_LOCAL = [
   './assets/css/mobile-nav.css',
   './assets/css/components.css',
   './assets/css/admin.css',
-  './assets/i18n/ht.json?v=20261112d',
-  './assets/i18n/fr.json?v=20261112d',
+  './assets/i18n/ht.json?v=20261112e',
+  './assets/i18n/fr.json?v=20261112e',
   './assets/js/supabase.js',
   './assets/js/theme.js',
   './assets/js/auth.js',
@@ -51,6 +51,7 @@ const PRECACHE_LOCAL = [
   './assets/js/pages/note-view.js',
   './assets/js/pages/courses.js',
   './assets/js/pages/course.js',
+  './assets/js/pages/history.js',
   './assets/js/pages/live-class.js',
   './assets/js/pages/syllabus.js',
   './assets/js/pages/review.js',
@@ -71,6 +72,7 @@ const PRECACHE_LOCAL = [
   './pages/note-view.html',
   './pages/courses.html',
   './pages/course.html',
+  './pages/history.html',
   './pages/live-class.html',
   './pages/syllabus.html',
   './pages/review.html',

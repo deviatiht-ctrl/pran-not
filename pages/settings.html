@@ -253,6 +253,23 @@
         </div>
       </section>
 
+      <!-- Ekspòtasyon / Enpòtasyon -->
+      <section class="card">
+        <h2 class="card-title" data-i18n="settings.export_title">Ekspòtasyon / Enpòtasyon</h2>
+        <p class="text-sm muted mb-4" data-i18n="settings.export_sub">Telechaje tout done ou oswa enpòte yon dokiman Word pou kreye yon nòt.</p>
+        <div class="row-wrap" style="gap:var(--sp-2);">
+          <button type="button" class="btn btn-secondary" id="export-json-btn">
+            <i data-lucide="download" aria-hidden="true"></i>
+            <span data-i18n="settings.export_json">Ekspòte JSON</span>
+          </button>
+          <label class="btn btn-secondary" style="cursor:pointer;margin-bottom:0;">
+            <i data-lucide="upload" aria-hidden="true"></i>
+            <span data-i18n="settings.import_word">Enpòte Word</span>
+            <input type="file" id="import-word-input" accept=".docx,.doc" style="display:none;">
+          </label>
+        </div>
+      </section>
+
       <!-- Déconnexion -->
       <section class="card">
         <div class="row-wrap">
@@ -261,6 +278,16 @@
             <span data-i18n="nav.logout"></span>
           </button>
         </div>
+      </section>
+
+      <!-- Zòn Danjere -->
+      <section class="card" style="border:1px solid var(--c-error,#dc2626);">
+        <h2 class="card-title" style="color:var(--c-error,#dc2626);" data-i18n="settings.danger_title">Zòn Danjere</h2>
+        <p class="text-sm muted mb-4" data-i18n="settings.danger_sub">Aksyon sa yo pa ka anile. Pran prekosyon.</p>
+        <button type="button" class="btn btn-danger" id="delete-account-btn">
+          <i data-lucide="trash-2" aria-hidden="true"></i>
+          <span data-i18n="settings.delete_account">Efase Kont Mwen</span>
+        </button>
       </section>
     </div>
   </main>

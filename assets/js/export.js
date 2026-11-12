@@ -3,6 +3,13 @@
    Export des notes (PDF, Word .docx, Markdown) et des devoirs
    avec page de couverture universitaire professionnelle (3 modèles),
    table des matières, pagination, en-têtes et pieds de page.
+
+   Fonksyon adisyonèl / Fonctions additionnelles (settings.js):
+   - exportNoteAsWord     : ekspòte yon sèl nòt an .docx (esm.sh/docx@8)
+   - exportNotesAsWord    : ekspòte plizyè nòt an .docx
+   - exportAllDataAsJSON  : ekspòte tout done kont an JSON
+   - exportNoteAsPDF      : ouvri fenèt pou enpresyon PDF (window.print)
+   - importFromWord       : ekstrè tèks nan fichye .docx (mammoth UMD)
    ===================================================================== */
 import { CDN, loadScript, downloadBlob, safeFilename, htmlToText } from './utils.js';
 import { formatDate } from './i18n.js';
@@ -762,4 +769,318 @@ export async function exportBookDocx(book, profile = null) {
 
   const blob = await Packer.toBlob(wordDoc);
   downloadBlob(blob, safeFilename(title, 'docx'));
+}
+
+
+
+
+
+/* =====================================================================
+   FONKSYON SETTINGS — ekspòtasyon JSON, PDF enpresyon, Word (esm.sh),
+   enpòtasyon Word (mammoth UMD), efasaj kont.
+   Ekspòte séparément de l'API existante pou chak kalite itilizasyon.
+   ===================================================================== */
+
+/** Lazily load docx@8 from esm.sh (ESM dynamic import, cached after first load). */
+async function _loadDocxEsm() {
+  return import('https://esm.sh/docx@8');
+}
+
+/** Load mammoth via UMD script tag (browser bundle — not an ES module). */
+function _loadMammoth() {
+  return new Promise((resolve, reject) => {
+    if (window.mammoth) { resolve(window.mammoth); return; }
+    const script = document.createElement('script');
+    script.src = 'https://unpkg.com/mammoth/mammoth.browser.min.js';
+    script.onload = () => resolve(window.mammoth);
+    script.onerror = () => reject(new Error('mammoth_load_failed'));
+    document.head.appendChild(script);
+  });
+}
+
+/** Slugify a string for safe filenames. */
+function _slugify(str) {
+  return String(str || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+    .substring(0, 50);
+}
+
+/** Trigger a browser file download from a Blob. */
+function _triggerDownload(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+}
+
+/** Format a Date or ISO string as YYYY-MM-DD. */
+function _fmtDate(val) {
+  if (!val) return new Date().toISOString().slice(0, 10);
+  const d = typeof val === 'string' ? new Date(val) : val;
+  return isNaN(d.getTime()) ? String(val).slice(0, 10) : d.toISOString().slice(0, 10);
+}
+
+/** Minimal HTML escape used for the PDF print window. */
+function _esc(str) {
+  return String(str || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+// ── Single-note Word export (settings / note-detail) ──────────────────
+
+/**
+ * Export a single note as a .docx using esm.sh/docx@8.
+ * @param {object} note       – note row from pran_not_notes
+ * @param {string} courseName – display name of the course
+ */
+export async function exportNoteAsWord(note, courseName) {
+  const {
+    Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType,
+  } = await _loadDocxEsm();
+
+  const dateStr = _fmtDate(note.created_at);
+  const children = [];
+
+  children.push(
+    new Paragraph({
+      text: note.title || 'Nòt',
+      heading: HeadingLevel.HEADING_1,
+      alignment: AlignmentType.CENTER,
+    }),
+  );
+
+  children.push(
+    new Paragraph({
+      children: [
+        new TextRun({
+          text: `${courseName || ''} — ${dateStr}`,
+          italics: true,
+          color: '555555',
+        }),
+      ],
+      alignment: AlignmentType.CENTER,
+    }),
+  );
+
+  children.push(new Paragraph({ text: '' }));
+
+  const bodyBlocks = (note.content || note.content_text || '').split(/\n\n+/);
+  for (const block of bodyBlocks) {
+    if (block.trim()) children.push(new Paragraph({ text: block.trim() }));
+  }
+
+  if (note.homework && String(note.homework).trim()) {
+    children.push(new Paragraph({ text: '' }));
+    children.push(new Paragraph({ text: 'Devwa', heading: HeadingLevel.HEADING_2 }));
+    for (const item of String(note.homework).split(/\n/).filter(Boolean)) {
+      children.push(
+        new Paragraph({ children: [new TextRun({ text: item.trim() })], bullet: { level: 0 } }),
+      );
+    }
+  }
+
+  if (note.corrections && String(note.corrections).trim()) {
+    children.push(new Paragraph({ text: '' }));
+    children.push(new Paragraph({ text: 'Koreksyon IA', heading: HeadingLevel.HEADING_2 }));
+    children.push(new Paragraph({ text: String(note.corrections).trim() }));
+  }
+
+  if (note.research_topics && String(note.research_topics).trim()) {
+    children.push(new Paragraph({ text: '' }));
+    children.push(new Paragraph({ text: 'Sijè pou rechèche', heading: HeadingLevel.HEADING_2 }));
+    for (const topic of String(note.research_topics).split(/\n/).filter(Boolean)) {
+      children.push(
+        new Paragraph({ children: [new TextRun({ text: topic.trim() })], bullet: { level: 0 } }),
+      );
+    }
+  }
+
+  const doc = new Document({ sections: [{ properties: {}, children }] });
+  const blob = await Packer.toBlob(doc);
+  _triggerDownload(blob, `note_${_slugify(note.title || 'note')}_${dateStr}.docx`);
+}
+
+// ── Multi-note Word export ─────────────────────────────────────────────
+
+/**
+ * Export multiple notes as a single .docx file — each note is a new section.
+ * @param {object[]} notes – array of note rows
+ * @param {string}   title – document title / filename base
+ */
+export async function exportNotesAsWord(notes, title) {
+  const { Document, Packer, Paragraph, TextRun, HeadingLevel } = await _loadDocxEsm();
+
+  const sections = notes.map((note, i) => {
+    const children = [];
+
+    children.push(
+      new Paragraph({
+        text: note.title || `Nòt ${i + 1}`,
+        heading: HeadingLevel.HEADING_1,
+      }),
+    );
+
+    children.push(
+      new Paragraph({
+        children: [new TextRun({ text: _fmtDate(note.created_at), italics: true, color: '555555' })],
+      }),
+    );
+
+    children.push(new Paragraph({ text: '' }));
+
+    for (const block of (note.content || note.content_text || '').split(/\n\n+/)) {
+      if (block.trim()) children.push(new Paragraph({ text: block.trim() }));
+    }
+
+    if (note.homework && String(note.homework).trim()) {
+      children.push(new Paragraph({ text: '' }));
+      children.push(new Paragraph({ text: 'Devwa', heading: HeadingLevel.HEADING_2 }));
+      for (const item of String(note.homework).split(/\n/).filter(Boolean)) {
+        children.push(new Paragraph({ children: [new TextRun({ text: item.trim() })], bullet: { level: 0 } }));
+      }
+    }
+
+    if (note.corrections && String(note.corrections).trim()) {
+      children.push(new Paragraph({ text: '' }));
+      children.push(new Paragraph({ text: 'Koreksyon IA', heading: HeadingLevel.HEADING_2 }));
+      children.push(new Paragraph({ text: String(note.corrections).trim() }));
+    }
+
+    if (note.research_topics && String(note.research_topics).trim()) {
+      children.push(new Paragraph({ text: '' }));
+      children.push(new Paragraph({ text: 'Sijè pou rechèche', heading: HeadingLevel.HEADING_2 }));
+      for (const topic of String(note.research_topics).split(/\n/).filter(Boolean)) {
+        children.push(new Paragraph({ children: [new TextRun({ text: topic.trim() })], bullet: { level: 0 } }));
+      }
+    }
+
+    return { properties: {}, children };
+  });
+
+  const doc = new Document({ sections });
+  const blob = await Packer.toBlob(doc);
+  const dateStr = _fmtDate(null);
+  _triggerDownload(blob, `${_slugify(title || 'notes')}_${dateStr}.docx`);
+}
+
+// ── Full JSON export ───────────────────────────────────────────────────
+
+/**
+ * Fetch all user data from Supabase and trigger a .json download.
+ * Works fully offline for locally-cached data via the existing Supabase client.
+ * @param {string} userId – authenticated user ID
+ * @param {object} db     – Supabase client instance
+ */
+export async function exportAllDataAsJSON(userId, db) {
+  const [
+    { data: courses },
+    { data: notes },
+    { data: assignments },
+    { data: semesters },
+  ] = await Promise.all([
+    db.from('pran_not_courses').select('*').eq('user_id', userId),
+    db.from('pran_not_notes').select('*').eq('user_id', userId),
+    db.from('pran_not_assignments').select('*').eq('user_id', userId),
+    db.from('pran_not_semesters').select('*').eq('user_id', userId),
+  ]);
+
+  const payload = {
+    exported_at: new Date().toISOString(),
+    user_id: userId,
+    semesters: semesters || [],
+    courses: courses || [],
+    notes: notes || [],
+    assignments: assignments || [],
+  };
+
+  const json = JSON.stringify(payload, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  _triggerDownload(blob, `pran_not_export_${_fmtDate(null)}.json`);
+}
+
+// ── PDF export via print window ────────────────────────────────────────
+
+/**
+ * Open a styled print-ready popup window and call window.print().
+ * No server call — works fully offline.
+ * @param {object} note       – note row
+ * @param {string} courseName – display name of the course
+ */
+export function exportNoteAsPDF(note, courseName) {
+  const dateStr = _fmtDate(note.created_at);
+
+  const contentHtml = (note.content || note.content_text || '')
+    .split(/\n\n+/)
+    .filter((p) => p.trim())
+    .map((p) => `<p>${_esc(p.trim())}</p>`)
+    .join('');
+
+  let extrasHtml = '';
+  if (note.homework && String(note.homework).trim()) {
+    const items = String(note.homework).split(/\n/).filter(Boolean)
+      .map((i) => `<li>${_esc(i.trim())}</li>`).join('');
+    extrasHtml += `<h2>Devwa</h2><ul>${items}</ul>`;
+  }
+  if (note.corrections && String(note.corrections).trim()) {
+    extrasHtml += `<h2>Koreksyon IA</h2><p>${_esc(String(note.corrections).trim())}</p>`;
+  }
+  if (note.research_topics && String(note.research_topics).trim()) {
+    const topics = String(note.research_topics).split(/\n/).filter(Boolean)
+      .map((t) => `<li>${_esc(t.trim())}</li>`).join('');
+    extrasHtml += `<h2>Sijè pou rechèche</h2><ul>${topics}</ul>`;
+  }
+
+  const html = `<!DOCTYPE html>
+<html lang="ht">
+<head>
+  <meta charset="utf-8">
+  <title>${_esc(note.title || 'Nòt')} — Pran Nòt</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Georgia, 'Times New Roman', serif; font-size: 12pt; line-height: 1.6; color: #111; padding: 2cm; }
+    h1 { font-size: 20pt; margin-bottom: 4px; }
+    .subtitle { font-size: 11pt; color: #555; margin-bottom: 1.5em; font-style: italic; }
+    h2 { font-size: 14pt; margin-top: 1.5em; margin-bottom: 0.4em; border-bottom: 1px solid #ccc; padding-bottom: 2px; }
+    p { margin-bottom: 0.8em; }
+    ul { margin-left: 1.5em; margin-bottom: 0.8em; }
+    li { margin-bottom: 0.3em; }
+    @media print { body { padding: 0; } }
+  </style>
+</head>
+<body>
+  <h1>${_esc(note.title || 'Nòt')}</h1>
+  <div class="subtitle">${_esc(courseName || '')} — ${_esc(dateStr)}</div>
+  ${contentHtml}
+  ${extrasHtml}
+  <script>window.onload = () => { window.print(); }<\/script>
+</body>
+</html>`;
+
+  const win = window.open('', '_blank');
+  if (win) {
+    win.document.write(html);
+    win.document.close();
+  }
+}
+
+// ── Word import (mammoth UMD) ──────────────────────────────────────────
+
+/**
+ * Extract plain text from a .docx file using the mammoth UMD browser build.
+ * mammoth does not ship an ESM bundle, so we load it as a classic script.
+ * @param {File} file – the .docx File from an <input type="file">
+ * @returns {Promise<string>} extracted raw text
+ */
+export async function importFromWord(file) {
+  const mammoth = await _loadMammoth();
+  const arrayBuffer = await file.arrayBuffer();
+  const result = await mammoth.extractRawValue({ arrayBuffer });
+  return result.value;
 }

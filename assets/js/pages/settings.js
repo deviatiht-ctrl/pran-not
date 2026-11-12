@@ -7,7 +7,7 @@ import '../supabase.js';
 import { requireAuth, updateProfile, signOut } from '../auth.js';
 import { initAppChrome, setTutorContext } from '../navbar.js';
 import { t, getLang, setLang } from '../i18n.js';
-import { toast, handleError, setLoading, pageEnter, esc, icons } from '../utils.js';
+import { toast, handleError, setLoading, pageEnter, esc, icons, confirmDialog } from '../utils.js';
 import { getQuotaStatus } from '../ai.js';
 import { initPwaInstall } from '../pwa.js';
 import { FUNCTIONS_URL, SUPABASE_ANON_KEY } from '../supabase.js';
@@ -300,6 +300,77 @@ function initDesignStudio(lang) {
   const pct = Math.min(100, Math.round(((q.used || 0) / Math.max(1, q.quota || 60)) * 100));
   document.getElementById('quota-text').textContent = `${q.used || 0} / ${q.quota || 60}`;
   document.getElementById('quota-bar').style.width = `${pct}%`;
+
+  // === Ekspòtasyon / Enpòtasyon ===
+  document.getElementById('export-json-btn')?.addEventListener('click', async () => {
+    try {
+      const { exportAllDataAsJSON } = await import('../export.js');
+      await exportAllDataAsJSON(user.id, window.db);
+      toast(t('settings.export_success'), 'success');
+    } catch (err) {
+      handleError(err);
+    }
+  });
+
+  document.getElementById('import-word-input')?.addEventListener('change', async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      toast(t('settings.import_loading'), 'info');
+      const { importFromWord } = await import('../export.js');
+      const text = await importFromWord(file);
+      if (!text?.trim()) {
+        toast(t('settings.import_empty'), 'warning');
+        return;
+      }
+      sessionStorage.setItem('import_word_text', text.substring(0, 50000));
+      sessionStorage.setItem('import_word_filename', file.name.replace(/\.(docx?|doc)$/i, ''));
+      window.location.href = './note-capture.html?from_import=1';
+    } catch (err) {
+      handleError(err);
+    }
+  });
+
+  // === Efase Kont ===
+  document.getElementById('delete-account-btn')?.addEventListener('click', async () => {
+    const step1 = await confirmDialog({
+      title: t('settings.delete_account'),
+      message: t('settings.delete_confirm1'),
+      danger: true,
+    });
+    if (!step1) return;
+
+    const typed = prompt(t('settings.delete_confirm2'));
+    if (typed?.trim().toUpperCase() !== 'EFASE') {
+      toast(t('settings.delete_cancelled'), 'info');
+      return;
+    }
+
+    const btn = document.getElementById('delete-account-btn');
+    setLoading(btn, true);
+    try {
+      const { data: sessionData } = await window.db.auth.getSession();
+      const token = sessionData?.session?.access_token;
+      if (!token) throw new Error('no_session');
+      const res = await fetch(`${FUNCTIONS_URL}/delete-account`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+          apikey: SUPABASE_ANON_KEY,
+        },
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json?.error || 'delete_failed');
+      toast(t('settings.delete_success'), 'success');
+      setTimeout(() => {
+        window.location.href = '../index.html';
+      }, 1500);
+    } catch (err) {
+      handleError(err);
+      setLoading(btn, false);
+    }
+  });
 
   document.getElementById('logout-btn').addEventListener('click', () => signOut());
   initPwaInstall({ showBanner: false });

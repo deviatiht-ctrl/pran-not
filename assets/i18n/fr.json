@@ -283,7 +283,8 @@
     "audio_import_hint": "MP3, M4A, WAV, OGG, WEBM",
     "audio_segment_auto": "Un nouveau segment est transcrit automatiquement toutes les 45 s pour garder une haute précision.",
     "audio_retry_btn": "Retranscrire",
-    "audio_transcribing": "Analyse de la voix du professeur..."
+    "audio_transcribing": "Analyse de la voix du professeur...",
+    "import_word_loaded": "Document Word importé avec succès !"
   },
   "notes": {
     "title": "Mes notes",
@@ -319,6 +320,7 @@
     "name": "Nom du cours",
     "professor": "Professeur",
     "semester": "Semestre",
+    "sem_all": "Tous",
     "credits": "Crédits",
     "credits_optional": "Crédits (facultatif / si l'université l'utilise)",
     "credits_placeholder": "Facultatif (ex : 3, 0)",
@@ -532,7 +534,21 @@
     "notify_sound": "Jouer une sonnerie et vibrer lors des alertes (fonctionne hors-ligne)",
     "notify_whatsapp": "Rappels WhatsApp pour les cours, les devoirs et l'inactivité",
     "test_whatsapp_btn": "Tester mon rappel WhatsApp",
-    "ai_quota": "Utilisation IA aujourd'hui"
+    "ai_quota": "Utilisation IA aujourd'hui",
+    "export_title": "Exportation / Importation",
+    "export_sub": "Téléchargez toutes vos données ou importez un document Word pour créer une note.",
+    "export_json": "Exporter JSON",
+    "import_word": "Importer Word",
+    "export_success": "Données exportées avec succès !",
+    "import_loading": "Analyse du document Word en cours...",
+    "import_empty": "Le document Word semble vide ou illisible.",
+    "danger_title": "Zone de danger",
+    "danger_sub": "Ces actions sont irréversibles. Soyez prudent.",
+    "delete_account": "Supprimer mon compte",
+    "delete_confirm1": "Êtes-vous sûr de vouloir supprimer définitivement votre compte, cours, notes et devoirs ? Cette action est irréversible.",
+    "delete_confirm2": "Pour confirmer, tapez 'EFASE' en majuscules :",
+    "delete_cancelled": "Suppression annulée.",
+    "delete_success": "Votre compte a été supprimé. Au revoir !"
   },
   "search": {
     "title": "Recherche globale",
@@ -800,5 +816,20 @@
     "hw_desc_ph": "Consignes, détails donnés par le professeur...",
     "add_hw": "Ajouter",
     "translate_btn": "Traduire la note (Créole / Français)"
+  },
+  "history": {
+    "title": "Historique des cours",
+    "subtitle": "Cours passés organisés par semestre et année académique",
+    "search_placeholder": "Rechercher un cours ou professeur...",
+    "year_all": "Toutes les années",
+    "close_sem_btn": "Clôturer ce semestre",
+    "close_sem_confirm": "Voulez-vous clôturer ce semestre ? Tous ses cours seront archivés.",
+    "no_courses": "Aucun cours dans ce semestre.",
+    "courses_count": "{n} cours",
+    "notes_count": "{n} notes",
+    "mastery_avg": "Maîtrise moyenne : {pct}%",
+    "no_semester_group": "Autres cours (sans semestre spécifié)",
+    "active_badge": "Semestre actif",
+    "closed_badge": "Clôturé / Archivé"
   }
 }

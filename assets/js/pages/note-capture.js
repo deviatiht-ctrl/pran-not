@@ -1100,6 +1100,27 @@ async function saveNote() {
   switchMode(getParam('mode') || 'photo');
   drawIdleMeter();
 
+  // Enpòtasyon Word — si yon tèks vini de settings.html via sessionStorage
+  if (getParam('from_import') === '1') {
+    const importedText = sessionStorage.getItem('import_word_text');
+    const importedFilename = sessionStorage.getItem('import_word_filename');
+    if (importedText) {
+      sessionStorage.removeItem('import_word_text');
+      sessionStorage.removeItem('import_word_filename');
+      // Chanje mode a "text" epi pré-ranpli zone tèks lan
+      switchMode('text');
+      // Tann Quill chaje
+      await new Promise((r) => setTimeout(r, 800));
+      const editor = document.querySelector('.ql-editor');
+      if (editor) {
+        editor.innerHTML = importedText.split('\n\n').map((p) => `<p>${p.replace(/\n/g, '<br>')}</p>`).join('');
+      }
+      const titleInput = document.getElementById('note-title');
+      if (titleInput && importedFilename) titleInput.value = importedFilename;
+      toast(t('capture.import_word_loaded'), 'success');
+    }
+  }
+
   document.querySelectorAll('#capture-modes [role="tab"]').forEach((btn) => {
     btn.addEventListener('click', () => switchMode(btn.dataset.mode));
   });

@@ -19,6 +19,7 @@ import {
 const db = window.db;
 let userRef = null;
 let courses = [];
+let activeSemFilter = 'all'; // 'all' or a semester string
 
 const DAYS = [
   { id: 'mon', label: 'Lun' },
@@ -33,7 +34,12 @@ const COLORS = ['#F97316', '#1B2A4A', '#15803D', '#1D4ED8', '#A16207', '#B91C1C'
 
 function renderCourses() {
   const grid = document.getElementById('courses-grid');
-  if (!courses.length) {
+  // Filtre pa semès aktif
+  const visible = activeSemFilter === 'all'
+    ? courses
+    : courses.filter((c) => (c.semester || '') === activeSemFilter);
+
+  if (!visible.length) {
     grid.className = '';
     grid.innerHTML = emptyState({
       icon: 'book-open',
@@ -47,7 +53,7 @@ function renderCourses() {
   }
 
   grid.className = 'grid grid-3';
-  grid.innerHTML = courses.map((c) => {
+  grid.innerHTML = visible.map((c) => {
     const pct = Math.round(Number(c.mastery || 0));
     const days = (c.schedule_days || []).map((id) => DAYS.find((d) => d.id === id)?.label || id).join(', ');
     const timeBadge = formatCourseScheduleBadge(c);
@@ -118,6 +124,58 @@ function renderCourses() {
 
   icons(grid);
   animateIn('#courses-grid article');
+}
+
+/* ------------------------------------------------------------------
+   Rann baton filtre semès nan #sem-filter-bar
+   ------------------------------------------------------------------ */
+function renderSemesterFilterBar(courseList) {
+  const bar = document.getElementById('sem-filter-bar');
+  if (!bar) return;
+
+  // Retire ansyen bouton semès (kenbe "Tout" ak lyen istorik)
+  bar.querySelectorAll('[data-sem-btn]').forEach((b) => b.remove());
+
+  // Ekstrè semès inik (non vid)
+  const sems = [...new Set(courseList.map((c) => (c.semester || '').trim()).filter(Boolean))];
+
+  // Pwen referans: bouton "Tout" (premye bouton)
+  const allBtn = bar.querySelector('#sem-filter-all');
+
+  for (const sem of sems) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'btn btn-sm btn-outline';
+    btn.dataset.semBtn = sem;
+    btn.textContent = sem;
+    btn.addEventListener('click', () => {
+      activeSemFilter = sem;
+      updateSemFilterActive();
+      renderCourses();
+    });
+    // Ensere apre bouton "Tout", anvan lyen istorik
+    allBtn.insertAdjacentElement('afterend', btn);
+  }
+
+  // Bouton "Tout" ecoutè
+  allBtn.onclick = () => {
+    activeSemFilter = 'all';
+    updateSemFilterActive();
+    renderCourses();
+  };
+
+  updateSemFilterActive();
+}
+
+/* Mete ajou klas aktif sou bouton filtre semès */
+function updateSemFilterActive() {
+  const bar = document.getElementById('sem-filter-bar');
+  if (!bar) return;
+  bar.querySelectorAll('button').forEach((b) => {
+    const sem = b.dataset.semBtn;
+    const isActive = sem ? activeSemFilter === sem : activeSemFilter === 'all';
+    b.className = isActive ? 'btn btn-sm btn-primary' : 'btn btn-sm btn-outline';
+  });
 }
 
 function openCourseModal(existing = null) {
@@ -270,6 +328,7 @@ function openCourseModal(existing = null) {
   const cached = await cacheGet('courses_list');
   if (cached?.length) {
     courses = mergeCourseSchedules(cached);
+    renderSemesterFilterBar(courses);
     renderCourses();
   }
 
@@ -279,6 +338,7 @@ function openCourseModal(existing = null) {
       if (error) throw error;
       courses = mergeCourseSchedules(data || []);
       await cacheSet('courses_list', courses);
+      renderSemesterFilterBar(courses);
       renderCourses();
     } catch (err) {
       if (!courses.length) {
