@@ -33,7 +33,7 @@ export async function openSendTransferModal(noteData) {
 
   const m = openModal({
     title: t('transfer.send_title') || 'Pataje nòt an dirèk sou sit la',
-    contentHtml: `
+    body: `
       <div class="stack text-center py-2">
         <p class="text-sm muted mb-1">
           Bay lòt etidyan an kòd sa a. Fòk li sou sit la epi klike sou <strong>"Resevwa nòt"</strong> pou transfè a fèt touswit :
@@ -146,7 +146,7 @@ export async function openReceiveTransferModal(onReceivedCallback) {
 
   const m = openModal({
     title: t('transfer.receive_title') || 'Resevwa yon nòt an dirèk',
-    contentHtml: `
+    body: `
       <form id="receive-transfer-form" class="stack py-2">
         <p class="text-sm muted mb-2">
           Mete kòd 6 chif kanmarad ou a ba ou pou telechaje nòt la dirèkteman sou kont ou :
@@ -286,7 +286,7 @@ export async function openExamRevisionModal({ courseId = '', courses = [] } = {}
 
   const m = openModal({
     title: 'Revizyon Egzamen pa Peryòd Dat',
-    contentHtml: `
+    body: `
       <div class="stack py-2">
         <p class="text-sm muted mb-3">
           Chwazi yon peryòd (egzanp: depi kòmansman sesyon an rive jodi a) pou w wè tout nòt, devwa ak konsèp kle pou prepare egzamen ou :

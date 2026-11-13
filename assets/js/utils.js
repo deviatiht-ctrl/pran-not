@@ -270,7 +270,7 @@ let modalStack = 0;
  * Ouvre une modale. Retourne { el, close }.
  * @param {{title:string, body:string|HTMLElement, footer?:string, size?:'lg', onClose?:Function, labelledBy?:string}} o
  */
-export function openModal({ title = '', body = '', footer = '', size = '', onClose } = {}) {
+export function openModal({ title = '', body = '', contentHtml = '', footer = '', size = '', onClose } = {}) {
   const lastFocus = document.activeElement;
   const overlay = document.createElement('div');
   overlay.className = 'overlay';
@@ -285,8 +285,9 @@ export function openModal({ title = '', body = '', footer = '', size = '', onClo
       ${footer ? `<div class="modal-foot">${footer}</div>` : ''}
     </div>`;
   const bodyEl = overlay.querySelector('.modal-body');
-  if (typeof body === 'string') bodyEl.innerHTML = body;
-  else if (body instanceof Node) bodyEl.appendChild(body);
+  const modalContent = body || contentHtml;
+  if (typeof modalContent === 'string') bodyEl.innerHTML = modalContent;
+  else if (modalContent instanceof Node) bodyEl.appendChild(modalContent);
   document.body.appendChild(overlay);
   document.body.style.overflow = 'hidden';
   modalStack++;
