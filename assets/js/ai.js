@@ -208,12 +208,13 @@ export async function askTutor({
   });
 }
 
-/** Assistance aux devoirs (plan, pistes, cohérence, reformulation, bibliographie, recherche bibliothèque). */
+/** Assistance aux devoirs (plan, pistes, cohérence, reformulation, critique soumission, questions directes, bibliographie, recherche bibliothèque). */
 export async function assistAssignment({
   action = 'plan',
   title,
   instructions,
   content = '',
+  question = '',
   useLibrary = true,
   bookIds = [],
   language,
@@ -225,6 +226,7 @@ export async function assistAssignment({
     title,
     instructions,
     content,
+    question,
     useLibrary,
     bookIds,
     language: language || getLang(),

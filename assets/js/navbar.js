@@ -150,7 +150,7 @@ export async function initAppChrome({
       <button type="button" class="nav-lang" id="mob-lang-btn" aria-label="${esc(t('nav.switch_lang'))}">${lang.toUpperCase()}</button>
     </div>`;
 
-  // 3. Barre mobile Android (5 onglets exacts : Accueil, Notes, Réviser, Cours, Profil)
+  // 3. Barre mobile Android (5 onglets équilibrés avec bouton Plis ouvrant Devoirs, Tests, etc.)
   let mobNav = document.getElementById('mobile-nav');
   if (!mobNav) {
     mobNav = document.createElement('nav');
@@ -159,14 +159,23 @@ export async function initAppChrome({
     mobNav.setAttribute('aria-label', t('nav.mobile_label'));
     document.body.appendChild(mobNav);
   }
+  const isMoreActive = ['assignments', 'tests', 'planner', 'library', 'progress'].includes(active)
+    || isCurrent('assignments.html') || isCurrent('assignment.html') || isCurrent('tests.html') || isCurrent('test-session.html') || isCurrent('planner.html');
+
   const mobTabs = [
     { key: 'dashboard', href: 'pages/dashboard.html', icon: 'home', label: t('nav.home') },
     { key: 'notes', href: 'pages/notes.html', icon: 'notebook-pen', label: t('nav.notes') },
     { key: 'review', href: 'pages/review.html', icon: 'layers', label: t('nav.review'), badge: dueCount },
     { key: 'courses', href: 'pages/courses.html', icon: 'book-open', label: t('nav.courses') },
-    { key: 'profile', href: 'pages/profile.html', icon: 'user', label: t('nav.profile') },
+    { key: 'more', icon: 'grid', label: t('nav.more'), isMore: true, active: isMoreActive },
   ];
   mobNav.innerHTML = mobTabs.map((it) => {
+    if (it.isMore) {
+      return `<button type="button" class="mobile-nav-item" id="mob-more-btn" ${it.active ? 'aria-current="page"' : ''}>
+        <span class="mobile-nav-icon">${icon(it.icon)}</span>
+        <span>${esc(it.label)}</span>
+      </button>`;
+    }
     const cur = active === it.key || isCurrent(it.href.split('/').pop());
     return `<a class="mobile-nav-item" href="${pageHref(it.href)}" ${cur ? 'aria-current="page"' : ''}>
       <span class="mobile-nav-icon">${icon(it.icon)}</span>
@@ -174,6 +183,39 @@ export async function initAppChrome({
       ${it.badge > 0 ? `<span class="mobile-nav-badge">${it.badge > 99 ? '99+' : it.badge}</span>` : ''}
     </a>`;
   }).join('');
+
+  document.getElementById('mob-more-btn')?.addEventListener('click', () => {
+    const moreItems = [
+      { href: 'pages/assignments.html', icon: 'clipboard-list', label: t('nav.assignments'), desc: 'Devwa, gid IA ak verifikasyon' },
+      { href: 'pages/tests.html', icon: 'check-circle-2', label: t('nav.tests'), desc: 'Egzamen blan ak simulation' },
+      { href: 'pages/planner.html', icon: 'calendar', label: t('nav.planner'), desc: 'Orè kou ak kalandriye' },
+      { href: 'pages/library.html', icon: 'library', label: t('nav.library_full'), desc: 'Liv, kòd lwa ak resous' },
+      { href: 'pages/progress.html', icon: 'bar-chart-2', label: t('nav.progress'), desc: 'Estatistik ak nivo XP' },
+      { href: 'pages/profile.html', icon: 'user', label: t('nav.profile'), desc: 'Kont ou ak enfòmasyon w' },
+    ];
+    const contentHtml = `
+      <div class="mobile-more-grid">
+        ${moreItems.map((item) => {
+          const isItemCur = isCurrent(item.href.split('/').pop());
+          return `
+            <a class="mobile-more-card ${isItemCur ? 'active-page' : ''}" href="${pageHref(item.href)}">
+              <span class="mobile-more-card-icon">${icon(item.icon)}</span>
+              <div>
+                <div>${esc(item.label)}</div>
+                <div class="text-xs muted font-normal">${esc(item.desc)}</div>
+              </div>
+            </a>
+          `;
+        }).join('')}
+      </div>
+    `;
+    const m = openModal({
+      title: t('nav.more_title'),
+      contentHtml,
+      size: 'md',
+    });
+    icons(m.modal);
+  });
 
   // 4. Footer "Designed by Cvisual"
   ensureFooter();

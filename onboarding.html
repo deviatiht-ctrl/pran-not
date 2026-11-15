@@ -48,11 +48,16 @@
     </div>
 
     <form id="onboarding-form" class="card" novalidate>
-      <!-- Étape 1 : Identité et université -->
+      <!-- Étape 1 : Identité, téléphone et université -->
       <section data-step="1">
         <div class="field">
           <label for="onb-name" data-i18n="onboarding.full_name"></label>
           <input class="input" id="onb-name" type="text" required data-i18n-placeholder="onboarding.full_name_ph">
+        </div>
+        <div class="field">
+          <label for="onb-whatsapp" data-i18n="onboarding.whatsapp_phone"></label>
+          <input class="input" id="onb-whatsapp" type="tel" inputmode="tel" required data-i18n-placeholder="onboarding.whatsapp_phone_ph">
+          <div class="text-xs muted mt-1" data-i18n="onboarding.whatsapp_hint"></div>
         </div>
         <div class="field">
           <label for="onb-uni" data-i18n="onboarding.university"></label>
@@ -65,6 +70,16 @@
         <div class="field">
           <label data-i18n="onboarding.faculty"></label>
           <div class="option-grid" id="faculty-grid"></div>
+        </div>
+        <div class="stack mt-4" id="custom-faculty-box" hidden>
+          <div class="field">
+            <label for="onb-custom-faculty" data-i18n="onboarding.custom_faculty_label"></label>
+            <input class="input" id="onb-custom-faculty" type="text" data-i18n-placeholder="onboarding.custom_faculty_ph">
+          </div>
+          <div class="field">
+            <label for="onb-custom-uni" data-i18n="onboarding.custom_uni_label"></label>
+            <input class="input" id="onb-custom-uni" type="text" data-i18n-placeholder="onboarding.custom_uni_ph">
+          </div>
         </div>
         <div class="field mt-6">
           <label for="onb-level" data-i18n="onboarding.level"></label>
@@ -106,12 +121,6 @@
             <label for="onb-reminder" data-i18n="onboarding.reminder_time"></label>
             <input class="input" id="onb-reminder" type="time" value="19:00">
           </div>
-        </div>
-
-        <div class="field mt-4">
-          <label for="onb-whatsapp" data-i18n="onboarding.whatsapp_phone"></label>
-          <input class="input" id="onb-whatsapp" type="tel" inputmode="tel" data-i18n-placeholder="onboarding.whatsapp_phone_ph">
-          <div class="text-xs muted mt-1" data-i18n="onboarding.whatsapp_hint"></div>
         </div>
 
         <label class="switch mt-4">

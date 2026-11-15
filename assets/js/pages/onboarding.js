@@ -93,7 +93,23 @@ function renderStep() {
 
     const lang = getLang();
     const facGrid = document.getElementById('faculty-grid');
+    const customFacBox = document.getElementById('custom-faculty-box');
+    const customFacInput = document.getElementById('onb-custom-faculty');
+    const customUniInput = document.getElementById('onb-custom-uni');
     const selectedFac = profile?.faculty_id || 'medecine';
+
+    function toggleCustomFacultyBox() {
+      const currentSelected = form.querySelector('input[name="faculty_id"]:checked')?.value;
+      if (customFacBox) {
+        customFacBox.hidden = currentSelected !== 'autre';
+        if (currentSelected === 'autre') {
+          if (customUniInput && !customUniInput.value.trim() && uniInput?.value.trim()) {
+            customUniInput.value = uniInput.value.trim();
+          }
+        }
+      }
+    }
+
     if (facGrid) {
       facGrid.innerHTML = faculties.map((f) => `
         <label class="option">
@@ -101,6 +117,11 @@ function renderStep() {
           ${icon(f.icon || 'graduation-cap')}
           <span class="text-sm">${esc(lang === 'fr' ? f.name_fr : f.name_ht)}</span>
         </label>`).join('');
+
+      facGrid.querySelectorAll('input[name="faculty_id"]').forEach((radio) => {
+        radio.addEventListener('change', toggleCustomFacultyBox);
+      });
+      toggleCustomFacultyBox();
     }
 
     // Niveaux
@@ -139,9 +160,31 @@ function renderStep() {
     if (step === 1) {
       const name = document.getElementById('onb-name')?.value?.trim() || '';
       const uni = document.getElementById('onb-uni')?.value?.trim() || '';
-      if (!name || !uni) {
+      const rawWa = document.getElementById('onb-whatsapp')?.value?.trim() || '';
+      if (!name || !uni || !rawWa) {
         toast(t('errors.required'), 'warning');
         return;
+      }
+      try {
+        normalizeWhatsAppPhone(rawWa);
+      } catch {
+        toast(t('profile.whatsapp_invalid'), 'warning');
+        return;
+      }
+    }
+    if (step === 2) {
+      const selectedFac = form.querySelector('input[name="faculty_id"]:checked')?.value;
+      if (selectedFac === 'autre') {
+        const customFac = document.getElementById('onb-custom-faculty')?.value?.trim();
+        const customUni = document.getElementById('onb-custom-uni')?.value?.trim();
+        if (!customFac) {
+          toast(t('onboarding.custom_faculty_label'), 'warning');
+          return;
+        }
+        if (customUni) {
+          const uniInput = document.getElementById('onb-uni');
+          if (uniInput) uniInput.value = customUni;
+        }
       }
     }
     if (step < TOTAL) { step++; renderStep(); }
@@ -156,8 +199,7 @@ function renderStep() {
     setLoading(finishBtn, true);
     try {
       await readyPromise;
-      const fullName = document.getElementById('onb-name')?.value?.trim() || '';
-      const university = document.getElementById('onb-uni')?.value?.trim() || '';
+      let university = document.getElementById('onb-uni')?.value?.trim() || '';
       if (!fullName || !university) {
         step = 1;
         renderStep();
@@ -166,6 +208,11 @@ function renderStep() {
         return;
       }
       const facultyId = form.querySelector('input[name="faculty_id"]:checked')?.value || 'autre';
+      const customFac = document.getElementById('onb-custom-faculty')?.value?.trim();
+      const customUni = document.getElementById('onb-custom-uni')?.value?.trim();
+      if (facultyId === 'autre' && customUni) {
+        university = customUni;
+      }
       const level = levelSel?.value || 'L1';
       const prefLang = form.querySelector('input[name="language"]:checked')?.value || 'ht';
       const goalMin = Number(document.getElementById('onb-goal')?.value || 30);
@@ -174,6 +221,8 @@ function renderStep() {
       try {
         whatsappPhone = normalizeWhatsAppPhone(document.getElementById('onb-whatsapp')?.value);
       } catch {
+        step = 1;
+        renderStep();
         toast(t('profile.whatsapp_invalid'), 'warning');
         setLoading(finishBtn, false);
         return;
@@ -181,7 +230,7 @@ function renderStep() {
       const waToggle = document.getElementById('onb-notify-wa');
       const notifyWhatsapp = waToggle ? Boolean(waToggle.checked) : true;
 
-      await updateProfile({
+      const profilePayload = {
         full_name: fullName,
         university,
         faculty_id: facultyId,
@@ -192,7 +241,15 @@ function renderStep() {
         whatsapp_phone: whatsappPhone,
         notify_whatsapp: notifyWhatsapp,
         onboarded: true,
-      });
+      };
+      if (facultyId === 'autre' && customFac) {
+        profilePayload.theme_config = {
+          custom_faculty_name: customFac,
+          custom_university_name: customUni || university,
+        };
+      }
+
+      await updateProfile(profilePayload);
 
       await setLang(prefLang, { persistProfile: false });
 

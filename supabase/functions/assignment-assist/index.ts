@@ -14,10 +14,11 @@ Deno.serve(async (req) => {
     if ('error' in auth) return errorResponse(auth.error, 'Non authentifié', auth.status);
 
     const body = await req.json();
-    const action = String(body.action || 'plan'); // 'plan' | 'coherence' | 'biblio' | 'rephrase' | 'library_research'
+    const action = String(body.action || 'plan'); // 'plan' | 'coherence' | 'biblio' | 'rephrase' | 'library_research' | 'critique_submission' | 'qa'
     const title = String(body.title || '').trim();
     const instructions = String(body.instructions || '').trim();
     const content = String(body.content || '').trim();
+    const question = String(body.question || '').trim();
     const useLibrary = body.useLibrary !== false;
     const bookIds = Array.isArray(body.bookIds) ? body.bookIds.filter(Boolean).slice(0, 5) : [];
 
@@ -76,7 +77,48 @@ Deno.serve(async (req) => {
     }
 
     let prompt = '';
-    if (action === 'library_research') {
+    if (action === 'qa') {
+      prompt = `Tu es le tuteur d'assistance pour le devoir de l'étudiant.
+RÈGLES IMPORTANTES :
+1. Sois direct, concis et précis. Évite impérativement les bavardages, introductions superflues ou longs blocs de texte inutiles.
+2. Si la demande porte sur une question directe ou un exercice spécifique (ex: conjugaison, calcul, définition, règle juridique, analyse courte), donne directement la réponse exacte et claire avec juste l'explication indispensable.
+3. Reste pédagogique mais sans surcharge cognitive.
+4. Aucun emoji.
+
+Retourne STRICTEMENT ce JSON :
+{
+  "answer": "Réponse directe, claire et concise à la question",
+  "tips": ["Point clé ou règle essentielle à retenir"]
+}
+
+Titre du devoir : ${title}
+Consigne du devoir : ${instructions}
+${content ? `Brouillon actuel ou extrait du devoir :\n${content.slice(0, 4000)}\n` : ''}
+Question de l'étudiant : ${question || title || instructions}`;
+    } else if (action === 'critique_submission') {
+      prompt = `L'étudiant a déjà rédigé ou généré ce devoir (peut-être via une autre IA ou par lui-même) et te le soumet pour évaluation critique, vérification rigoureuse et notation indicative.
+RÈGLES IMPORTANTES :
+1. Analyse si le devoir répond exactement à la consigne demandée.
+2. Vérifie la justesse des réponses, l'exactitude des notions/faits/règles, la clarté et l'absence d'erreurs (grammaire, logique, fausses affirmations).
+3. Sois direct, structuré et sans verbiage inutile.
+4. Donne une note indicative sur 20 et des corrections concrètes pour les erreurs détectées.
+5. Aucun emoji.
+
+Retourne STRICTEMENT ce JSON :
+{
+  "score_estimate": "Note estimée ex: 16/20",
+  "verdict": "Conforme / Partiellement conforme / Incomplet ou inexact",
+  "strengths": ["Ce qui est bien fait et juste"],
+  "issues": ["Erreurs détectées, manques ou imprécisions"],
+  "corrections": ["Correction concrète 1", "Correction concrète 2"],
+  "tips": ["Recommandation prioritaire pour perfectionner le travail"]
+}
+
+Titre du devoir : ${title}
+Consigne officielle : ${instructions}
+Travail soumis par l'étudiant à analyser :
+${content.slice(0, 14000)}`;
+    } else if (action === 'library_research') {
       prompt = `Appuie-toi sur les ouvrages et codes juridiques de la Bibliothèque ci-dessous pour préparer une fiche de recherche documentaire destinée au devoir de l'étudiant.
 RÈGLES ANTI-PLAGIAT STRICTES :
 1. Rédige les analyses et pistes avec tes propres mots, sans recopier les sources.
@@ -155,7 +197,7 @@ ${content.slice(0, 6000)}`;
       language,
       prompt,
       expectJson: true,
-      cacheKeyPayload: { action, title, instructions, content: content.slice(0, 6000), language, useLibrary, bookIds },
+      cacheKeyPayload: { action, title, instructions, content: content.slice(0, 6000), question, language, useLibrary, bookIds },
     });
 
     return jsonResponse({

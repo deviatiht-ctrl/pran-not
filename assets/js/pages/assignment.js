@@ -35,23 +35,46 @@ function renderAiPlan(plan, librarySources = []) {
   const tips = Array.isArray(plan?.tips) ? plan.tips : [];
   const strengths = Array.isArray(plan?.strengths) ? plan.strengths : [];
   const issues = Array.isArray(plan?.issues) ? plan.issues : [];
+  const corrections = Array.isArray(plan?.corrections) ? plan.corrections : [];
 
-  box.innerHTML = `
-    <div class="ai-suggestion-label">${icon('sparkles')}<span>Gid metodolojik IA</span></div>
-    ${synthesisNotes.length ? `<div class="mt-2"><strong>Sentèz dokimantè (Bibliyotèk san plajya) :</strong><ul class="text-sm mb-0" style="padding-left:1.3em;">${synthesisNotes.map((s) => `<li>${esc(s)}</li>`).join('')}</ul></div>` : ''}
-    ${legalCitations.length ? `<div class="mt-2"><strong>Referans lwa ak atik egzak :</strong><ul class="text-sm mb-0" style="padding-left:1.3em;">${legalCitations.map((s) => `<li>${esc(s)}</li>`).join('')}</ul></div>` : ''}
-    ${outline.length ? `<div class="mt-2">${outline.map((sec) => `
+  let contentHtml = '';
+
+  if (plan?.verdict || plan?.score_estimate) {
+    contentHtml += `
+      <div class="row-between mb-2">
+        <div class="ai-suggestion-label">${icon('award')}<span>Rezilta Verifikasyon Devoir</span></div>
+        ${plan.score_estimate ? `<span class="badge badge-success font-bold text-sm">${esc(plan.score_estimate)}</span>` : ''}
+      </div>
+      ${plan.verdict ? `<div class="mb-2"><strong>Konklizyon :</strong> <span class="badge">${esc(plan.verdict)}</span></div>` : ''}
+    `;
+  } else if (plan?.answer) {
+    contentHtml += `
+      <div class="ai-suggestion-label mb-2">${icon('sparkles')}<span>Repons IA Dirèk</span></div>
+      <div class="card card-sm mb-2" style="background:var(--c-surface);"><p class="text-sm mb-0" style="white-space:pre-wrap;">${esc(plan.answer)}</p></div>
+    `;
+  } else {
+    contentHtml += `<div class="ai-suggestion-label">${icon('sparkles')}<span>Gid metodolojik IA</span></div>`;
+  }
+
+  if (synthesisNotes.length) contentHtml += `<div class="mt-2"><strong>Sentèz dokimantè (Bibliyotèk san plajya) :</strong><ul class="text-sm mb-0" style="padding-left:1.3em;">${synthesisNotes.map((s) => `<li>${esc(s)}</li>`).join('')}</ul></div>`;
+  if (legalCitations.length) contentHtml += `<div class="mt-2"><strong>Referans lwa ak atik egzak :</strong><ul class="text-sm mb-0" style="padding-left:1.3em;">${legalCitations.map((s) => `<li>${esc(s)}</li>`).join('')}</ul></div>`;
+  if (outline.length) {
+    contentHtml += `<div class="mt-2">${outline.map((sec) => `
       <div class="mb-2">
         <strong>${esc(sec.section)}</strong>
         <ul class="text-sm mb-0" style="padding-left:1.3em;">${(sec.points || []).map((p) => `<li>${esc(p)}</li>`).join('')}</ul>
-      </div>`).join('')}</div>` : ''}
-    ${leads.length ? `<div class="mt-2"><strong>Pis rechèch :</strong><ul class="text-sm mb-0" style="padding-left:1.3em;">${leads.map((l) => `<li>${esc(l)}</li>`).join('')}</ul></div>` : ''}
-    ${sources.length ? `<div class="mt-2"><strong>Sous pou chèche :</strong><ul class="text-sm mb-0" style="padding-left:1.3em;">${sources.map((s) => `<li>${esc(s)}</li>`).join('')}</ul></div>` : ''}
-    ${strengths.length ? `<div class="mt-2"><strong>Pwen fò :</strong><ul class="text-sm mb-0" style="padding-left:1.3em;">${strengths.map((s) => `<li>${esc(s)}</li>`).join('')}</ul></div>` : ''}
-    ${issues.length ? `<div class="mt-2"><strong>Pwen pou amelyore :</strong><ul class="text-sm mb-0" style="padding-left:1.3em;">${issues.map((s) => `<li>${esc(s)}</li>`).join('')}</ul></div>` : ''}
-    ${plan?.suggestion ? `<div class="mt-2"><strong>Pwopozisyon refòmilasyon :</strong><p class="text-sm mb-0">${esc(plan.suggestion)}</p></div>` : ''}
-    ${tips.length ? `<div class="mt-2"><strong>Konsèy :</strong><ul class="text-sm mb-0" style="padding-left:1.3em;">${tips.map((tp) => `<li>${esc(tp)}</li>`).join('')}</ul></div>` : ''}
-    ${librarySources.length ? `
+      </div>`).join('')}</div>`;
+  }
+  if (leads.length) contentHtml += `<div class="mt-2"><strong>Pis rechèch :</strong><ul class="text-sm mb-0" style="padding-left:1.3em;">${leads.map((l) => `<li>${esc(l)}</li>`).join('')}</ul></div>`;
+  if (sources.length) contentHtml += `<div class="mt-2"><strong>Sous pou chèche :</strong><ul class="text-sm mb-0" style="padding-left:1.3em;">${sources.map((s) => `<li>${esc(s)}</li>`).join('')}</ul></div>`;
+  if (strengths.length) contentHtml += `<div class="mt-2"><strong>Pwen fò ki byen fèt :</strong><ul class="text-sm mb-0" style="padding-left:1.3em;">${strengths.map((s) => `<li>${esc(s)}</li>`).join('')}</ul></div>`;
+  if (issues.length) contentHtml += `<div class="mt-2"><strong>Pwen pou amelyore oswa erè :</strong><ul class="text-sm mb-0" style="padding-left:1.3em;">${issues.map((s) => `<li>${esc(s)}</li>`).join('')}</ul></div>`;
+  if (corrections.length) contentHtml += `<div class="mt-2"><strong>Koreksyon egzakt :</strong><ul class="text-sm mb-0" style="padding-left:1.3em;">${corrections.map((c) => `<li>${esc(c)}</li>`).join('')}</ul></div>`;
+  if (plan?.suggestion) contentHtml += `<div class="mt-2"><strong>Pwopozisyon refòmilasyon :</strong><p class="text-sm mb-0">${esc(plan.suggestion)}</p></div>`;
+  if (tips.length) contentHtml += `<div class="mt-2"><strong>Konsèy :</strong><ul class="text-sm mb-0" style="padding-left:1.3em;">${tips.map((tp) => `<li>${esc(tp)}</li>`).join('')}</ul></div>`;
+
+  if (librarySources.length) {
+    contentHtml += `
       <div class="mt-3 pt-3" style="border-top:1px solid var(--c-border);">
         <strong class="text-xs" style="text-transform:uppercase;letter-spacing:0.05em;">${esc(t('assignments.library_sources_title'))}</strong>
         <div class="stack-sm mt-2">
@@ -72,7 +95,10 @@ function renderAiPlan(plan, librarySources = []) {
               </div>
             </div>`).join('')}
         </div>
-      </div>` : ''}`;
+      </div>`;
+  }
+
+  box.innerHTML = contentHtml;
 
   box.querySelectorAll('[data-insert-src]').forEach((btn) => {
     btn.addEventListener('click', () => {
@@ -110,7 +136,21 @@ async function renderPage() {
 
     <div class="grid grid-main-side">
       <div class="stack">
-        <section class="card">
+        <!-- Onglets Editeur / Aperçu / Verifikasyon IA -->
+        <div class="segmented mb-2" role="tablist">
+          <button type="button" class="btn btn-sm" role="tab" id="tab-btn-editor" aria-selected="true">
+            ${icon('edit-3')}<span>${esc(t('assignments.tab_editor'))}</span>
+          </button>
+          <button type="button" class="btn btn-sm" role="tab" id="tab-btn-preview" aria-selected="false">
+            ${icon('eye')}<span>${esc(t('assignments.tab_preview'))}</span>
+          </button>
+          <button type="button" class="btn btn-sm" role="tab" id="tab-btn-critique" aria-selected="false">
+            ${icon('check-circle-2')}<span>${esc(t('assignments.tab_critique'))}</span>
+          </button>
+        </div>
+
+        <!-- Section 1 : Editeur -->
+        <section class="card" id="pane-editor">
           <div class="field">
             <label for="asg-inst-ed">${esc(t('assignments.instructions'))}</label>
             <textarea class="textarea" id="asg-inst-ed" rows="3">${esc(assignment.instructions || '')}</textarea>
@@ -132,12 +172,70 @@ async function renderPage() {
             <button type="button" class="btn btn-sm btn-secondary" data-assist="rephrase">${esc(t('assignments.assist_rephrase'))}</button>
           </div>
 
+          <!-- Modil Kesyon Dirèk IA -->
+          <div class="card card-sm mb-4" style="background:var(--c-surface-soft);border:1px solid var(--c-border);">
+            <div class="row-between mb-2">
+              <strong class="text-xs" style="text-transform:uppercase;letter-spacing:0.05em;">${icon('message-circle')} ${esc(t('assignments.qa_title'))}</strong>
+            </div>
+            <div class="input-group">
+              <input class="input" id="asg-qa-input" type="text" placeholder="${esc(t('assignments.qa_ph'))}">
+              <button type="button" class="btn btn-primary" id="asg-qa-btn">
+                ${icon('send')}<span>${esc(t('assignments.qa_send'))}</span>
+              </button>
+            </div>
+          </div>
+
           <div class="ai-suggestion mb-4" id="asg-ai-output" ${assignment.plan ? '' : 'hidden'}></div>
 
           <div class="field mb-0">
             <label>Redaksyon devwa a</label>
             <div id="asg-quill"></div>
           </div>
+        </section>
+
+        <!-- Section 2 : Aperçu / Preview -->
+        <section class="card" id="pane-preview" hidden>
+          <div class="page-head mb-4 pb-2" style="border-bottom:1px solid var(--c-border);">
+            <div>
+              <span class="badge badge-info">${esc(t('assignments.tab_preview'))}</span>
+              <h2 class="mt-2" id="preview-title">${esc(assignment.title)}</h2>
+              <div class="text-sm muted" id="preview-meta">
+                ${esc(course?.name || '')} • ${esc(profileRef?.full_name || '')} • ${esc(formatDate(new Date()))}
+              </div>
+            </div>
+          </div>
+          <div class="mb-4 p-3" style="background:var(--c-surface-soft);border-radius:var(--r-card);">
+            <strong>Enstriksyon :</strong>
+            <p class="text-sm mb-0 mt-1" id="preview-inst">${esc(assignment.instructions || 'Pa gen enstriksyon.')}</p>
+          </div>
+          <div id="preview-body" class="prose" style="min-height:240px;line-height:1.6;"></div>
+        </section>
+
+        <!-- Section 3 : Verifikasyon / Critique soumission fèt deja sou lòt IA -->
+        <section class="card" id="pane-critique" hidden>
+          <div class="row-between mb-2">
+            <div>
+              <h2 class="card-title">${icon('award')} <span>${esc(t('assignments.critique_title'))}</span></h2>
+              <p class="text-sm muted mb-0">${esc(t('assignments.critique_desc'))}</p>
+            </div>
+          </div>
+
+          <div class="field mt-3">
+            <label for="asg-critique-text">${esc(t('assignments.critique_paste_label'))}</label>
+            <textarea class="textarea" id="asg-critique-text" rows="8" placeholder="Kole tèks devwa a isit la pou IA a analize tout repons yo ak estrikti a..."></textarea>
+          </div>
+
+          <div class="row-wrap mb-4">
+            <label class="btn btn-secondary btn-sm" style="cursor:pointer;">
+              ${icon('upload')}<span>${esc(t('assignments.critique_upload_btn'))}</span>
+              <input type="file" id="asg-critique-file" accept=".txt,.md,.pdf,.doc,.docx" style="display:none;">
+            </label>
+            <button type="button" class="btn btn-primary btn-sm" id="asg-critique-run-btn">
+              ${icon('sparkles')}<span>${esc(t('assignments.critique_btn'))}</span>
+            </button>
+          </div>
+
+          <div class="ai-suggestion" id="asg-critique-output" hidden></div>
         </section>
       </div>
 
@@ -252,7 +350,142 @@ async function renderPage() {
     },
   });
 
-  document.getElementById('asg-save-btn').addEventListener('click', async (e) => {
+  // Gestion des onglets Editeur / Aperçu / Verifikasyon IA
+  const tabEditorBtn = document.getElementById('tab-btn-editor');
+  const tabPreviewBtn = document.getElementById('tab-btn-preview');
+  const tabCritiqueBtn = document.getElementById('tab-btn-critique');
+  const paneEditor = document.getElementById('pane-editor');
+  const panePreview = document.getElementById('pane-preview');
+  const paneCritique = document.getElementById('pane-critique');
+
+  function switchTab(target) {
+    if (tabEditorBtn) tabEditorBtn.setAttribute('aria-selected', target === 'editor' ? 'true' : 'false');
+    if (tabPreviewBtn) tabPreviewBtn.setAttribute('aria-selected', target === 'preview' ? 'true' : 'false');
+    if (tabCritiqueBtn) tabCritiqueBtn.setAttribute('aria-selected', target === 'critique' ? 'true' : 'false');
+
+    if (paneEditor) paneEditor.hidden = target !== 'editor';
+    if (panePreview) panePreview.hidden = target !== 'preview';
+    if (paneCritique) paneCritique.hidden = target !== 'critique';
+
+    if (target === 'preview') {
+      const previewTitle = document.getElementById('preview-title');
+      const previewInst = document.getElementById('preview-inst');
+      const previewBody = document.getElementById('preview-body');
+      if (previewTitle) previewTitle.textContent = assignment.title || '';
+      if (previewInst) previewInst.textContent = document.getElementById('asg-inst-ed')?.value || 'Pa gen enstriksyon.';
+      if (previewBody) {
+        const html = sanitizeHtml(quill?.root?.innerHTML || '');
+        previewBody.innerHTML = html || '<p class="muted">Devwa a poko gen tèks redaksyon.</p>';
+      }
+    }
+  }
+
+  tabEditorBtn?.addEventListener('click', () => switchTab('editor'));
+  tabPreviewBtn?.addEventListener('click', () => switchTab('preview'));
+  tabCritiqueBtn?.addEventListener('click', () => switchTab('critique'));
+
+  // Kesyon dirèk IA sou devwa a
+  const qaInput = document.getElementById('asg-qa-input');
+  const qaBtn = document.getElementById('asg-qa-btn');
+  const runQa = async () => {
+    const q = qaInput?.value?.trim();
+    if (!q) {
+      toast(t('errors.required'), 'warning');
+      return;
+    }
+    setLoading(qaBtn, true);
+    try {
+      const res = await assistAssignment({
+        action: 'qa',
+        title: assignment.title,
+        instructions: document.getElementById('asg-inst-ed')?.value?.trim(),
+        content: quill?.getText()?.trim() || '',
+        question: q,
+        language: getLang(),
+        faculty: profileRef?.faculty_id,
+        level: profileRef?.level,
+      });
+      renderAiPlan(res.data, res.library_sources || []);
+      if (qaInput) qaInput.value = '';
+    } catch (err) {
+      handleError(err);
+    } finally {
+      setLoading(qaBtn, false);
+    }
+  };
+  qaBtn?.addEventListener('click', runQa);
+  qaInput?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      runQa();
+    }
+  });
+
+  // Verifikasyon & Critique soumission fèt deja sou lòt IA
+  const critiqueRunBtn = document.getElementById('asg-critique-run-btn');
+  const critiqueText = document.getElementById('asg-critique-text');
+  const critiqueFile = document.getElementById('asg-critique-file');
+  const critiqueOut = document.getElementById('asg-critique-output');
+
+  critiqueFile?.addEventListener('change', async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.type.includes('text') || file.name.endsWith('.txt') || file.name.endsWith('.md')) {
+      const txt = await file.text();
+      if (critiqueText) critiqueText.value = txt;
+      toast(t('common.saved'), 'success');
+    } else {
+      toast('Fichye tèks chaje', 'info');
+      if (critiqueText && !critiqueText.value.trim()) {
+        critiqueText.value = `[Fichye : ${file.name}]`;
+      }
+    }
+  });
+
+  critiqueRunBtn?.addEventListener('click', async () => {
+    const submittedContent = critiqueText?.value?.trim() || quill?.getText()?.trim();
+    if (!submittedContent) {
+      toast(t('errors.required'), 'warning');
+      return;
+    }
+    setLoading(critiqueRunBtn, true);
+    try {
+      const res = await assistAssignment({
+        action: 'critique_submission',
+        title: assignment.title,
+        instructions: document.getElementById('asg-inst-ed')?.value?.trim(),
+        content: submittedContent,
+        language: getLang(),
+        faculty: profileRef?.faculty_id,
+        level: profileRef?.level,
+      });
+      if (critiqueOut) {
+        critiqueOut.hidden = false;
+        const plan = res.data || {};
+        const strengths = Array.isArray(plan.strengths) ? plan.strengths : [];
+        const issues = Array.isArray(plan.issues) ? plan.issues : [];
+        const corrections = Array.isArray(plan.corrections) ? plan.corrections : [];
+        const tips = Array.isArray(plan.tips) ? plan.tips : [];
+
+        critiqueOut.innerHTML = `
+          <div class="row-between mb-2">
+            <div class="ai-suggestion-label">${icon('award')}<span>Rezilta Analiz & Verifikasyon</span></div>
+            ${plan.score_estimate ? `<span class="badge badge-success font-bold">${esc(plan.score_estimate)}</span>` : ''}
+          </div>
+          ${plan.verdict ? `<div class="mb-2"><strong>Konklizyon :</strong> <span class="badge">${esc(plan.verdict)}</span></div>` : ''}
+          ${strengths.length ? `<div class="mt-2"><strong>Pwen ki kòrèk :</strong><ul class="text-sm mb-0" style="padding-left:1.3em;">${strengths.map((s) => `<li>${esc(s)}</li>`).join('')}</ul></div>` : ''}
+          ${issues.length ? `<div class="mt-2"><strong>Erè oswa pwen ki manke :</strong><ul class="text-sm mb-0" style="padding-left:1.3em;">${issues.map((i) => `<li>${esc(i)}</li>`).join('')}</ul></div>` : ''}
+          ${corrections.length ? `<div class="mt-2"><strong>Koreksyon egzat pou aplike :</strong><ul class="text-sm mb-0" style="padding-left:1.3em;">${corrections.map((c) => `<li>${esc(c)}</li>`).join('')}</ul></div>` : ''}
+          ${tips.length ? `<div class="mt-2"><strong>Konsèy :</strong><ul class="text-sm mb-0" style="padding-left:1.3em;">${tips.map((tp) => `<li>${esc(tp)}</li>`).join('')}</ul></div>` : ''}
+        `;
+        icons(critiqueOut);
+      }
+    } catch (err) {
+      handleError(err);
+    } finally {
+      setLoading(critiqueRunBtn, false);
+    }
+  });
     const btn = e.currentTarget;
     setLoading(btn, true);
     const patch = gatherState();
