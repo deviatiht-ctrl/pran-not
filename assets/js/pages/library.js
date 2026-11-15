@@ -442,20 +442,20 @@ async function openBookReader(bookId) {
       // Si liv la gen toude (rezime/sentèz + seksyon orijinal konplè)
       readerContentHtml = `
         <div class="card card-sm card-muted mb-4">
-          <strong class="text-xs uppercase muted mb-1" style="display:block;">Sentèz / Apèsi Dokimantè</strong>
+          <strong class="text-xs uppercase muted mb-1" style="display:block;">${esc(t('library.reader_synthesis'))}</strong>
           <div class="text-sm">${sanitizeHtml(book.content_html)}</div>
         </div>
-        <h3 class="mb-3">Tèks Konplè pa Seksyon (${chunks.length} seksyon)</h3>
+        <h3 class="mb-3">${esc(t('library.reader_full_text'))} (${chunks.length})</h3>
         ${chunks.map((c) => `
           <section class="mb-4 p-3" style="border-bottom:1px solid var(--c-border);">
-            <h4 class="text-sm font-bold mb-1">${esc(c.section_label || `Seksyon ${c.chunk_index + 1}`)}${c.page_number ? ` (p. ${c.page_number})` : ''}</h4>
+            <h4 class="text-sm font-bold mb-1">${esc(c.section_label || `${t('library.section_title')} ${c.chunk_index + 1}`)}${c.page_number ? ` (p. ${c.page_number})` : ''}</h4>
             <p class="text-sm mb-0">${esc(c.content).replace(/\n/g, '<br>')}</p>
           </section>`).join('')}
       `;
     } else if (chunks.length > 0) {
       readerContentHtml = chunks.map((c) => `
         <section class="mb-4 p-3" style="border-bottom:1px solid var(--c-border);">
-          <h4 class="text-sm font-bold mb-1">${esc(c.section_label || `Seksyon ${c.chunk_index + 1}`)}${c.page_number ? ` (p. ${c.page_number})` : ''}</h4>
+          <h4 class="text-sm font-bold mb-1">${esc(c.section_label || `${t('library.section_title')} ${c.chunk_index + 1}`)}${c.page_number ? ` (p. ${c.page_number})` : ''}</h4>
           <p class="text-sm mb-0">${esc(c.content).replace(/\n/g, '<br>')}</p>
         </section>`).join('');
     } else if (book.content_html) {
@@ -472,7 +472,7 @@ async function openBookReader(bookId) {
         ${book.metadata?.citation_apa ? `<span class="text-xs muted">APA : ${esc(book.metadata.citation_apa)}</span>` : ''}
       </div>
       <div class="row-wrap mb-4">
-        ${book.storage_path ? `<button type="button" class="btn btn-sm btn-primary" id="reader-view-pdf-btn">${icon('file-text')}<span>Li PDF Orijinal Konplè</span></button>` : ''}
+        ${book.storage_path ? `<button type="button" class="btn btn-sm btn-primary" id="reader-view-pdf-btn">${icon('file-text')}<span>${esc(t('library.view_original_pdf'))}</span></button>` : ''}
         ${book.storage_path ? `<button type="button" class="btn btn-sm btn-secondary" id="reader-dl-btn">${icon('download')}<span>${esc(t('library.download_pdf_btn'))}</span></button>` : ''}
         <button type="button" class="btn btn-sm btn-secondary" id="reader-pdf-btn">${icon('file-text')}<span>${esc(t('library.export_pdf_btn'))}</span></button>
         <button type="button" class="btn btn-sm btn-secondary" id="reader-docx-btn">${icon('file-type')}<span>${esc(t('library.export_docx_btn'))}</span></button>

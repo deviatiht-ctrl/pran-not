@@ -54,14 +54,14 @@ async function renderNote() {
         <h1>${esc(note.title || t('notes.untitled'))}</h1>
       </div>
       <div class="page-head-actions">
-        <button type="button" class="btn btn-secondary btn-sm" id="btn-live-transfer" title="Pataje nòt sa dirèkteman sou sit la avèk yon kòd 6 chif">
-          ${icon('share-2')}<span>Transfè sou sit la</span>
+        <button type="button" class="btn btn-secondary btn-sm" id="btn-live-transfer" title="${esc(t('transfer.send_title'))}">
+          ${icon('share-2')}<span>${esc(t('notes.btn_transfer'))}</span>
         </button>
-        <button type="button" class="btn btn-secondary btn-sm" id="btn-translate-note" title="Tradui ant Kreyòl ak Fransè">
-          ${icon('languages')}<span>Tradui</span>
+        <button type="button" class="btn btn-secondary btn-sm" id="btn-translate-note" title="${esc(t('live.translate_btn'))}">
+          ${icon('languages')}<span>${esc(t('notes.btn_translate'))}</span>
         </button>
         <button type="button" class="btn btn-secondary btn-sm" id="btn-edit-note">${icon('edit-3')}<span>${esc(t('common.edit'))}</span></button>
-        <button type="button" class="btn btn-secondary btn-sm" id="btn-share-note">${icon('users')}<span>Gwoup</span></button>
+        <button type="button" class="btn btn-secondary btn-sm" id="btn-share-note">${icon('users')}<span>${esc(t('notes.btn_share_group'))}</span></button>
         <button type="button" class="btn btn-secondary btn-sm" id="btn-export-note">${icon('download')}<span>${esc(t('notes.btn_export'))}</span></button>
         <button type="button" class="btn btn-danger btn-sm" id="btn-delete-note">${icon('trash-2')}</button>
       </div>
@@ -80,8 +80,8 @@ async function renderNote() {
     <div class="row-wrap mb-6">
       <button type="button" class="btn btn-primary" id="btn-gen-cards">${icon('layers')}<span>${esc(t('notes.btn_flashcards'))}</span></button>
       <button type="button" class="btn btn-dark" id="btn-gen-quiz">${icon('check-circle-2')}<span>${esc(t('notes.btn_quiz'))}</span></button>
-      <button type="button" class="btn btn-secondary" id="btn-points-summary" title="Rezime rapid pa ti pwen kle kout pou konprann fasil">
-        ${icon('list-checks')}<span>Rezime pa Pwen</span>
+      <button type="button" class="btn btn-secondary" id="btn-points-summary" title="${esc(t('notes.bullet_summary_title'))}">
+        ${icon('list-checks')}<span>${esc(t('notes.btn_points_summary'))}</span>
       </button>
       <button type="button" class="btn btn-secondary" id="btn-simpler">${icon('sparkles')}<span>${esc(t('notes.btn_simpler'))}</span></button>
       <button type="button" class="btn btn-secondary" id="btn-ask-tutor">${icon('message-square')}<span>${esc(t('notes.btn_tutor'))}</span></button>
@@ -104,9 +104,9 @@ async function renderNote() {
           <section class="card mb-4" style="background:var(--c-surface-2);border-left:4px solid #10B981;">
             <div class="row-between mb-2">
               <h3 class="card-title mb-0 text-sm font-bold" style="color:#10B981;">
-                ${icon('list-checks')}<span>Rezime pa Ti Pwen Kle</span>
+                ${icon('list-checks')}<span>${esc(t('notes.bullet_summary_title'))}</span>
               </h3>
-              <button type="button" class="btn-icon" id="btn-remove-bullet-summary" title="Retire nan nòt la">
+              <button type="button" class="btn-icon" id="btn-remove-bullet-summary" title="${esc(t('notes.remove_section_title'))}">
                 ${icon('x')}
               </button>
             </div>
@@ -119,9 +119,9 @@ async function renderNote() {
           <section class="card mb-4" style="background:var(--c-surface-2);border-left:4px solid var(--c-primary,#F97316);">
             <div class="row-between mb-2">
               <h3 class="card-title mb-0 text-sm font-bold" style="color:var(--c-primary,#F97316);">
-                ${icon('sparkles')}<span>Eksplikasyon Senp & Klè</span>
+                ${icon('sparkles')}<span>${esc(t('notes.simple_explanation_title'))}</span>
               </h3>
-              <button type="button" class="btn-icon" id="btn-remove-simple-exp" title="Retire nan nòt la">
+              <button type="button" class="btn-icon" id="btn-remove-simple-exp" title="${esc(t('notes.remove_section_title'))}">
                 ${icon('x')}
               </button>
             </div>
@@ -134,15 +134,15 @@ async function renderNote() {
           <section class="card card-accent mb-4">
             <div class="row-between mb-2">
               <h3 class="card-title mb-0 text-sm font-bold" style="color:var(--c-accent);">
-                ${icon('check-check')}<span>Koreksyon & Amelyorasyon IA (${corrections.length})</span>
+                ${icon('check-check')}<span>${esc(t('notes.corrections_title'))} (${corrections.length})</span>
               </h3>
-              <span class="text-xs muted">San chanje sans prof la</span>
+              <span class="text-xs muted">${esc(t('notes.corrections_subtitle'))}</span>
             </div>
             <div class="stack-sm">
               ${corrections.map((c) => `
                 <div class="card card-sm card-muted">
-                  <div class="text-xs" style="text-decoration:line-through;color:var(--c-muted);">Orijinal : "${esc(c.original)}"</div>
-                  <div class="text-sm font-bold text-success">Korije : "${esc(c.corrected)}"</div>
+                  <div class="text-xs" style="text-decoration:line-through;color:var(--c-muted);">${esc(t('notes.original_label'))} "${esc(c.original)}"</div>
+                  <div class="text-sm font-bold text-success">${esc(t('notes.corrected_label'))} "${esc(c.corrected)}"</div>
                   ${c.reason ? `<div class="text-xs muted">${esc(c.reason)}</div>` : ''}
                 </div>
               `).join('')}
@@ -153,7 +153,7 @@ async function renderNote() {
           <section class="card card-accent mb-4">
             <div class="row-between mb-2">
               <h3 class="card-title mb-0 text-sm font-bold">
-                ${icon('calendar-check')}<span>Devwa & Travay Detekte (${homework.length})</span>
+                ${icon('calendar-check')}<span>${esc(t('notes.detected_homework_title'))} (${homework.length})</span>
               </h3>
             </div>
             <div class="stack-sm">
@@ -165,7 +165,7 @@ async function renderNote() {
                     ${hw.description ? `<div class="text-xs muted">${esc(hw.description)}</div>` : ''}
                   </div>
                   <button type="button" class="btn btn-sm btn-primary add-detected-hw-btn" data-hw-idx="${idx}">
-                    ${icon('plus')}<span>Ajoute</span>
+                    ${icon('plus')}<span>${esc(t('common.add'))}</span>
                   </button>
                 </div>
               `).join('')}
@@ -174,7 +174,7 @@ async function renderNote() {
 
         ${verbatimRaw ? `
           <details class="card card-sm card-muted mb-4">
-            <summary class="font-bold text-sm cursor-pointer">${icon('file-text')} Retranskripsyon Fidèl (Tout sa pwofesè a te di nèt)</summary>
+            <summary class="font-bold text-sm cursor-pointer">${icon('file-text')} ${esc(t('notes.verbatim_title'))}</summary>
             <div class="text-xs whitespace-pre-wrap mt-3 pt-3" style="border-top:1px solid var(--c-border);max-height:300px;overflow-y:auto;">
               ${esc(verbatimRaw)}
             </div>
@@ -182,7 +182,7 @@ async function renderNote() {
 
         ${researchTopics.length ? `
           <section class="card mb-4">
-            <h3 class="card-title text-sm mb-2">${icon('book-open')} Rechèch & Liv pou apwofondi</h3>
+            <h3 class="card-title text-sm mb-2">${icon('book-open')} ${esc(t('notes.research_topics_title'))}</h3>
             <ul class="list stack-sm">
               ${researchTopics.map((rt) => `<li class="list-item text-xs">${icon('search')}<span>${esc(rt)}</span></li>`).join('')}
             </ul>

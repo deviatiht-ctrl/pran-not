@@ -32,32 +32,32 @@ export async function openSendTransferModal(noteData) {
   let pollInterval = null;
 
   const m = openModal({
-    title: t('transfer.send_title') || 'Pataje nòt an dirèk sou sit la',
+    title: t('transfer.send_title'),
     body: `
       <div class="stack text-center py-2">
         <p class="text-sm muted mb-1">
-          Bay lòt etidyan an kòd sa a. Fòk li sou sit la epi klike sou <strong>"Resevwa nòt"</strong> pou transfè a fèt touswit :
+          ${esc(t('transfer.send_desc'))}
         </p>
         <div class="card card-accent my-3 py-4" style="background:var(--c-surface-2);border:2px dashed var(--c-accent);">
-          <div class="text-xs uppercase muted mb-1">Kòd Transfè an Dirèk</div>
+          <div class="text-xs uppercase muted mb-1">${esc(t('transfer.code_label'))}</div>
           <div id="transfer-display-code" style="font-size:2rem;font-weight:900;letter-spacing:4px;color:var(--c-accent);font-family:monospace;">
             ${esc(rawCode)}
           </div>
-          <div class="text-xs muted mt-1">Valab pandan 30 minit</div>
+          <div class="text-xs muted mt-1">${esc(t('transfer.validity'))}</div>
         </div>
 
         <div class="row-center mb-3" style="gap:8px;">
           <button type="button" class="btn btn-sm btn-secondary" id="transfer-copy-code-btn">
-            ${icon('copy')}<span>Kopye kòd la</span>
+            ${icon('copy')}<span>${esc(t('transfer.copy_code'))}</span>
           </button>
           <button type="button" class="btn btn-sm btn-outline" id="transfer-test-sound-btn">
-            ${icon('volume-2')}<span>Tande son</span>
+            ${icon('volume-2')}<span>${esc(t('transfer.test_sound'))}</span>
           </button>
         </div>
 
         <div id="transfer-status-box" class="alert alert-info">
           <span class="live-pulse-dot"></span>
-          <span>Nap tann lòt etidyan an antre kòd la...</span>
+          <span>${esc(t('transfer.waiting'))}</span>
         </div>
       </div>
     `,
@@ -120,7 +120,7 @@ export async function openSendTransferModal(noteData) {
         const box = m.el.querySelector('#transfer-status-box');
         if (box) {
           box.className = 'alert alert-success';
-          box.innerHTML = `${icon('check-circle')} <strong>Transfè a reyisi !</strong> Kanmarad la resevwa nòt la sou kont li.`;
+          box.innerHTML = `${icon('check-circle')} <strong>${esc(t('transfer.success'))}</strong>`;
           icons(box);
         }
       }
@@ -145,20 +145,20 @@ export async function openReceiveTransferModal(onReceivedCallback) {
   const { user } = await requireAuth();
 
   const m = openModal({
-    title: t('transfer.receive_title') || 'Resevwa yon nòt an dirèk',
+    title: t('transfer.receive_title'),
     body: `
       <form id="receive-transfer-form" class="stack py-2">
         <p class="text-sm muted mb-2">
-          Mete kòd 6 chif kanmarad ou a ba ou pou telechaje nòt la dirèkteman sou kont ou :
+          ${esc(t('transfer.receive_desc'))}
         </p>
         <div class="field mb-3">
-          <label for="receive-code-input">Kòd Transfè (6 chif)</label>
+          <label for="receive-code-input">${esc(t('transfer.code_input_label'))}</label>
           <input class="input text-center font-bold" id="receive-code-input" type="text"
             placeholder="Ex: 742198" maxlength="8" style="font-size:1.5rem;letter-spacing:4px;" required autocomplete="off">
         </div>
         <div id="receive-feedback" class="stack-sm mb-3"></div>
         <button type="submit" class="btn btn-primary btn-block" id="receive-submit-btn">
-          ${icon('download')}<span>Resevwa nòt la</span>
+          ${icon('download')}<span>${esc(t('transfer.receive_submit'))}</span>
         </button>
       </form>
     `,
@@ -246,7 +246,7 @@ export async function openReceiveTransferModal(onReceivedCallback) {
       }
 
       playNotificationSound('success', { force: true });
-      toast('Ou resevwa nòt la ak siksè !', 'success');
+      toast(t('transfer.received_toast'), 'success');
 
       feedback.innerHTML = `
         <div class="alert alert-success">
@@ -285,38 +285,38 @@ export async function openExamRevisionModal({ courseId = '', courses = [] } = {}
   const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
 
   const m = openModal({
-    title: 'Revizyon Egzamen pa Peryòd Dat',
+    title: t('transfer.exam_revision_title'),
     body: `
       <div class="stack py-2">
         <p class="text-sm muted mb-3">
-          Chwazi yon peryòd (egzanp: depi kòmansman sesyon an rive jodi a) pou w wè tout nòt, devwa ak konsèp kle pou prepare egzamen ou :
+          ${esc(t('transfer.exam_revision_desc'))}
         </p>
 
         <div class="form-row">
           <div class="field">
-            <label for="exam-start-date">Dat Kòmansman</label>
+            <label for="exam-start-date">${esc(t('transfer.start_date'))}</label>
             <input class="input" id="exam-start-date" type="date" value="${thirtyDaysAgo}">
           </div>
           <div class="field">
-            <label for="exam-end-date">Dat Fin</label>
+            <label for="exam-end-date">${esc(t('transfer.end_date'))}</label>
             <input class="input" id="exam-end-date" type="date" value="${today}">
           </div>
         </div>
 
         <div class="field mb-3">
-          <label for="exam-course-filter">Kou (opsyonèl)</label>
+          <label for="exam-course-filter">${esc(t('capture.course'))}</label>
           <select class="select" id="exam-course-filter">
-            <option value="">Tout kou yo</option>
+            <option value="">${esc(t('transfer.all_courses'))}</option>
             ${courses.map((c) => `<option value="${esc(c.id)}" ${c.id === courseId ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}
           </select>
         </div>
 
         <button type="button" class="btn btn-primary" id="exam-load-btn">
-          ${icon('search')}<span>Chèche Nòt Peryòd Sa A</span>
+          ${icon('search')}<span>${esc(t('transfer.show_notes'))}</span>
         </button>
 
         <div id="exam-results-box" class="stack mt-4">
-          <p class="text-xs muted text-center">Klike sou bouton an pou chaje nòt yo.</p>
+          <p class="text-xs muted text-center">${esc(t('common.loading'))}</p>
         </div>
       </div>
     `,
