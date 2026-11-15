@@ -77,7 +77,48 @@ Deno.serve(async (req) => {
     }
 
     let prompt = '';
-    if (action === 'qa') {
+    if (action === 'instruct') {
+      prompt = `L'étudiant te donne une consigne ou des directives spécifiques sur son devoir. Tu es son assistant IA personnel de rédaction et d'étude.
+RÈGLES IMPORTANTES :
+1. Exécute EXACTEMENT ce que l'étudiant te demande (rédiger un passage, développer une argumentation, résoudre un exercice, faire une synthèse ou suivre ses consignes).
+2. Fournis un contenu directement réutilisable dans son devoir.
+3. Reste clair, structuré, académique et sans remplissage inutile.
+4. Aucun emoji.
+
+Retourne STRICTEMENT ce JSON :
+{
+  "content_proposal": "Texte rédigé selon les consignes de l'étudiant à insérer dans le devoir",
+  "explanation": "Explication claire de la démarche suivie pour répondre à la consigne",
+  "tips": ["Conseil ou rappel clé"]
+}
+
+Titre du devoir : ${title}
+Consigne générale : ${instructions}
+${content ? `Brouillon actuel :\n${content.slice(0, 4000)}\n` : ''}
+Directive ou explication donnée par l'étudiant à l'IA : ${question || title || instructions}`;
+    } else if (action === 'explain_details') {
+      prompt = `L'étudiant demande une EXPLICATION DÉTAILLÉE de tout ce qui compose ce devoir fini ou en cours.
+RÈGLES IMPORTANTES :
+1. Explique dans les moindres détails les concepts clés, le raisonnement utilisé, chaque étape de la démonstration ou de la rédaction.
+2. Pour chaque grande idée ou réponse, explique POURQUOI c'est ainsi, afin que l'étudiant maîtrise parfaitement son devoir s'il est interrogé par son professeur.
+3. Sois très didactique, complet et facile à comprendre.
+4. Aucun emoji.
+
+Retourne STRICTEMENT ce JSON :
+{
+  "global_summary": "Vue d'ensemble du devoir et de son fil conducteur",
+  "detailed_breakdown": [
+    { "part": "Nom de la section ou notion", "explanation": "Explication complète et détaillée de ce qui y est fait et pourquoi" }
+  ],
+  "key_learnings": ["Notion clé 1 à retenir", "Notion clé 2"],
+  "oral_defense_tips": ["Conseil pour présenter ce devoir devant le professeur"]
+}
+
+Titre du devoir : ${title}
+Consigne : ${instructions}
+Devoir complet :
+${content.slice(0, 14000)}`;
+    } else if (action === 'qa') {
       prompt = `Tu es le tuteur d'assistance pour le devoir de l'étudiant.
 RÈGLES IMPORTANTES :
 1. Sois direct, concis et précis. Évite impérativement les bavardages, introductions superflues ou longs blocs de texte inutiles.

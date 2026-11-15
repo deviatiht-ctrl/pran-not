@@ -39,7 +39,33 @@ function renderAiPlan(plan, librarySources = []) {
 
   let contentHtml = '';
 
-  if (plan?.verdict || plan?.score_estimate) {
+  if (plan?.content_proposal) {
+    contentHtml += `
+      <div class="row-between mb-2">
+        <div class="ai-suggestion-label">${icon('sparkles')}<span>Pwopozisyon Redaksyon IA</span></div>
+        <button type="button" class="btn btn-sm btn-primary" id="asg-insert-proposal-btn">${icon('plus')}<span>${esc(t('assignments.insert_in_draft'))}</span></button>
+      </div>
+      <div class="card card-sm mb-3" style="background:var(--c-surface);"><p class="text-sm mb-0" id="asg-proposal-text" style="white-space:pre-wrap;">${esc(plan.content_proposal)}</p></div>
+      ${plan.explanation ? `<div class="mb-2"><strong>Demach & Esplikasyon :</strong><p class="text-sm mb-0">${esc(plan.explanation)}</p></div>` : ''}
+    `;
+  } else if (plan?.detailed_breakdown || plan?.global_summary) {
+    contentHtml += `
+      <div class="ai-suggestion-label mb-2">${icon('book-open')}<span>${esc(t('assignments.explain_details_title'))}</span></div>
+      ${plan.global_summary ? `<div class="card card-sm mb-3" style="background:var(--c-surface);"><strong class="text-xs" style="text-transform:uppercase;">Rezime Jeneral :</strong><p class="text-sm mt-1 mb-0">${esc(plan.global_summary)}</p></div>` : ''}
+      ${Array.isArray(plan.detailed_breakdown) ? `
+        <div class="stack-sm mb-3">
+          ${plan.detailed_breakdown.map((item) => `
+            <div class="card card-sm" style="border-left:3px solid var(--c-primary,#1B2A4A);">
+              <strong>${esc(item.part || 'Pati')}</strong>
+              <p class="text-sm mt-1 mb-0" style="white-space:pre-wrap;">${esc(item.explanation || '')}</p>
+            </div>
+          `).join('')}
+        </div>
+      ` : ''}
+      ${Array.isArray(plan.key_learnings) && plan.key_learnings.length ? `<div class="mt-2"><strong>Konsèp kle pou metrize :</strong><ul class="text-sm mb-0" style="padding-left:1.3em;">${plan.key_learnings.map((k) => `<li>${esc(k)}</li>`).join('')}</ul></div>` : ''}
+      ${Array.isArray(plan.oral_defense_tips) && plan.oral_defense_tips.length ? `<div class="mt-2"><strong>Konsèy pou defann devwa a devan pwofesè a :</strong><ul class="text-sm mb-0" style="padding-left:1.3em;">${plan.oral_defense_tips.map((tip) => `<li>${esc(tip)}</li>`).join('')}</ul></div>` : ''}
+    `;
+  } else if (plan?.verdict || plan?.score_estimate) {
     contentHtml += `
       <div class="row-between mb-2">
         <div class="ai-suggestion-label">${icon('award')}<span>Rezilta Verifikasyon Devoir</span></div>
@@ -99,6 +125,14 @@ function renderAiPlan(plan, librarySources = []) {
   }
 
   box.innerHTML = contentHtml;
+
+  box.querySelector('#asg-insert-proposal-btn')?.addEventListener('click', () => {
+    const textToInsert = plan?.content_proposal;
+    if (!textToInsert || !quill) return;
+    const idx = quill.getLength() - 1;
+    quill.insertText(Math.max(0, idx), `\n\n${textToInsert}\n`);
+    toast(t('common.saved'), 'success');
+  });
 
   box.querySelectorAll('[data-insert-src]').forEach((btn) => {
     btn.addEventListener('click', () => {
@@ -166,10 +200,24 @@ async function renderPage() {
 
           <div class="row-wrap mb-4">
             <button type="button" class="btn btn-sm btn-primary" data-assist="plan">${icon('sparkles')}<span>${esc(t('assignments.assist_plan'))}</span></button>
+            <button type="button" class="btn btn-sm btn-secondary" data-assist="explain_details">${icon('book-open')}<span>${esc(t('assignments.assist_explain_details'))}</span></button>
             <button type="button" class="btn btn-sm btn-secondary" data-assist="library_research">${icon('library')}<span>${esc(t('assignments.assist_library'))}</span></button>
             <button type="button" class="btn btn-sm btn-secondary" data-assist="coherence">${esc(t('assignments.assist_coherence'))}</button>
             <button type="button" class="btn btn-sm btn-secondary" data-assist="biblio">${esc(t('assignments.assist_biblio'))}</button>
             <button type="button" class="btn btn-sm btn-secondary" data-assist="rephrase">${esc(t('assignments.assist_rephrase'))}</button>
+          </div>
+
+          <!-- Modil Bay IA a lòd ak enstriksyon pa w -->
+          <div class="card card-sm mb-4" style="background:var(--c-surface-soft);border:1px solid var(--c-border);">
+            <div class="row-between mb-2">
+              <strong class="text-xs" style="text-transform:uppercase;letter-spacing:0.05em;">${icon('command')} ${esc(t('assignments.custom_instruction_title'))}</strong>
+            </div>
+            <div class="input-group">
+              <input class="input" id="asg-instruct-input" type="text" placeholder="${esc(t('assignments.custom_instruction_ph'))}">
+              <button type="button" class="btn btn-primary" id="asg-instruct-btn">
+                ${icon('sparkles')}<span>${esc(t('assignments.custom_instruction_btn'))}</span>
+              </button>
+            </div>
           </div>
 
           <!-- Modil Kesyon Dirèk IA -->
@@ -383,6 +431,43 @@ async function renderPage() {
   tabEditorBtn?.addEventListener('click', () => switchTab('editor'));
   tabPreviewBtn?.addEventListener('click', () => switchTab('preview'));
   tabCritiqueBtn?.addEventListener('click', () => switchTab('critique'));
+
+  // Bay IA a lòd ak enstriksyon pa w
+  const instructInput = document.getElementById('asg-instruct-input');
+  const instructBtn = document.getElementById('asg-instruct-btn');
+  const runInstruct = async () => {
+    const inst = instructInput?.value?.trim();
+    if (!inst) {
+      toast(t('errors.required'), 'warning');
+      return;
+    }
+    setLoading(instructBtn, true);
+    try {
+      const res = await assistAssignment({
+        action: 'instruct',
+        title: assignment.title,
+        instructions: document.getElementById('asg-inst-ed')?.value?.trim(),
+        content: quill?.getText()?.trim() || '',
+        question: inst,
+        language: getLang(),
+        faculty: profileRef?.faculty_id,
+        level: profileRef?.level,
+      });
+      renderAiPlan(res.data, res.library_sources || []);
+      if (instructInput) instructInput.value = '';
+    } catch (err) {
+      handleError(err);
+    } finally {
+      setLoading(instructBtn, false);
+    }
+  };
+  instructBtn?.addEventListener('click', runInstruct);
+  instructInput?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      runInstruct();
+    }
+  });
 
   // Kesyon dirèk IA sou devwa a
   const qaInput = document.getElementById('asg-qa-input');
