@@ -80,6 +80,9 @@ async function renderNote() {
     <div class="row-wrap mb-6">
       <button type="button" class="btn btn-primary" id="btn-gen-cards">${icon('layers')}<span>${esc(t('notes.btn_flashcards'))}</span></button>
       <button type="button" class="btn btn-dark" id="btn-gen-quiz">${icon('check-circle-2')}<span>${esc(t('notes.btn_quiz'))}</span></button>
+      <button type="button" class="btn btn-secondary" id="btn-points-summary" title="Rezime rapid pa ti pwen kle kout pou konprann fasil">
+        ${icon('list-checks')}<span>Rezime pa Pwen</span>
+      </button>
       <button type="button" class="btn btn-secondary" id="btn-simpler">${icon('sparkles')}<span>${esc(t('notes.btn_simpler'))}</span></button>
       <button type="button" class="btn btn-secondary" id="btn-ask-tutor">${icon('message-square')}<span>${esc(t('notes.btn_tutor'))}</span></button>
       ${!note.structured && note.raw_text ? `<button type="button" class="btn btn-secondary" id="btn-ai-clean">${icon('wand-2')}<span>${esc(t('capture.structure_ai'))}</span></button>` : ''}
@@ -96,6 +99,21 @@ async function renderNote() {
         <article class="card prose">
           ${note.content_html ? sanitizeHtml(note.content_html) : `<p>${esc(note.content_text || note.raw_text || '')}</p>`}
         </article>
+
+        ${st.bullet_summary ? `
+          <section class="card mb-4" style="background:var(--c-surface-2);border-left:4px solid #10B981;">
+            <div class="row-between mb-2">
+              <h3 class="card-title mb-0 text-sm font-bold" style="color:#10B981;">
+                ${icon('list-checks')}<span>Rezime pa Ti Pwen Kle</span>
+              </h3>
+              <button type="button" class="btn-icon" id="btn-remove-bullet-summary" title="Retire nan nòt la">
+                ${icon('x')}
+              </button>
+            </div>
+            <div class="prose text-sm">
+              ${renderMarkdown(st.bullet_summary)}
+            </div>
+          </section>` : ''}
 
         ${st.simple_explanation ? `
           <section class="card mb-4" style="background:var(--c-surface-2);border-left:4px solid var(--c-primary,#F97316);">
@@ -587,6 +605,132 @@ function bindActions() {
         setLoading(btn, false);
       }
     });
+  });
+
+  // Bouton Rezime pa Ti Pwen Kle (Bullet points kout e rapid)
+  document.getElementById('btn-points-summary')?.addEventListener('click', async (e) => {
+    const btn = e.currentTarget;
+    const curLang = getLang();
+
+    const mChoose = openModal({
+      title: 'Rezime pa Ti Pwen Kle',
+      body: `
+        <div class="stack py-2">
+          <p class="text-sm muted mb-3">Chwazi lang pou lis ti pwen kle yo :</p>
+          <div class="field mb-3">
+            <label for="bullet-lang-select">Lang rezime a</label>
+            <select class="select" id="bullet-lang-select">
+              <option value="ht" ${curLang === 'ht' ? 'selected' : ''}>Kreyòl Ayisyen</option>
+              <option value="fr" ${curLang === 'fr' ? 'selected' : ''}>Français</option>
+            </select>
+          </div>
+          <button type="button" class="btn btn-primary btn-block" id="btn-run-bullet">
+            ${icon('list-checks')}<span>Fè rezime pa pwen kounye a</span>
+          </button>
+        </div>
+      `,
+    });
+
+    const runBulletBtn = mChoose.el.querySelector('#btn-run-bullet');
+    runBulletBtn.addEventListener('click', async () => {
+      const selectedLang = mChoose.el.querySelector('#bullet-lang-select').value || 'ht';
+      mChoose.close();
+      setLoading(btn, true);
+
+      try {
+        const langDirective = selectedLang === 'fr'
+          ? 'Donne un résumé ultra-concis sous forme de liste de points clés (bullet points). Chaque point doit être court (1 à 2 phrases max), très clair et direct pour comprendre la note rapidement.'
+          : 'Bay yon rezime trè kout sou fòm lis ti pwen kle (bullet points). Chak pwen dwe kout (1 a 2 fraz maksimòm), trè klè e dirèk pou konprann nòt la fasilman san lekti long.';
+
+        const prompt = `${langDirective}\n\nNòt :\n${note.title}\n\n${note.content_text || note.raw_text || ''}`;
+        const res = await askTutor({
+          message: prompt,
+          mode: 'simple',
+          contextType: 'note',
+          contextId: note.id,
+          contextText: `${note.title}\n${note.content_text || note.raw_text || ''}`,
+          useLibrary: false,
+          faculty: profileRef?.faculty_id,
+          level: profileRef?.level,
+          language: selectedLang,
+        });
+
+        const bulletText = res?.reply || res?.answer || res?.text || '';
+        if (!bulletText) throw new Error('Rezime a vid');
+
+        const m = openModal({
+          title: selectedLang === 'fr' ? 'Résumé par Points Clés' : 'Rezime pa Ti Pwen Kle',
+          size: 'lg',
+          body: `
+            <div class="prose mb-4">${renderMarkdown(bulletText)}</div>
+            <div class="card card-sm card-accent">
+              <div class="row-between" style="flex-wrap:wrap;gap:8px;">
+                <div>
+                  <strong>Mete nan nòt la</strong>
+                  <div class="text-xs muted">Ou ka sove lis pwen kle sa a dirèkteman nan nòt la.</div>
+                </div>
+                <button type="button" class="btn btn-sm btn-primary" id="btn-insert-bullet-to-note">
+                  ${icon('plus')}<span>Ajoute nan nòt la</span>
+                </button>
+              </div>
+            </div>
+          `,
+        });
+
+        m.el.querySelector('#btn-insert-bullet-to-note')?.addEventListener('click', async (ev) => {
+          const insertBtn = ev.currentTarget;
+          setLoading(insertBtn, true);
+          try {
+            if (!note.structured) note.structured = {};
+            note.structured.bullet_summary = bulletText;
+            const patch = { structured: note.structured };
+
+            if (navigator.onLine && !note.is_local_pending && isUuid(note.id)) {
+              await db.from('pran_not_notes').update(patch).eq('id', note.id);
+            } else if (note.is_local_pending) {
+              await updateQueuedNotePayload(note.id.slice('local:'.length), patch);
+            }
+            await cacheSet(`note_${note.id}`, note);
+            toast('Rezime pa pwen an ajoute nan nòt la!', 'success');
+            m.close();
+            renderNote();
+          } catch (err) {
+            handleError(err);
+          } finally {
+            setLoading(insertBtn, false);
+          }
+        });
+      } catch (err) {
+        handleError(err);
+      } finally {
+        setLoading(btn, false);
+      }
+    });
+  });
+
+  // Retire rezime pa pwen an si etidyan an vle
+  document.getElementById('btn-remove-bullet-summary')?.addEventListener('click', async () => {
+    const ok = await confirmDialog({
+      title: 'Retire rezime pa pwen',
+      message: 'Èske ou vle retire seksyon rezime pa pwen an nan nòt sa a ?',
+    });
+    if (!ok) return;
+    try {
+      if (note.structured) {
+        delete note.structured.bullet_summary;
+      }
+      const patch = { structured: note.structured || null };
+      if (navigator.onLine && !note.is_local_pending && isUuid(note.id)) {
+        await db.from('pran_not_notes').update(patch).eq('id', note.id);
+      } else if (note.is_local_pending) {
+        await updateQueuedNotePayload(note.id.slice('local:'.length), patch);
+      }
+      await cacheSet(`note_${note.id}`, note);
+      toast('Rezime pa pwen retire nan nòt la.', 'info');
+      renderNote();
+    } catch (err) {
+      handleError(err);
+    }
   });
 
   // Retire eksplikasyon senp lan si etidyan an vle
