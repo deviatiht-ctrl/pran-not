@@ -55,6 +55,8 @@
     "quota": "Limite quotidienne d'IA atteinte. Vous pouvez mettre la tâche en file ou réessayer demain.",
     "ai_unavailable": "Le service IA est occupé pour le moment. Réessayez dans un instant.",
     "file_too_large": "Fichier trop volumineux. Limite : {max}.",
+    "invalid_image_type": "Format d'image non pris en charge. Choisissez JPEG, PNG ou WebP.",
+    "mic_denied": "Accès micro refusé. Autorisez le micro dans votre navigateur pour enregistrer.",
     "required": "Veuillez remplir ce champ.",
     "not_found": "Élément introuvable ou accès refusé."
   },

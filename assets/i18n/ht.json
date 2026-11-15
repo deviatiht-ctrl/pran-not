@@ -55,6 +55,8 @@
     "quota": "Ou rive nan limit IA jodi a. Ou ka mete l nan fil atant oswa eseye demen.",
     "ai_unavailable": "Sèvis IA a okipe kounye a. Eseye ankò talè.",
     "file_too_large": "Fichye a twò gwo. Limit la se {max}.",
+    "invalid_image_type": "Fòma imaj sa a pa sipòte. Chwazi JPEG, PNG oswa WebP.",
+    "mic_denied": "Aksè mikwofòn refize. Otorize mikwofòn lan nan navigatè a pou anrejistre.",
     "required": "Ranpli chan sa a.",
     "not_found": "Eleman sa a pa egziste oswa ou pa gen aksè."
   },
