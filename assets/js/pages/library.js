@@ -437,6 +437,33 @@ async function openBookReader(bookId) {
     const { book, chunks } = await fetchFullBookData(bookId);
     setTutorContext({ contextType: 'book', contextId: book.id, contextTitle: book.title });
 
+    let readerContentHtml = '';
+    if (book.content_html && chunks.length > 0) {
+      // Si liv la gen toude (rezime/sentèz + seksyon orijinal konplè)
+      readerContentHtml = `
+        <div class="card card-sm card-muted mb-4">
+          <strong class="text-xs uppercase muted mb-1" style="display:block;">Sentèz / Apèsi Dokimantè</strong>
+          <div class="text-sm">${sanitizeHtml(book.content_html)}</div>
+        </div>
+        <h3 class="mb-3">Tèks Konplè pa Seksyon (${chunks.length} seksyon)</h3>
+        ${chunks.map((c) => `
+          <section class="mb-4 p-3" style="border-bottom:1px solid var(--c-border);">
+            <h4 class="text-sm font-bold mb-1">${esc(c.section_label || `Seksyon ${c.chunk_index + 1}`)}${c.page_number ? ` (p. ${c.page_number})` : ''}</h4>
+            <p class="text-sm mb-0">${esc(c.content).replace(/\n/g, '<br>')}</p>
+          </section>`).join('')}
+      `;
+    } else if (chunks.length > 0) {
+      readerContentHtml = chunks.map((c) => `
+        <section class="mb-4 p-3" style="border-bottom:1px solid var(--c-border);">
+          <h4 class="text-sm font-bold mb-1">${esc(c.section_label || `Seksyon ${c.chunk_index + 1}`)}${c.page_number ? ` (p. ${c.page_number})` : ''}</h4>
+          <p class="text-sm mb-0">${esc(c.content).replace(/\n/g, '<br>')}</p>
+        </section>`).join('');
+    } else if (book.content_html) {
+      readerContentHtml = sanitizeHtml(book.content_html);
+    } else {
+      readerContentHtml = `<p class="muted">${esc(book.description || book.summary || '')}</p>`;
+    }
+
     const bodyHtml = `
       <div class="row-wrap mb-3">
         <span class="badge badge-accent">${esc(scopeLabel(book.scope))}</span>
@@ -445,19 +472,14 @@ async function openBookReader(bookId) {
         ${book.metadata?.citation_apa ? `<span class="text-xs muted">APA : ${esc(book.metadata.citation_apa)}</span>` : ''}
       </div>
       <div class="row-wrap mb-4">
+        ${book.storage_path ? `<button type="button" class="btn btn-sm btn-primary" id="reader-view-pdf-btn">${icon('file-text')}<span>Li PDF Orijinal Konplè</span></button>` : ''}
+        ${book.storage_path ? `<button type="button" class="btn btn-sm btn-secondary" id="reader-dl-btn">${icon('download')}<span>${esc(t('library.download_pdf_btn'))}</span></button>` : ''}
         <button type="button" class="btn btn-sm btn-secondary" id="reader-pdf-btn">${icon('file-text')}<span>${esc(t('library.export_pdf_btn'))}</span></button>
         <button type="button" class="btn btn-sm btn-secondary" id="reader-docx-btn">${icon('file-type')}<span>${esc(t('library.export_docx_btn'))}</span></button>
-        ${book.storage_path ? `<button type="button" class="btn btn-sm btn-secondary" id="reader-dl-btn">${icon('download')}<span>${esc(t('library.download_pdf_btn'))}</span></button>` : ''}
         <button type="button" class="btn btn-sm btn-ghost" id="reader-offline-btn">${icon('download-cloud')}<span>${esc(t('library.offline_save_btn'))}</span></button>
       </div>
       <div class="book-reader-body">
-        ${book.content_html
-          ? sanitizeHtml(book.content_html)
-          : chunks.map((c) => `
-              <section class="mb-4">
-                <h3>${esc(c.section_label || `Seksyon ${c.chunk_index + 1}`)}${c.page_number ? ` (p. ${c.page_number})` : ''}</h3>
-                <p>${esc(c.content).replace(/\n/g, '<br>')}</p>
-              </section>`).join('') || `<p class="muted">${esc(book.description || book.summary || '')}</p>`}
+        ${readerContentHtml}
       </div>`;
 
     const assembledBook = {
@@ -469,14 +491,18 @@ async function openBookReader(bookId) {
     m.el.querySelector('#reader-pdf-btn')?.addEventListener('click', () => exportBookPdf(assembledBook, profileRef));
     m.el.querySelector('#reader-docx-btn')?.addEventListener('click', () => exportBookDocx(assembledBook, profileRef));
     m.el.querySelector('#reader-offline-btn')?.addEventListener('click', (e) => saveBookOffline(book.id, e.currentTarget));
-    m.el.querySelector('#reader-dl-btn')?.addEventListener('click', async () => {
-      const { data: signed, error: sErr } = await db.storage.from('pran-not-library').createSignedUrl(book.storage_path, 120);
+
+    const openOriginalPdf = async () => {
+      const { data: signed, error: sErr } = await db.storage.from('pran-not-library').createSignedUrl(book.storage_path, 180);
       if (sErr || !signed?.signedUrl) {
         toast(t('errors.generic'), 'error');
         return;
       }
       window.open(signed.signedUrl, '_blank', 'noopener');
-    });
+    };
+
+    m.el.querySelector('#reader-view-pdf-btn')?.addEventListener('click', openOriginalPdf);
+    m.el.querySelector('#reader-dl-btn')?.addEventListener('click', openOriginalPdf);
   } catch (err) {
     handleError(err);
   }
