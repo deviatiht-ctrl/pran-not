@@ -37,7 +37,12 @@
           <i data-lucide="camera" aria-hidden="true"></i>
           <span data-i18n="library.scan_cover_btn">Foto kouvèti liv (PDF)</span>
         </button>
+        <button type="button" class="btn btn-secondary" id="lib-upload-cover-btn" title="Voye foto kouvèti nan galri pou chèche PDF">
+          <i data-lucide="image" aria-hidden="true"></i>
+          <span>Voye imaj kouvèti</span>
+        </button>
         <input type="file" id="lib-cover-file-input" accept="image/*" capture="environment" style="display:none;">
+        <input type="file" id="lib-cover-gallery-input" accept="image/*" style="display:none;">
         <button type="button" class="btn btn-secondary" id="lib-droit-btn">
           <i data-lucide="scale" aria-hidden="true"></i>
           <span data-i18n="library.droit_quick_btn"></span>
@@ -85,10 +90,16 @@
               <div class="text-xs muted" data-i18n="library.scan_banner_sub">IA a ap idantifye tit la ak otè a epi chèche vèsyon PDF la pou ou otomatikman.</div>
             </div>
           </div>
-          <button type="button" class="btn btn-sm btn-primary" id="lib-scan-cover-card-btn">
-            <i data-lucide="camera" aria-hidden="true"></i>
-            <span data-i18n="library.scan_cover_btn">Foto kouvèti liv (PDF)</span>
-          </button>
+          <div class="row-wrap" style="gap:8px;">
+            <button type="button" class="btn btn-sm btn-primary" id="lib-scan-cover-card-btn">
+              <i data-lucide="camera" aria-hidden="true"></i>
+              <span data-i18n="library.scan_cover_btn">Foto kouvèti liv (PDF)</span>
+            </button>
+            <button type="button" class="btn btn-sm btn-outline" id="lib-upload-cover-card-btn">
+              <i data-lucide="upload" aria-hidden="true"></i>
+              <span>Voye foto kouvèti</span>
+            </button>
+          </div>
         </div>
       </div>
 

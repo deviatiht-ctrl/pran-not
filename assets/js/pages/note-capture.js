@@ -13,7 +13,7 @@ import { t } from '../i18n.js';
 import {
   icons, icon, esc, toast, handleError, setLoading, getParam, uid,
   compressImage, blobToBase64, checkFileSize, extractPdfText, renderPdfPageToBlob,
-  loadScript, loadStyle, CDN, sanitizeHtml, htmlToText, promptDialog, formatDuration, pageEnter,
+  loadScript, loadStyle, CDN, sanitizeHtml, htmlToText, promptDialog, formatDuration, pageEnter, debounce,
 } from '../utils.js';
 import { ocrBoard, transcribeAudio, processNote } from '../ai.js';
 import { enqueue, isDataSaver, cacheGet, cacheSet, isNetworkError } from '../offline.js';
@@ -71,6 +71,108 @@ function mimeToExt(mime = '') {
   return 'webm';
 }
 
+const DRAFT_STORAGE_KEY = 'prannot_note_capture_draft';
+
+function saveDraftToStorage() {
+  try {
+    const title = document.getElementById('note-title')?.value || '';
+    const rawText = document.getElementById('raw-text')?.value || '';
+    const quillHtml = quill?.root?.innerHTML || '';
+    const courseId = document.getElementById('note-course')?.value || '';
+    const unitId = document.getElementById('note-unit')?.value || '';
+    const lang = document.getElementById('note-lang')?.value || 'ht';
+
+    // Si tout vid, pa bezwen sove anyen
+    const hasText = title.trim() || rawText.trim() || htmlToText(quillHtml).trim();
+    if (!hasText && !structuredData) {
+      localStorage.removeItem(DRAFT_STORAGE_KEY);
+      return;
+    }
+
+    const payload = {
+      title,
+      rawText,
+      quillHtml: htmlToText(quillHtml).trim() ? quillHtml : '',
+      courseId,
+      unitId,
+      lang,
+      currentMode,
+      structuredData: structuredData || null,
+      savedAt: Date.now(),
+    };
+    localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(payload));
+  } catch (e) {
+    /* ignore storage quota */
+  }
+}
+
+function clearDraftStorage() {
+  try {
+    localStorage.removeItem(DRAFT_STORAGE_KEY);
+  } catch { /* ignore */ }
+}
+
+function restoreDraftFromStorage() {
+  try {
+    const raw = localStorage.getItem(DRAFT_STORAGE_KEY);
+    if (!raw) return false;
+    const d = JSON.parse(raw);
+    if (!d) return false;
+
+    // Pa restore si draft la gen plis pase 7 jou
+    if (Date.now() - (d.savedAt || 0) > 7 * 86400000) {
+      clearDraftStorage();
+      return false;
+    }
+
+    let restored = false;
+    if (d.title) {
+      const titleInput = document.getElementById('note-title');
+      if (titleInput && !titleInput.value.trim()) {
+        titleInput.value = d.title;
+        restored = true;
+      }
+    }
+    if (d.rawText) {
+      const rawEl = document.getElementById('raw-text');
+      if (rawEl && !rawEl.value.trim()) {
+        rawEl.value = d.rawText;
+        updateRawWordCount();
+        restored = true;
+      }
+    }
+    if (d.quillHtml && quill) {
+      const cur = htmlToText(quill.root.innerHTML).trim();
+      if (!cur) {
+        quill.root.innerHTML = sanitizeHtml(d.quillHtml);
+        restored = true;
+      }
+    }
+    if (d.courseId) {
+      const cEl = document.getElementById('note-course');
+      if (cEl) {
+        cEl.value = d.courseId;
+        cEl.dispatchEvent(new Event('change'));
+      }
+    }
+    if (d.lang) {
+      const lEl = document.getElementById('note-lang');
+      if (lEl) lEl.value = d.lang;
+    }
+    if (d.structuredData) {
+      structuredData = d.structuredData;
+      renderStructuredExtras(structuredData);
+      restored = true;
+    }
+    if (d.currentMode && d.currentMode !== currentMode) {
+      switchMode(d.currentMode);
+    }
+    return restored;
+  } catch {
+    return false;
+  }
+}
+
 async function initQuill() {
   try {
     loadStyle(CDN.quillCss);
@@ -87,11 +189,13 @@ async function initQuill() {
         ],
       },
     });
+    quill.on('text-change', debounce(saveDraftToStorage, 1500));
   } catch {
     // Repli hors-ligne si Quill CDN n'était pas encore en cache
     const host = document.getElementById('quill-editor');
     if (host && !host.querySelector('textarea')) {
       host.innerHTML = `<textarea class="textarea" id="quill-fallback-ta" rows="10" placeholder="Ekri oswa kole nòt ou a isit la..."></textarea>`;
+      host.querySelector('#quill-fallback-ta')?.addEventListener('input', debounce(saveDraftToStorage, 1500));
       const getText = () => host.querySelector('#quill-fallback-ta')?.value || '';
       quill = {
         root: {
@@ -959,6 +1063,7 @@ async function saveNote() {
       process_ai: !structuredData && (files.length > 0 || Boolean(rawText)),
       files,
     });
+    clearDraftStorage();
     toast(t('offline.saved_locally'), 'success');
     location.href = appUrl('pages/notes.html');
   };
@@ -1070,6 +1175,7 @@ async function saveNote() {
     await cacheSet(`note_${saved.id}`, saved);
     await recordActivity();
     await awardXp(15, 'note_capture', saved.id);
+    clearDraftStorage();
     toast(t('common.saved'), 'success');
     location.href = appUrl(`pages/note-view.html?id=${saved.id}`);
   } catch (err) {
@@ -1127,6 +1233,9 @@ async function saveNote() {
 
   // Photos
   document.getElementById('photo-input').addEventListener('change', (e) => handlePhotoFiles(e.target.files));
+  document.getElementById('photo-gallery-input')?.addEventListener('change', (e) => handlePhotoFiles(e.target.files));
+  document.getElementById('photo-camera-btn')?.addEventListener('click', () => document.getElementById('photo-input')?.click());
+  document.getElementById('photo-upload-gallery-btn')?.addEventListener('click', () => document.getElementById('photo-gallery-input')?.click());
   const dropZone = document.getElementById('photo-drop');
   dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('is-over'); });
   dropZone.addEventListener('dragleave', () => dropZone.classList.remove('is-over'));
@@ -1202,7 +1311,28 @@ async function saveNote() {
   document.body.dataset.captureReady = '1';
 
   // Charger l'éditeur Quill et la liste des cours en parallèle sans bloquer la capture vocale/photo
-  initQuill().catch(() => {});
+  initQuill().then(() => {
+    // Si yon draft te egziste nan localStorage, restore l
+    const didRestore = restoreDraftFromStorage();
+    if (didRestore) {
+      toast(t('notes.draft_restored') || 'Bwouyon nòt ou t ap pran an retabli otomatikman !', 'info');
+    }
+  }).catch(() => {});
+
+  // Otoprezèvasyon / Sauvegarde automatique bwouyon an (Debounce chak 1.5s sou saisie epi sou pagehide/visibilitychange)
+  const autoSaveHandler = debounce(saveDraftToStorage, 1500);
+  document.getElementById('note-title')?.addEventListener('input', autoSaveHandler);
+  document.getElementById('raw-text')?.addEventListener('input', autoSaveHandler);
+  document.getElementById('note-course')?.addEventListener('change', autoSaveHandler);
+  document.getElementById('note-unit')?.addEventListener('change', autoSaveHandler);
+  document.getElementById('note-lang')?.addEventListener('change', autoSaveHandler);
+
+  // Sou mobil oswa òdinatè si etidyan an soti sou paj la oswa minimize navigatè a
+  window.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') saveDraftToStorage();
+  });
+  window.addEventListener('pagehide', saveDraftToStorage);
+  window.addEventListener('beforeunload', saveDraftToStorage);
 
   try {
     const cSel = document.getElementById('note-course');

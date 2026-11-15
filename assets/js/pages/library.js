@@ -1170,15 +1170,21 @@ function renderCoverScanResults(container, res, coverPreviewUrl, modal) {
     runChunkSearch();
   });
 
-  // Foto kouvèti liv -> Rechèch PDF otomatik
+  // Foto kouvèti liv -> Rechèch PDF otomatik (Kamera ak Galri Upload)
   const coverFileInput = document.getElementById('lib-cover-file-input');
+  const coverGalleryInput = document.getElementById('lib-cover-gallery-input');
   document.getElementById('lib-scan-cover-btn')?.addEventListener('click', () => coverFileInput?.click());
   document.getElementById('lib-scan-cover-card-btn')?.addEventListener('click', () => coverFileInput?.click());
-  coverFileInput?.addEventListener('change', (e) => {
+  document.getElementById('lib-upload-cover-btn')?.addEventListener('click', () => coverGalleryInput?.click());
+  document.getElementById('lib-upload-cover-card-btn')?.addEventListener('click', () => coverGalleryInput?.click());
+
+  const onCoverSelected = (e) => {
     const f = e.target.files?.[0];
     if (f) handleCoverScanFile(f);
     e.target.value = '';
-  });
+  };
+  coverFileInput?.addEventListener('change', onCoverSelected);
+  coverGalleryInput?.addEventListener('change', onCoverSelected);
 
   document.getElementById('lib-upload-btn')?.addEventListener('click', () => openUploadModal());
   document.getElementById('lib-book-search')?.addEventListener('input', runChunkSearch);

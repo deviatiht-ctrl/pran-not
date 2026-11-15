@@ -27,10 +27,16 @@ function renderList(append = false) {
   const q = document.getElementById('notes-search').value.trim().toLowerCase();
   const cFilter = document.getElementById('notes-course-filter').value;
   const mFilter = document.getElementById('notes-mode-filter').value;
+  const sFilter = document.getElementById('notes-status-filter')?.value || '';
 
   const filtered = allNotes.filter((n) => {
     if (cFilter && n.course_id !== cFilter) return false;
     if (mFilter && n.capture_mode !== mFilter) return false;
+    if (sFilter) {
+      const noteStatus = n.status || (n.is_local_pending ? 'draft' : 'ready');
+      if (sFilter === 'ready' && noteStatus === 'draft') return false;
+      if (sFilter === 'draft' && noteStatus !== 'draft') return false;
+    }
     if (q) {
       const hay = `${n.title || ''} ${n.summary || ''} ${n.content_text || ''}`.toLowerCase();
       if (!hay.includes(q)) return false;
@@ -54,10 +60,13 @@ function renderList(append = false) {
   const html = filtered.map((n) => {
     const course = coursesMap.get(n.course_id);
     const ic = modeIcons[n.capture_mode] || 'file-text';
+    const noteStatus = n.status || (n.is_local_pending ? 'draft' : 'ready');
+    const isDraft = noteStatus === 'draft';
     return `<article class="card card-sm" style="display:flex;flex-direction:column;gap:10px;">
       <div class="row-between">
         <div class="row-wrap" style="gap:6px;">
           <span class="badge">${icon(ic)}<span>${esc(t(`capture.mode_${n.capture_mode}`) || n.capture_mode)}</span></span>
+          ${isDraft ? `<span class="badge badge-warning">${icon('file-edit')}<span>Bwouyon</span></span>` : `<span class="badge badge-success">${icon('check-circle')}<span>Fini</span></span>`}
           ${n.is_local_pending ? `<span class="badge badge-warning">${icon('wifi-off')}<span>Lokal</span></span>` : ''}
         </div>
         ${n.is_local_pending ? '' : `<div class="row" style="gap:4px;">
@@ -303,6 +312,7 @@ async function fetchNotes(reset = true) {
   document.getElementById('notes-search').addEventListener('input', debounce(() => renderList(), 200));
   document.getElementById('notes-course-filter').addEventListener('change', () => renderList());
   document.getElementById('notes-mode-filter').addEventListener('change', () => renderList());
+  document.getElementById('notes-status-filter')?.addEventListener('change', () => renderList());
   document.getElementById('load-more-btn').addEventListener('click', () => {
     page++;
     fetchNotes(false);
