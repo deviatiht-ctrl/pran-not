@@ -97,6 +97,21 @@ async function renderNote() {
           ${note.content_html ? sanitizeHtml(note.content_html) : `<p>${esc(note.content_text || note.raw_text || '')}</p>`}
         </article>
 
+        ${st.simple_explanation ? `
+          <section class="card mb-4" style="background:var(--c-surface-2);border-left:4px solid var(--c-primary,#F97316);">
+            <div class="row-between mb-2">
+              <h3 class="card-title mb-0 text-sm font-bold" style="color:var(--c-primary,#F97316);">
+                ${icon('sparkles')}<span>Eksplikasyon Senp & Klè</span>
+              </h3>
+              <button type="button" class="btn-icon" id="btn-remove-simple-exp" title="Retire nan nòt la">
+                ${icon('x')}
+              </button>
+            </div>
+            <div class="prose text-sm">
+              ${renderMarkdown(st.simple_explanation)}
+            </div>
+          </section>` : ''}
+
         ${corrections.length ? `
           <section class="card card-accent mb-4">
             <div class="row-between mb-2">
@@ -473,24 +488,129 @@ function bindActions() {
 
   document.getElementById('btn-simpler')?.addEventListener('click', async (e) => {
     const btn = e.currentTarget;
-    setLoading(btn, true);
+
+    // Chwazi lang eksplikasyon an (Kreyòl oswa Fransè)
+    const curLang = getLang();
+    const chooseModal = openModal({
+      title: t('notes.btn_simpler') || 'Eksplikasyon Senp',
+      body: `
+        <div class="stack py-2">
+          <p class="text-sm muted mb-3">Chwazi nan ki lang ou vle IA a eksplike nòt sa a yon fason ki senp epi klè :</p>
+          <div class="field mb-3">
+            <label for="explain-lang-select">Lang pou eksplikasyon an</label>
+            <select class="select" id="explain-lang-select">
+              <option value="ht" ${curLang === 'ht' ? 'selected' : ''}>Kreyòl Ayisyen</option>
+              <option value="fr" ${curLang === 'fr' ? 'selected' : ''}>Français</option>
+            </select>
+          </div>
+          <div class="field mb-3">
+            <label for="explain-style-select">Fòma eksplikasyon</label>
+            <select class="select" id="explain-style-select">
+              <option value="simple">Senp, etap pa etap (San jagon)</option>
+              <option value="haiti">Ak egzanp konkrè sou reyalite Ayiti</option>
+              <option value="child">Koumanse depi nan baz (Trè senp)</option>
+            </select>
+          </div>
+          <button type="button" class="btn btn-primary btn-block" id="btn-run-explanation">
+            ${icon('sparkles')}<span>Jenere eksplikasyon</span>
+          </button>
+        </div>
+      `,
+    });
+
+    const runBtn = chooseModal.el.querySelector('#btn-run-explanation');
+    runBtn.addEventListener('click', async () => {
+      const selectedLang = chooseModal.el.querySelector('#explain-lang-select').value || 'ht';
+      const selectedStyle = chooseModal.el.querySelector('#explain-style-select').value || 'simple';
+      setLoading(runBtn, true);
+      chooseModal.close();
+      setLoading(btn, true);
+
+      try {
+        const res = await explainText({
+          text: `${note.title}\n\n${note.content_text || note.raw_text || ''}`,
+          mode: selectedStyle,
+          language: selectedLang,
+          faculty: profileRef?.faculty_id,
+          level: profileRef?.level,
+        });
+
+        const explanationText = res?.result?.text || '';
+        if (!explanationText) throw new Error('Eksplikasyon an vid');
+
+        const m = openModal({
+          title: selectedLang === 'fr' ? 'Explication Simple' : 'Eksplikasyon Senp',
+          size: 'lg',
+          body: `
+            <div class="prose mb-4">${renderMarkdown(explanationText)}</div>
+            <div class="card card-sm card-accent">
+              <div class="row-between" style="flex-wrap:wrap;gap:8px;">
+                <div>
+                  <strong>Mete nan nòt la</strong>
+                  <div class="text-xs muted">Ou ka sove eksplikasyon sa a dirèkteman nan espas nòt la pou tout tan.</div>
+                </div>
+                <button type="button" class="btn btn-sm btn-primary" id="btn-insert-explanation-to-note">
+                  ${icon('plus')}<span>Ajoute nan nòt sa a</span>
+                </button>
+              </div>
+            </div>
+          `,
+        });
+
+        m.el.querySelector('#btn-insert-explanation-to-note')?.addEventListener('click', async (ev) => {
+          const insertBtn = ev.currentTarget;
+          setLoading(insertBtn, true);
+          try {
+            if (!note.structured) note.structured = {};
+            note.structured.simple_explanation = explanationText;
+            const patch = { structured: note.structured };
+
+            if (navigator.onLine && !note.is_local_pending && isUuid(note.id)) {
+              await db.from('pran_not_notes').update(patch).eq('id', note.id);
+            } else if (note.is_local_pending) {
+              await updateQueuedNotePayload(note.id.slice('local:'.length), patch);
+            }
+            await cacheSet(`note_${note.id}`, note);
+            toast('Eksplikasyon senp lan ajoute nan nòt la!', 'success');
+            m.close();
+            renderNote();
+          } catch (err) {
+            handleError(err);
+          } finally {
+            setLoading(insertBtn, false);
+          }
+        });
+
+      } catch (err) {
+        handleError(err);
+      } finally {
+        setLoading(btn, false);
+      }
+    });
+  });
+
+  // Retire eksplikasyon senp lan si etidyan an vle
+  document.getElementById('btn-remove-simple-exp')?.addEventListener('click', async () => {
+    const ok = await confirmDialog({
+      title: 'Retire eksplikasyon senp',
+      message: 'Èske ou vle retire seksyon eksplikasyon senp lan nan nòt la ?',
+    });
+    if (!ok) return;
     try {
-      const res = await explainText({
-        text: `${note.title}\n\n${note.content_text || note.raw_text || ''}`,
-        mode: 'simple',
-        language: getLang(),
-        faculty: profileRef?.faculty_id,
-        level: profileRef?.level,
-      });
-      openModal({
-        title: t('notes.btn_simpler'),
-        size: 'lg',
-        body: `<div class="prose">${renderMarkdown(res?.result?.text || '')}</div>`,
-      });
+      if (note.structured) {
+        delete note.structured.simple_explanation;
+      }
+      const patch = { structured: note.structured || null };
+      if (navigator.onLine && !note.is_local_pending && isUuid(note.id)) {
+        await db.from('pran_not_notes').update(patch).eq('id', note.id);
+      } else if (note.is_local_pending) {
+        await updateQueuedNotePayload(note.id.slice('local:'.length), patch);
+      }
+      await cacheSet(`note_${note.id}`, note);
+      toast('Eksplikasyon retire nan nòt la.', 'info');
+      renderNote();
     } catch (err) {
       handleError(err);
-    } finally {
-      setLoading(btn, false);
     }
   });
 
@@ -500,26 +620,65 @@ function bindActions() {
 
   document.getElementById('btn-ai-clean')?.addEventListener('click', async (e) => {
     const btn = e.currentTarget;
-    setLoading(btn, true);
-    try {
-      const res = await processNote({
-        rawText: note.raw_text || note.content_text,
-        language: getLang(),
-        faculty: profileRef?.faculty_id,
-        level: profileRef?.level,
-        noteId: note.id,
-      });
-      note.title = res.title || note.title;
-      note.summary = res.summary || note.summary;
-      note.content_html = res.content_html || note.content_html;
-      note.structured = res;
-      toast(t('common.saved'), 'success');
-      renderNote();
-    } catch (err) {
-      handleError(err);
-    } finally {
-      setLoading(btn, false);
-    }
+    const curLang = getLang();
+
+    const m = openModal({
+      title: t('capture.structure_ai') || 'Netwaye epi estriktire ak IA',
+      body: `
+        <div class="stack py-2">
+          <p class="text-sm muted mb-3">Chwazi kijan ou vle IA a trete epi estriktire nòt la :</p>
+          <div class="field mb-3">
+            <label for="ai-clean-lang">Lang rezilta a</label>
+            <select class="select" id="ai-clean-lang">
+              <option value="ht" ${curLang === 'ht' ? 'selected' : ''}>Kreyòl Ayisyen</option>
+              <option value="fr" ${curLang === 'fr' ? 'selected' : ''}>Français</option>
+            </select>
+          </div>
+          <div class="field mb-3">
+            <label for="ai-clean-mode">Metòd tretman</label>
+            <select class="select" id="ai-clean-mode">
+              <option value="standard">Estanda (Plan, definisyon, mo kle ak devwa)</option>
+              <option value="harmonize_ht">Tradui ak amonize tout nòt la an Kreyòl</option>
+              <option value="harmonize_fr">Tradui ak amonize tout nòt la an Fransè</option>
+            </select>
+          </div>
+          <button type="submit" class="btn btn-primary btn-block" id="btn-start-clean">
+            ${icon('wand-2')}<span>Kòmanse analiz</span>
+          </button>
+        </div>
+      `,
+    });
+
+    m.el.querySelector('#btn-start-clean')?.addEventListener('click', async () => {
+      const selectedLang = m.el.querySelector('#ai-clean-lang').value || 'ht';
+      let selectedMode = m.el.querySelector('#ai-clean-mode').value || 'standard';
+      if (selectedMode === 'standard') {
+        selectedMode = selectedLang === 'fr' ? 'harmonize_fr' : 'harmonize_ht';
+      }
+      m.close();
+      setLoading(btn, true);
+
+      try {
+        const res = await processNote({
+          rawText: note.raw_text || note.content_text,
+          language: selectedLang,
+          mode: selectedMode,
+          faculty: profileRef?.faculty_id,
+          level: profileRef?.level,
+          noteId: note.id,
+        });
+        note.title = res.title || note.title;
+        note.summary = res.summary || note.summary;
+        note.content_html = res.content_html || note.content_html;
+        note.structured = res;
+        toast(t('common.saved'), 'success');
+        renderNote();
+      } catch (err) {
+        handleError(err);
+      } finally {
+        setLoading(btn, false);
+      }
+    });
   });
 
   document.getElementById('btn-export-note')?.addEventListener('click', () => {
