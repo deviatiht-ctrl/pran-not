@@ -9,26 +9,12 @@ import { syncThemeFromProfile } from './theme.js';
 const db = window.db;
 let profileCache = null;
 
-// Mettre à jour le Service Worker sans cache HTTP périmé (y compris sur onboarding.html et login.html)
+// Enregistrer le Service Worker une seule fois sans déclencher de rechargement intempestif
 if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
-  const hadController = Boolean(navigator.serviceWorker.controller);
   const swUrl = new URL('../../sw.js', import.meta.url).href;
-  let userStartedInput = false;
-  document.addEventListener('input', () => { userStartedInput = true; }, { once: true, capture: true });
-
   navigator.serviceWorker.register(swUrl, { updateViaCache: 'none' })
     .then((reg) => reg.update().catch(() => {}))
     .catch(() => {});
-
-  if (hadController) {
-    navigator.serviceWorker.addEventListener('controllerchange', () => {
-      const last = Number(sessionStorage.getItem('prannot.swReloadAt') || 0);
-      if (!userStartedInput && Date.now() - last > 10000) {
-        sessionStorage.setItem('prannot.swReloadAt', String(Date.now()));
-        location.reload();
-      }
-    });
-  }
 }
 
 /** URL absolue d'une ressource du site, quelle que soit la profondeur de la page. */
@@ -42,9 +28,39 @@ export function go(path) {
 }
 
 export async function getSession() {
-  const { data, error } = await db.auth.getSession();
-  if (error) console.warn('[auth] getSession', error);
-  return data?.session || null;
+  try {
+    const { data, error } = await db.auth.getSession();
+    if (!error && data?.session) return data.session;
+    if (error) console.warn('[auth] getSession', error);
+  } catch (e) {
+    console.warn('[auth] getSession thrown', e);
+  }
+
+  // Repli hors-ligne : si l'utilisateur s'était déjà connecté, restaurer sa session locale
+  try {
+    const rawUser = localStorage.getItem('prannot.last_user');
+    const rawProfile = localStorage.getItem('prannot.profile');
+    if (rawUser) {
+      const u = JSON.parse(rawUser);
+      return {
+        user: u,
+        access_token: 'offline_token',
+        is_offline_guest: false,
+      };
+    }
+    // Mode invité / offline local si activé
+    const guestUser = localStorage.getItem('prannot.offline_guest');
+    if (guestUser) {
+      const u = JSON.parse(guestUser);
+      return {
+        user: u,
+        access_token: 'offline_guest_token',
+        is_offline_guest: true,
+      };
+    }
+  } catch { /* ignore */ }
+
+  return null;
 }
 
 export async function getUser() {
@@ -57,27 +73,73 @@ export async function getProfile(force = false) {
   if (profileCache && !force) return profileCache;
   const user = await getUser();
   if (!user) return null;
-  let { data, error } = await db
-    .from('pran_not_profiles')
-    .select('*, faculty:pran_not_faculties(id, name_fr, name_ht, icon, case_label_fr, case_label_ht)')
-    .eq('id', user.id)
-    .maybeSingle();
-  if (error) throw error;
-  if (!data) {
-    // Crée le profil Pran Nòt si le compte existait déjà dans auth.users (projet Supabase partagé)
-    const { error: ensureErr } = await db.rpc('pran_not_ensure_profile');
-    if (ensureErr) throw ensureErr;
-    const retry = await db
+
+  if (!navigator.onLine) {
+    try {
+      const raw = localStorage.getItem('prannot.profile');
+      if (raw) {
+        profileCache = JSON.parse(raw);
+        return profileCache;
+      }
+    } catch { /* ignore */ }
+  }
+
+  let data = null;
+  try {
+    const res = await db
       .from('pran_not_profiles')
       .select('*, faculty:pran_not_faculties(id, name_fr, name_ht, icon, case_label_fr, case_label_ht)')
       .eq('id', user.id)
       .maybeSingle();
-    if (retry.error) throw retry.error;
-    data = retry.data;
+    if (res.error) throw res.error;
+    data = res.data;
+  } catch (err) {
+    console.warn('[auth] profil non récupéré en ligne', err);
+    try {
+      const raw = localStorage.getItem('prannot.profile');
+      if (raw) data = JSON.parse(raw);
+    } catch { /* ignore */ }
   }
+
+  if (!data && navigator.onLine) {
+    // Crée le profil Pran Nòt si le compte existait déjà dans auth.users (projet Supabase partagé)
+    try {
+      const { error: ensureErr } = await db.rpc('pran_not_ensure_profile');
+      if (!ensureErr) {
+        const retry = await db
+          .from('pran_not_profiles')
+          .select('*, faculty:pran_not_faculties(id, name_fr, name_ht, icon, case_label_fr, case_label_ht)')
+          .eq('id', user.id)
+          .maybeSingle();
+        if (!retry.error) data = retry.data;
+      }
+    } catch { /* ignore */ }
+  }
+
+  if (!data) {
+    // Profil par défaut minimal pour ne pas bloquer hors-ligne
+    data = {
+      id: user.id,
+      email: user.email || 'etidyan@prannot.ht',
+      full_name: user.user_metadata?.full_name || 'Etidyan',
+      faculty_id: 'autre',
+      level: 'L1',
+      university: 'Inivèsite',
+      language: localStorage.getItem('prannot.lang') || 'ht',
+      onboarded: true,
+      xp: 0,
+      xp_level: 1,
+    };
+  }
+
   profileCache = data;
   // Hors-ligne : garder une copie locale pour démarrer sans réseau
-  if (data) localStorage.setItem('prannot.profile', JSON.stringify(data));
+  if (data) {
+    try {
+      localStorage.setItem('prannot.profile', JSON.stringify(data));
+      if (user) localStorage.setItem('prannot.last_user', JSON.stringify({ id: user.id, email: user.email || data.email }));
+    } catch { /* ignore */ }
+  }
   return data;
 }
 
@@ -224,6 +286,8 @@ export async function signOut() {
   } finally {
     profileCache = null;
     localStorage.removeItem('prannot.profile');
+    localStorage.removeItem('prannot.last_user');
+    localStorage.removeItem('prannot.offline_guest');
     location.replace(appUrl('login.html'));
   }
 }

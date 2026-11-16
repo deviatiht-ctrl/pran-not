@@ -174,6 +174,33 @@ async function detectGoogleProvider() {
           showAlert(t('login.signup_check_email'), 'success');
         }
       } else {
+        if (!navigator.onLine) {
+          // Si l'utilisateur est hors-ligne, vérifier s'il a un profil local ou lui permettre d'accéder
+          const rawProfile = localStorage.getItem('prannot.profile');
+          const rawUser = localStorage.getItem('prannot.last_user');
+          if (rawProfile || rawUser) {
+            toast(t('login.offline_notice'), 'info');
+            await redirectAfterAuth();
+            return;
+          }
+          // Si aucun compte local, créer un profil offline pour cet email
+          const offlineUser = { id: crypto.randomUUID ? crypto.randomUUID() : 'offline-' + Date.now(), email };
+          localStorage.setItem('prannot.last_user', JSON.stringify(offlineUser));
+          const offlineProfile = {
+            id: offlineUser.id,
+            email,
+            full_name: email.split('@')[0],
+            faculty_id: 'autre',
+            level: 'L1',
+            university: 'Inivèsite',
+            language: getLang(),
+            onboarded: true,
+          };
+          localStorage.setItem('prannot.profile', JSON.stringify(offlineProfile));
+          toast(t('login.offline_notice'), 'info');
+          await redirectAfterAuth();
+          return;
+        }
         const { error } = await db.auth.signInWithPassword({ email, password });
         if (error) throw error;
         await redirectAfterAuth();
@@ -214,7 +241,28 @@ async function detectGoogleProvider() {
 
   detectGoogleProvider();
 
-  document.getElementById('google-btn')?.addEventListener('click', async () => {
+  document.getElementById('offline-access-btn')?.addEventListener('click', async () => {
+    let rawUser = localStorage.getItem('prannot.last_user');
+    let rawProfile = localStorage.getItem('prannot.profile');
+    if (!rawUser || !rawProfile) {
+      const guestId = crypto.randomUUID ? crypto.randomUUID() : 'offline-guest-' + Date.now();
+      const guest = { id: guestId, email: 'etidyan@prannot.ht' };
+      const profile = {
+        id: guestId,
+        email: 'etidyan@prannot.ht',
+        full_name: 'Etidyan Hors-ligne',
+        faculty_id: 'autre',
+        level: 'L1',
+        university: 'Inivèsite',
+        language: getLang(),
+        onboarded: true,
+      };
+      localStorage.setItem('prannot.last_user', JSON.stringify(guest));
+      localStorage.setItem('prannot.profile', JSON.stringify(profile));
+    }
+    toast(t('login.offline_notice'), 'info');
+    await redirectAfterAuth();
+  });
     try {
       const { error } = await db.auth.signInWithOAuth({
         provider: 'google',

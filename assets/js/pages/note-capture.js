@@ -608,7 +608,7 @@ function spawnSegmentRecorder(stream, mime) {
         mime: finalMime,
         ext,
         duration: segDuration,
-        status: navigator.onLine ? 'pending' : 'offline',
+        status: 'pending',
         transcript: '',
         liveDraft: capturedLiveDraft(),
         provider: '',
@@ -616,12 +616,18 @@ function spawnSegmentRecorder(stream, mime) {
       };
       liveSpeechBuffer = '';
       audioChunksBlobs.push(clip);
-      document.getElementById('rec-chunks-badge').textContent = `${audioChunksBlobs.length} segman`;
+      const chunksBadge = document.getElementById('rec-chunks-badge');
+      if (chunksBadge) chunksBadge.textContent = `${audioChunksBlobs.length} segman`;
       renderAudioClips();
+      saveDraftToStorage();
 
+      // Si l'enregistrement continue, différer la transcription lourde vers la fin ou la traiter en douceur
+      // pour éviter de saturer le CPU/mémoire de l'appareil pendant la capture continue
       if (navigator.onLine) {
         enqueueTranscription(clip);
       } else {
+        clip.status = 'offline';
+        renderAudioClips();
         toast(t('offline.saved_locally'), 'info');
       }
     } else {
@@ -634,13 +640,18 @@ function spawnSegmentRecorder(stream, mime) {
 }
 
 function rotateAudioSegment(mime) {
-  if (!isRecordingSession || !mediaRecorder || mediaRecorder.state !== 'recording') return;
+  if (!isRecordingSession || !mediaRecorder) return;
   const oldRec = mediaRecorder;
-  // Démarrer le nouveau segman avant de clore l'ancien pour ne perdre aucun mot du professeur
   segmentSeconds = totalSeconds;
-  mediaRecorder = spawnSegmentRecorder(recordStream, mime);
   try {
-    oldRec.stop();
+    mediaRecorder = spawnSegmentRecorder(recordStream, mime);
+  } catch (err) {
+    console.warn('[audio] Failed to spawn new segment recorder', err);
+  }
+  try {
+    if (oldRec && oldRec.state === 'recording') {
+      oldRec.stop();
+    }
   } catch { /* ignore */ }
 }
 
@@ -871,6 +882,7 @@ async function transcribeClip(clip, isRetry = false) {
         area.value = `${area.value}\n\n${text}`.trim();
       }
       updateRawWordCount();
+      saveDraftToStorage();
       toast(isRetry ? 'Transkripsyon an mete ajou.' : 'Transkripsyon an ajoute.', 'success');
     } else {
       toast(t('capture.audio_silent_warning'), 'info');
@@ -878,9 +890,22 @@ async function transcribeClip(clip, isRetry = false) {
   } catch (err) {
     clip.status = 'error';
     clip.error = err?.userMessage || err?.message || 'error';
-    handleError(err);
+    // Si la transcription échoue (ex: réseau faible ou coupure), récupérer le liveDraft pour ne jamais perdre le texte
+    if (clip.liveDraft && !clip.transcript) {
+      clip.transcript = clip.liveDraft;
+      const area = document.getElementById('raw-text');
+      if (area) {
+        area.value = `${area.value}\n\n${clip.liveDraft}`.trim();
+        updateRawWordCount();
+      }
+      saveDraftToStorage();
+      toast('Transkripsyon lokal rekipere pou pa pèdi nòt la.', 'info');
+    } else {
+      handleError(err);
+    }
   }
   renderAudioClips();
+  saveDraftToStorage();
 }
 
 async function handleAudioFileImport(fileList) {

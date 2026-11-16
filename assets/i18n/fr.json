@@ -144,6 +144,8 @@
     "full_name": "Nom complet (facultatif)",
     "submit_login": "Se connecter",
     "submit_signup": "Créer mon compte",
+    "continue_offline": "Continuer sans internet (Mode Hors-ligne)",
+    "offline_notice": "Connexion hors-ligne active. Vos données sont enregistrées localement.",
     "or": "ou",
     "google": "Continuer avec Google",
     "signup_check_email": "Compte créé. Vérifiez votre boîte email pour confirmer votre adresse avant de vous connecter.",
