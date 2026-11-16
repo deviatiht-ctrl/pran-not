@@ -263,6 +263,8 @@ async function detectGoogleProvider() {
     toast(t('login.offline_notice'), 'info');
     await redirectAfterAuth();
   });
+
+  document.getElementById('google-btn')?.addEventListener('click', async () => {
     try {
       const { error } = await db.auth.signInWithOAuth({
         provider: 'google',

@@ -9,7 +9,7 @@ import { t, formatRelative } from '../i18n.js';
 import {
   icons, icon, esc, emptyState, debounce, animateIn, pageEnter, handleError, confirmDialog, openModal, toast, setLoading, htmlToText,
 } from '../utils.js';
-import { cacheSet, cacheGet, getQueueItems, updateQueuedNotePayload, removeQueueItem, enqueue, isNetworkError } from '../offline.js';
+import { cacheSet, cacheGet, cacheEntriesByPrefix, getQueueItems, updateQueuedNotePayload, removeQueueItem, enqueue, isNetworkError } from '../offline.js';
 import { mergeCourseSchedules } from '../notifications.js';
 import { openReceiveTransferModal, openExamRevisionModal } from '../live-transfer.js';
 
@@ -34,11 +34,13 @@ function renderList(append = false) {
     if (mFilter && n.capture_mode !== mFilter) return false;
     if (sFilter) {
       const noteStatus = n.status || (n.is_local_pending || n.is_local_draft ? 'draft' : 'ready');
-      if (sFilter === 'ready' && noteStatus === 'draft') return false;
-      if (sFilter === 'draft' && noteStatus !== 'draft') return false;
+      const isDraftLike = noteStatus === 'draft' || noteStatus === 'queued' || n.is_local_draft || n.is_local_pending;
+      if (sFilter === 'ready' && isDraftLike) return false;
+      if (sFilter === 'draft' && !isDraftLike) return false;
     }
     if (q) {
-      const hay = `${n.title || ''} ${n.summary || ''} ${n.content_text || ''}`.toLowerCase();
+      const courseName = coursesMap.get(n.course_id)?.name || '';
+      const hay = `${n.title || ''} ${n.summary || ''} ${n.content_text || ''} ${n.raw_text || ''} ${courseName}`.toLowerCase();
       if (!hay.includes(q)) return false;
     }
     return true;
@@ -126,6 +128,16 @@ function renderList(append = false) {
         localStorage.removeItem('prannot_note_capture_draft');
       } else if (id === 'draft:live') {
         localStorage.removeItem('prannot.liveClassDraft');
+      } else if (id.startsWith('draft:hist:')) {
+        const idx = Number(id.replace('draft:hist:', ''));
+        try {
+          const hist = JSON.parse(localStorage.getItem('prannot.draft_history') || '[]');
+          hist.splice(idx, 1);
+          localStorage.setItem('prannot.draft_history', JSON.stringify(hist));
+        } catch {}
+      } else if (id.startsWith('draft:other:')) {
+        const k = id.replace('draft:other:', '');
+        localStorage.removeItem(k);
       }
       allNotes = allNotes.filter((x) => x.id !== id);
       toast(t('common.deleted'), 'success');
@@ -276,19 +288,32 @@ function openQuickAssignModal(noteItem) {
 
 function getLocalStorageDrafts() {
   const drafts = [];
+  const resolveTitle = (rawTitle, courseId, sampleText = '') => {
+    if (rawTitle && rawTitle.trim()) return rawTitle.trim();
+    if (courseId && coursesMap.has(courseId)) {
+      return `${coursesMap.get(courseId).name} (Bwouyon)`;
+    }
+    const cleanSample = (sampleText || '').replace(/<[^>]+>/g, '').trim();
+    const firstLine = cleanSample.split('\n')[0].trim();
+    if (firstLine && firstLine.length > 2 && firstLine.length < 90) {
+      return `${firstLine} (Bwouyon)`;
+    }
+    return t('notes.status_draft') || 'Bwouyon nòt ki poko fini';
+  };
+
   try {
     const rawCapture = localStorage.getItem('prannot_note_capture_draft');
     if (rawCapture) {
       const d = JSON.parse(rawCapture);
-      const cleanTitle = (d?.title || '').trim();
       const cleanRaw = (d?.rawText || '').trim();
       const cleanHtml = (d?.quillHtml || '').trim();
       const strippedHtml = cleanHtml ? htmlToText(cleanHtml).trim() : '';
-      const hasContent = Boolean(cleanTitle || cleanRaw || strippedHtml || d?.structuredData);
+      const hasContent = Boolean(d?.title?.trim() || cleanRaw || strippedHtml || d?.structuredData);
       if (hasContent) {
+        const title = resolveTitle(d?.title, d?.courseId, cleanRaw || strippedHtml);
         drafts.push({
           id: 'draft:capture',
-          title: cleanTitle || t('notes.status_draft') || 'Bwouyon nòt ki poko fini',
+          title,
           summary: cleanRaw ? cleanRaw.slice(0, 200) : (strippedHtml ? strippedHtml.slice(0, 200) : 'Bwouyon nòt an kou nan editè a'),
           content_text: cleanRaw || strippedHtml || '',
           course_id: d.courseId || null,
@@ -308,15 +333,15 @@ function getLocalStorageDrafts() {
     const rawLive = localStorage.getItem('prannot.liveClassDraft');
     if (rawLive) {
       const d = JSON.parse(rawLive);
-      const cleanTitle = (d?.title || '').trim();
       const cleanBody = (d?.body || '').trim();
       const cleanThoughts = (d?.thoughts || '').trim();
       const hasHw = Array.isArray(d?.homework) && d.homework.length > 0;
-      const hasContent = Boolean(cleanTitle || cleanBody || cleanThoughts || hasHw);
+      const hasContent = Boolean(d?.title?.trim() || cleanBody || cleanThoughts || hasHw);
       if (hasContent) {
+        const title = resolveTitle(d?.title, d?.courseId, cleanBody || cleanThoughts);
         drafts.push({
           id: 'draft:live',
-          title: cleanTitle || 'Bwouyon kou an dirèk',
+          title,
           summary: cleanBody ? cleanBody.slice(0, 200) : (cleanThoughts ? cleanThoughts.slice(0, 200) : 'Kou an dirèk an kou'),
           content_text: cleanBody || cleanThoughts || '',
           course_id: d.courseId || null,
@@ -332,7 +357,96 @@ function getLocalStorageDrafts() {
     }
   } catch {}
 
+  // Bwouyon achive ki te sove nan memwa
+  try {
+    const rawHist = localStorage.getItem('prannot.draft_history');
+    if (rawHist) {
+      const hist = JSON.parse(rawHist);
+      if (Array.isArray(hist)) {
+        hist.forEach((d, idx) => {
+          const cleanRaw = (d?.rawText || d?.body || '').trim();
+          const cleanHtml = (d?.quillHtml || '').trim();
+          const strippedHtml = cleanHtml ? htmlToText(cleanHtml).trim() : '';
+          const hasContent = Boolean(d?.title?.trim() || cleanRaw || strippedHtml);
+          if (hasContent) {
+            const isLive = d?.source === 'live' || d?.kind === 'live';
+            const title = resolveTitle(d?.title, d?.courseId, cleanRaw || strippedHtml);
+            drafts.push({
+              id: `draft:hist:${idx}`,
+              title,
+              summary: cleanRaw ? cleanRaw.slice(0, 200) : (strippedHtml ? strippedHtml.slice(0, 200) : 'Bwouyon achive'),
+              content_text: cleanRaw || strippedHtml || '',
+              course_id: d.courseId || null,
+              capture_mode: isLive ? 'audio' : (d.currentMode || 'text'),
+              status: 'draft',
+              is_pinned: false,
+              is_local_draft: true,
+              draft_target: isLive ? './live-class.html' : './note-capture.html',
+              created_at: new Date(d.archivedAt || d.savedAt || Date.now()).toISOString(),
+              updated_at: new Date(d.archivedAt || d.savedAt || Date.now()).toISOString(),
+            });
+          }
+        });
+      }
+    }
+  } catch {}
+
+  // Tcheke nenpòt lòt kle ki gen rapò ak bwouyon
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (!k || k === 'prannot_note_capture_draft' || k === 'prannot.liveClassDraft' || k === 'prannot.draft_history') continue;
+      if (k.toLowerCase().includes('draft') || k.toLowerCase().includes('brouillon') || k.toLowerCase().includes('not_capture')) {
+        const val = localStorage.getItem(k);
+        if (val && val.startsWith('{')) {
+          try {
+            const parsed = JSON.parse(val);
+            const text = (parsed.rawText || parsed.body || parsed.quillHtml || parsed.content || '').trim();
+            if (text || parsed.title) {
+              const title = resolveTitle(parsed.title, parsed.courseId, text);
+              drafts.push({
+                id: `draft:other:${k}`,
+                title,
+                summary: text.slice(0, 200),
+                content_text: text,
+                course_id: parsed.courseId || null,
+                capture_mode: 'text',
+                status: 'draft',
+                is_pinned: false,
+                is_local_draft: true,
+                draft_target: './note-capture.html',
+                created_at: new Date(parsed.savedAt || Date.now()).toISOString(),
+                updated_at: new Date(parsed.savedAt || Date.now()).toISOString(),
+              });
+            }
+          } catch {}
+        }
+      }
+    }
+  } catch {}
+
   return drafts;
+}
+
+async function getCachedIndividualNotes() {
+  try {
+    const entries = await cacheEntriesByPrefix('note_');
+    return (entries || []).map((e) => e.data).filter((n) => n && n.id);
+  } catch {
+    return [];
+  }
+}
+
+function mergeNotesList(lists = []) {
+  const map = new Map();
+  lists.forEach((list) => {
+    (list || []).forEach((n) => {
+      if (n && n.id && !map.has(n.id)) {
+        map.set(n.id, n);
+      }
+    });
+  });
+  return Array.from(map.values());
 }
 
 async function getPendingNotes() {
@@ -344,8 +458,10 @@ async function getPendingNotes() {
       title: x.payload.title || t('notes.untitled'),
       summary: (x.payload.content_text || '').slice(0, 200),
       content_text: x.payload.content_text || '',
+      raw_text: x.payload.raw_text || '',
       course_id: x.payload.course_id || null,
       capture_mode: x.payload.capture_mode || 'text',
+      status: 'draft',
       is_pinned: false,
       is_local_pending: true,
       created_at: new Date(x.createdAt).toISOString(),
@@ -370,6 +486,7 @@ async function fetchNotes(reset = true) {
   if (reset) { page = 0; }
   const localDrafts = getLocalStorageDrafts();
   const pending = await getPendingNotes();
+  const cachedIndiv = await getCachedIndividualNotes();
   const topItems = [...localDrafts, ...pending];
   const from = page * PAGE_SIZE;
   const to = from + PAGE_SIZE - 1;
@@ -377,7 +494,7 @@ async function fetchNotes(reset = true) {
   if (!navigator.onLine) {
     if (reset) {
       const cached = (await cacheGet('notes_list')) || [];
-      allNotes = [...topItems, ...cached];
+      allNotes = mergeNotesList([topItems, cachedIndiv, cached]);
       hasMore = false;
     }
     renderList();
@@ -387,7 +504,7 @@ async function fetchNotes(reset = true) {
   try {
     const { data, error } = await db
       .from('pran_not_notes')
-      .select('id, title, summary, content_text, course_id, capture_mode, is_pinned, status, created_at, updated_at')
+      .select('id, title, summary, content_text, raw_text, course_id, capture_mode, is_pinned, status, created_at, updated_at')
       .order('is_pinned', { ascending: false })
       .order('updated_at', { ascending: false })
       .range(from, to);
@@ -395,11 +512,11 @@ async function fetchNotes(reset = true) {
     hasMore = (data || []).length === PAGE_SIZE;
     const remote = reset ? (data || []) : [...allNotes.filter((n) => !n.is_local_pending && !n.is_local_draft), ...(data || [])];
     await cacheSet('notes_list', remote);
-    allNotes = reset ? [...topItems, ...remote] : [...allNotes, ...(data || [])];
+    allNotes = mergeNotesList([topItems, cachedIndiv, remote]);
   } catch (err) {
     if (reset) {
       const cached = (await cacheGet('notes_list')) || [];
-      allNotes = [...topItems, ...cached];
+      allNotes = mergeNotesList([topItems, cachedIndiv, cached]);
     }
     if (!allNotes.length) handleError(err);
   }
@@ -413,17 +530,16 @@ async function fetchNotes(reset = true) {
   pageEnter();
 
   // Affichage immédiat depuis le cache local (< 5 ms), puis actualisation si en ligne
-  const [cachedCourses, cachedNotes, pendingNotes] = await Promise.all([
+  const [cachedCourses, cachedNotes, pendingNotes, cachedIndiv] = await Promise.all([
     cacheGet('courses_list'),
     cacheGet('notes_list'),
     getPendingNotes(),
+    getCachedIndividualNotes(),
   ]);
   const localDrafts = getLocalStorageDrafts();
   if (cachedCourses?.length) populateCoursesFilter(cachedCourses);
-  if (localDrafts.length || pendingNotes.length || cachedNotes?.length) {
-    allNotes = [...localDrafts, ...pendingNotes, ...(cachedNotes || [])];
-    renderList();
-  }
+  allNotes = mergeNotesList([localDrafts, pendingNotes, cachedIndiv || [], cachedNotes || []]);
+  if (allNotes.length) renderList();
 
   if (navigator.onLine) {
     db.from('pran_not_courses').select('*').eq('archived', false).order('name')

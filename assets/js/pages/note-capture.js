@@ -110,6 +110,17 @@ function saveDraftToStorage() {
 
 function clearDraftStorage() {
   try {
+    const existing = localStorage.getItem(DRAFT_STORAGE_KEY);
+    if (existing) {
+      try {
+        const hist = JSON.parse(localStorage.getItem('prannot.draft_history') || '[]');
+        const parsed = JSON.parse(existing);
+        if (parsed && (parsed.title || parsed.rawText || parsed.quillHtml)) {
+          hist.unshift({ ...parsed, archivedAt: Date.now(), source: 'capture' });
+          localStorage.setItem('prannot.draft_history', JSON.stringify(hist.slice(0, 15)));
+        }
+      } catch {}
+    }
     localStorage.removeItem(DRAFT_STORAGE_KEY);
   } catch { /* ignore */ }
 }
@@ -179,7 +190,6 @@ async function startFreshNote(skipConfirm = false) {
 function restoreDraftFromStorage() {
   try {
     if (getParam('new') === '1' || getParam('reset') === '1') {
-      clearDraftStorage();
       try {
         const cleanUrl = new URL(window.location.href);
         cleanUrl.searchParams.delete('new');

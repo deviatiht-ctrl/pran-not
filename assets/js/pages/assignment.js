@@ -571,6 +571,8 @@ async function renderPage() {
       setLoading(critiqueRunBtn, false);
     }
   });
+
+  document.getElementById('asg-save-btn')?.addEventListener('click', async (e) => {
     const btn = e.currentTarget;
     setLoading(btn, true);
     const patch = gatherState();

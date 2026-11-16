@@ -7,7 +7,7 @@
    - Déclenchement synchronisation Background Sync
    ===================================================================== */
 
-const CACHE_NAME = 'prannot-shell-v18';
+const CACHE_NAME = 'prannot-shell-v19';
 const PRECACHE_LOCAL = [
   './',
   './index.html',

@@ -115,7 +115,20 @@ function saveDraft({ showBadge = true } = {}) {
 }
 
 function clearDraft() {
-  try { localStorage.removeItem(DRAFT_KEY); } catch { /* ignore */ }
+  try {
+    const existing = localStorage.getItem(DRAFT_KEY);
+    if (existing) {
+      try {
+        const hist = JSON.parse(localStorage.getItem('prannot.draft_history') || '[]');
+        const parsed = JSON.parse(existing);
+        if (parsed && (parsed.title || parsed.body || parsed.thoughts)) {
+          hist.unshift({ ...parsed, archivedAt: Date.now(), source: 'live' });
+          localStorage.setItem('prannot.draft_history', JSON.stringify(hist.slice(0, 15)));
+        }
+      } catch {}
+    }
+    localStorage.removeItem(DRAFT_KEY);
+  } catch { /* ignore */ }
 }
 
 async function discardLiveDraft(skipConfirm = false) {
