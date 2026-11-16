@@ -77,7 +77,10 @@ function formatStamp() {
   return `[${formatDuration(recTotalSec > 0 ? recTotalSec : classElapsedSec)}]`;
 }
 
+let isClassSaved = false;
+
 function saveDraft({ showBadge = true } = {}) {
+  if (isClassSaved) return;
   try {
     const title = document.getElementById('live-note-title')?.value || '';
     const body = document.getElementById('live-notes-area')?.value || '';
@@ -115,6 +118,30 @@ function clearDraft() {
   try { localStorage.removeItem(DRAFT_KEY); } catch { /* ignore */ }
 }
 
+async function discardLiveDraft(skipConfirm = false) {
+  if (!skipConfirm) {
+    const ok = await confirmDialog({
+      title: t('notes.new_fresh'),
+      message: 'Èske ou vle efase bwouyon kou sa a pou kòmanse yon nouvo sesyon tou nèf a zewo?',
+      danger: true,
+    });
+    if (!ok) return;
+  }
+  isClassSaved = true;
+  clearDraft();
+  if (document.getElementById('live-note-title')) document.getElementById('live-note-title').value = '';
+  if (document.getElementById('live-notes-area')) document.getElementById('live-notes-area').value = '';
+  if (document.getElementById('live-thoughts-area')) document.getElementById('live-thoughts-area').value = '';
+  homeworkList.length = 0;
+  renderHomeworkList();
+  keywordsLog.length = 0;
+  renderKeywords();
+  const banner = document.getElementById('live-draft-banner');
+  if (banner) banner.hidden = true;
+  setTimeout(() => { isClassSaved = false; }, 100);
+  toast(t('notes.draft_cleared'), 'info');
+}
+
 function renderHomeworkList() {
   const box = document.getElementById('live-hw-list');
   const countBadge = document.getElementById('live-hw-count');
@@ -149,24 +176,47 @@ function renderHomeworkList() {
 
 function restoreDraft(targetCourseId) {
   try {
+    if (getParam('new') === '1' || getParam('reset') === '1') {
+      clearDraft();
+      try {
+        const cleanUrl = new URL(window.location.href);
+        cleanUrl.searchParams.delete('new');
+        cleanUrl.searchParams.delete('reset');
+        window.history.replaceState({}, '', cleanUrl.toString());
+      } catch {}
+      return false;
+    }
     const raw = localStorage.getItem(DRAFT_KEY);
-    if (!raw) return;
+    if (!raw) return false;
     const d = JSON.parse(raw);
-    if (!d || Date.now() - Number(d.savedAt || 0) > 18 * 3600 * 1000) return;
-    if (targetCourseId && d.courseId && d.courseId !== targetCourseId) return;
-    if (d.title && document.getElementById('live-note-title')) document.getElementById('live-note-title').value = d.title;
-    if (d.body && document.getElementById('live-notes-area')) document.getElementById('live-notes-area').value = d.body;
-    if (d.thoughts && document.getElementById('live-thoughts-area')) document.getElementById('live-thoughts-area').value = d.thoughts;
-    if (Array.isArray(d.homework)) {
+    if (!d || Date.now() - Number(d.savedAt || 0) > 18 * 3600 * 1000) return false;
+    if (targetCourseId && d.courseId && d.courseId !== targetCourseId) return false;
+    let restored = false;
+    if (d.title && document.getElementById('live-note-title') && !document.getElementById('live-note-title').value.trim()) {
+      document.getElementById('live-note-title').value = d.title;
+      restored = true;
+    }
+    if (d.body && document.getElementById('live-notes-area') && !document.getElementById('live-notes-area').value.trim()) {
+      document.getElementById('live-notes-area').value = d.body;
+      restored = true;
+    }
+    if (d.thoughts && document.getElementById('live-thoughts-area') && !document.getElementById('live-thoughts-area').value.trim()) {
+      document.getElementById('live-thoughts-area').value = d.thoughts;
+      restored = true;
+    }
+    if (Array.isArray(d.homework) && d.homework.length) {
       homeworkList.splice(0, homeworkList.length, ...d.homework);
       renderHomeworkList();
+      restored = true;
     }
-    if (Array.isArray(d.keywords)) {
+    if (Array.isArray(d.keywords) && d.keywords.length) {
       keywordsLog.splice(0, keywordsLog.length, ...d.keywords);
       renderKeywords();
+      restored = true;
     }
     if (d.sessionStartedAt) sessionStartedAt = d.sessionStartedAt;
-  } catch { /* ignore */ }
+    return restored;
+  } catch { /* ignore */ return false; }
 }
 
 function updateHeaderStatus() {
@@ -897,6 +947,7 @@ async function finishLiveClass({ withAi = true } = {}) {
         process_ai: withAi && !isDataSaver(),
         files: audioChunks.map((ch) => ({ kind: 'audio', blob: ch.blob, mime: ch.mime })),
       });
+      isClassSaved = true;
       clearDraft();
       playNotificationSound('success');
       toast(customMsg || t('offline.saved_locally'), 'success');
@@ -1003,6 +1054,7 @@ async function finishLiveClass({ withAi = true } = {}) {
     }
 
     await cacheSet(`note_${noteRow.id}`, noteRow);
+    isClassSaved = true;
     clearDraft();
     playNotificationSound('success');
     await Promise.all([recordActivity(), awardXp(15, 'live_class', noteRow.id)]);
@@ -1060,7 +1112,17 @@ async function finishLiveClass({ withAi = true } = {}) {
   }
 
   await loadUnitsForCourse(courseSel.value);
-  restoreDraft(courseSel.value);
+  const didRestore = restoreDraft(courseSel.value);
+  if (didRestore) {
+    const banner = document.getElementById('live-draft-banner');
+    if (banner) {
+      banner.hidden = false;
+      icons(banner);
+    }
+    toast(t('notes.draft_restored') || 'Bwouyon kou a retabli otomatikman !', 'info');
+  }
+  document.getElementById('live-discard-draft-btn')?.addEventListener('click', () => discardLiveDraft(false));
+  document.getElementById('live-new-session-btn')?.addEventListener('click', () => discardLiveDraft(false));
   renderKeywords();
 
   // Chrono session en direct

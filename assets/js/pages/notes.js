@@ -7,9 +7,9 @@ import { requireAuth } from '../auth.js';
 import { initAppChrome, setTutorContext } from '../navbar.js';
 import { t, formatRelative } from '../i18n.js';
 import {
-  icons, icon, esc, emptyState, debounce, animateIn, pageEnter, handleError, confirmDialog, openModal, toast, setLoading,
+  icons, icon, esc, emptyState, debounce, animateIn, pageEnter, handleError, confirmDialog, openModal, toast, setLoading, htmlToText,
 } from '../utils.js';
-import { cacheSet, cacheGet, getQueueItems, updateQueuedNotePayload, enqueue, isNetworkError } from '../offline.js';
+import { cacheSet, cacheGet, getQueueItems, updateQueuedNotePayload, removeQueueItem, enqueue, isNetworkError } from '../offline.js';
 import { mergeCourseSchedules } from '../notifications.js';
 import { openReceiveTransferModal, openExamRevisionModal } from '../live-transfer.js';
 
@@ -33,7 +33,7 @@ function renderList(append = false) {
     if (cFilter && n.course_id !== cFilter) return false;
     if (mFilter && n.capture_mode !== mFilter) return false;
     if (sFilter) {
-      const noteStatus = n.status || (n.is_local_pending ? 'draft' : 'ready');
+      const noteStatus = n.status || (n.is_local_pending || n.is_local_draft ? 'draft' : 'ready');
       if (sFilter === 'ready' && noteStatus === 'draft') return false;
       if (sFilter === 'draft' && noteStatus !== 'draft') return false;
     }
@@ -50,7 +50,7 @@ function renderList(append = false) {
       icon: 'notebook-pen',
       title: t('notes.empty_title'),
       text: t('notes.empty_text'),
-      action: `<a class="btn btn-primary" href="./note-capture.html">${icon('plus')}<span>${esc(t('notes.new'))}</span></a>`,
+      action: `<a class="btn btn-primary" href="./note-capture.html?new=1">${icon('plus')}<span>${esc(t('notes.new'))}</span></a>`,
     });
     icons(grid);
     return;
@@ -60,25 +60,39 @@ function renderList(append = false) {
   const html = filtered.map((n) => {
     const course = coursesMap.get(n.course_id);
     const ic = modeIcons[n.capture_mode] || 'file-text';
-    const noteStatus = n.status || (n.is_local_pending ? 'draft' : 'ready');
+    const noteStatus = n.status || (n.is_local_pending || n.is_local_draft ? 'draft' : 'ready');
     const isDraft = noteStatus === 'draft';
+    const linkTarget = n.is_local_draft
+      ? esc(n.draft_target || './note-capture.html')
+      : `./note-view.html?id=${esc(encodeURIComponent(n.id))}`;
+
     return `<article class="card card-sm" style="display:flex;flex-direction:column;gap:10px;">
       <div class="row-between">
         <div class="row-wrap" style="gap:6px;">
           <span class="badge">${icon(ic)}<span>${esc(t(`capture.mode_${n.capture_mode}`) || n.capture_mode)}</span></span>
-          ${isDraft ? `<span class="badge badge-warning">${icon('file-edit')}<span>Bwouyon</span></span>` : `<span class="badge badge-success">${icon('check-circle')}<span>Fini</span></span>`}
+          ${isDraft ? `<span class="badge badge-warning">${icon('file-edit')}<span>${esc(n.is_local_draft ? (t('notes.local_draft') || 'Bwouyon lokal') : 'Bwouyon')}</span></span>` : `<span class="badge badge-success">${icon('check-circle')}<span>Fini</span></span>`}
           ${n.is_local_pending ? `<span class="badge badge-warning">${icon('wifi-off')}<span>Lokal</span></span>` : ''}
         </div>
-        ${n.is_local_pending ? '' : `<div class="row" style="gap:4px;">
-          <button type="button" class="btn-icon" data-pin="${esc(n.id)}" aria-label="Pin" title="Pin">
-            ${icon(n.is_pinned ? 'bookmark-check' : 'bookmark')}
-          </button>
-          <button type="button" class="btn-icon" data-del="${esc(n.id)}" aria-label="${esc(t('common.delete'))}">
-            ${icon('trash-2')}
-          </button>
-        </div>`}
+        <div class="row" style="gap:4px;">
+          ${n.is_local_draft ? `
+            <button type="button" class="btn-icon text-error" data-del-draft="${esc(n.id)}" aria-label="${esc(t('common.delete'))}" title="Efase bwouyon sa a">
+              ${icon('trash-2')}
+            </button>
+          ` : n.is_local_pending ? `
+            <button type="button" class="btn-icon text-error" data-del-pending="${esc(n.id)}" aria-label="${esc(t('common.delete'))}" title="Efase nòt lokal sa a">
+              ${icon('trash-2')}
+            </button>
+          ` : `
+            <button type="button" class="btn-icon" data-pin="${esc(n.id)}" aria-label="Pin" title="Pin">
+              ${icon(n.is_pinned ? 'bookmark-check' : 'bookmark')}
+            </button>
+            <button type="button" class="btn-icon" data-del="${esc(n.id)}" aria-label="${esc(t('common.delete'))}">
+              ${icon('trash-2')}
+            </button>
+          `}
+        </div>
       </div>
-      <a href="./note-view.html?id=${esc(encodeURIComponent(n.id))}" style="text-decoration:none;flex:1;">
+      <a href="${linkTarget}" style="text-decoration:none;flex:1;">
         <h3 class="card-title line-clamp-2">${esc(n.title || t('notes.untitled'))}</h3>
         <p class="text-sm muted line-clamp-3 mb-0">${esc(n.summary || n.content_text || '')}</p>
       </a>
@@ -88,13 +102,53 @@ function renderList(append = false) {
             ? `<span class="course-dot" style="background:${esc(course.color || '#F97316')}"></span><span>${esc(course.name)}</span>`
             : `${icon('folder-plus')}<span>${esc(t('notes.assign_course'))}</span>`}
         </button>
-        <span>${esc(formatRelative(n.updated_at || n.created_at))}</span>
+        <div class="row" style="gap:6px;">
+          ${n.is_local_draft ? `<span class="badge badge-xs badge-outline">Klike pou kontinye</span>` : ''}
+          <span>${esc(formatRelative(n.updated_at || n.created_at))}</span>
+        </div>
       </div>
     </article>`;
   }).join('');
 
   if (append) grid.insertAdjacentHTML('beforeend', html);
   else grid.innerHTML = html;
+
+  grid.querySelectorAll('[data-del-draft]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const id = btn.dataset.delDraft;
+      const ok = await confirmDialog({
+        title: t('common.delete'),
+        message: t('notes.discard_draft_confirm') || 'Èske ou vle efase bwouyon sa a nèt?',
+        danger: true,
+      });
+      if (!ok) return;
+      if (id === 'draft:capture') {
+        localStorage.removeItem('prannot_note_capture_draft');
+      } else if (id === 'draft:live') {
+        localStorage.removeItem('prannot.liveClassDraft');
+      }
+      allNotes = allNotes.filter((x) => x.id !== id);
+      toast(t('common.deleted'), 'success');
+      renderList();
+    });
+  });
+
+  grid.querySelectorAll('[data-del-pending]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const id = btn.dataset.delPending;
+      const ok = await confirmDialog({
+        title: t('common.delete'),
+        message: t('notes.delete_pending_confirm') || 'Èske ou vle efase nòt sa a ki nan memwa aparèy la?',
+        danger: true,
+      });
+      if (!ok) return;
+      const queueId = id.replace('local:', '');
+      await removeQueueItem(queueId);
+      allNotes = allNotes.filter((x) => x.id !== id);
+      toast(t('common.deleted'), 'success');
+      renderList();
+    });
+  });
 
   grid.querySelectorAll('[data-pin]').forEach((btn) => {
     btn.addEventListener('click', async () => {
@@ -162,20 +216,40 @@ function openQuickAssignModal(noteItem) {
     setLoading(saveBtn, true);
     const updateLocal = async () => {
       noteItem.course_id = newCourseId;
-      if (noteItem.is_local_pending) {
+      if (noteItem.is_local_draft) {
+        if (noteItem.id === 'draft:capture') {
+          try {
+            const raw = localStorage.getItem('prannot_note_capture_draft');
+            if (raw) {
+              const d = JSON.parse(raw);
+              d.courseId = newCourseId;
+              localStorage.setItem('prannot_note_capture_draft', JSON.stringify(d));
+            }
+          } catch {}
+        } else if (noteItem.id === 'draft:live') {
+          try {
+            const raw = localStorage.getItem('prannot.liveClassDraft');
+            if (raw) {
+              const d = JSON.parse(raw);
+              d.courseId = newCourseId;
+              localStorage.setItem('prannot.liveClassDraft', JSON.stringify(d));
+            }
+          } catch {}
+        }
+      } else if (noteItem.is_local_pending) {
         await updateQueuedNotePayload(noteItem.id.slice('local:'.length), { course_id: newCourseId });
       } else {
         await enqueue('note_update', { note_id: noteItem.id, course_id: newCourseId });
         const cachedNote = await cacheGet(`note_${noteItem.id}`);
         if (cachedNote) await cacheSet(`note_${noteItem.id}`, { ...cachedNote, course_id: newCourseId });
       }
-      await cacheSet('notes_list', allNotes.filter((n) => !n.is_local_pending));
+      await cacheSet('notes_list', allNotes.filter((n) => !n.is_local_pending && !n.is_local_draft));
       toast(t('offline.saved_locally'), 'info');
       m.close();
       renderList();
     };
 
-    if (noteItem.is_local_pending || !navigator.onLine) {
+    if (noteItem.is_local_draft || noteItem.is_local_pending || !navigator.onLine) {
       await updateLocal();
       return;
     }
@@ -198,6 +272,67 @@ function openQuickAssignModal(noteItem) {
       }
     }
   });
+}
+
+function getLocalStorageDrafts() {
+  const drafts = [];
+  try {
+    const rawCapture = localStorage.getItem('prannot_note_capture_draft');
+    if (rawCapture) {
+      const d = JSON.parse(rawCapture);
+      const cleanTitle = (d?.title || '').trim();
+      const cleanRaw = (d?.rawText || '').trim();
+      const cleanHtml = (d?.quillHtml || '').trim();
+      const strippedHtml = cleanHtml ? htmlToText(cleanHtml).trim() : '';
+      const hasContent = Boolean(cleanTitle || cleanRaw || strippedHtml || d?.structuredData);
+      if (hasContent) {
+        drafts.push({
+          id: 'draft:capture',
+          title: cleanTitle || t('notes.status_draft') || 'Bwouyon nòt ki poko fini',
+          summary: cleanRaw ? cleanRaw.slice(0, 200) : (strippedHtml ? strippedHtml.slice(0, 200) : 'Bwouyon nòt an kou nan editè a'),
+          content_text: cleanRaw || strippedHtml || '',
+          course_id: d.courseId || null,
+          capture_mode: d.currentMode || 'text',
+          status: 'draft',
+          is_pinned: false,
+          is_local_draft: true,
+          draft_target: './note-capture.html',
+          created_at: new Date(d.savedAt || Date.now()).toISOString(),
+          updated_at: new Date(d.savedAt || Date.now()).toISOString(),
+        });
+      }
+    }
+  } catch {}
+
+  try {
+    const rawLive = localStorage.getItem('prannot.liveClassDraft');
+    if (rawLive) {
+      const d = JSON.parse(rawLive);
+      const cleanTitle = (d?.title || '').trim();
+      const cleanBody = (d?.body || '').trim();
+      const cleanThoughts = (d?.thoughts || '').trim();
+      const hasHw = Array.isArray(d?.homework) && d.homework.length > 0;
+      const hasContent = Boolean(cleanTitle || cleanBody || cleanThoughts || hasHw);
+      if (hasContent) {
+        drafts.push({
+          id: 'draft:live',
+          title: cleanTitle || 'Bwouyon kou an dirèk',
+          summary: cleanBody ? cleanBody.slice(0, 200) : (cleanThoughts ? cleanThoughts.slice(0, 200) : 'Kou an dirèk an kou'),
+          content_text: cleanBody || cleanThoughts || '',
+          course_id: d.courseId || null,
+          capture_mode: 'audio',
+          status: 'draft',
+          is_pinned: false,
+          is_local_draft: true,
+          draft_target: './live-class.html',
+          created_at: new Date(d.savedAt || Date.now()).toISOString(),
+          updated_at: new Date(d.savedAt || Date.now()).toISOString(),
+        });
+      }
+    }
+  } catch {}
+
+  return drafts;
 }
 
 async function getPendingNotes() {
@@ -233,14 +368,16 @@ function populateCoursesFilter(cData) {
 
 async function fetchNotes(reset = true) {
   if (reset) { page = 0; }
+  const localDrafts = getLocalStorageDrafts();
   const pending = await getPendingNotes();
+  const topItems = [...localDrafts, ...pending];
   const from = page * PAGE_SIZE;
   const to = from + PAGE_SIZE - 1;
 
   if (!navigator.onLine) {
     if (reset) {
       const cached = (await cacheGet('notes_list')) || [];
-      allNotes = [...pending, ...cached];
+      allNotes = [...topItems, ...cached];
       hasMore = false;
     }
     renderList();
@@ -256,13 +393,13 @@ async function fetchNotes(reset = true) {
       .range(from, to);
     if (error) throw error;
     hasMore = (data || []).length === PAGE_SIZE;
-    const remote = reset ? (data || []) : [...allNotes.filter((n) => !n.is_local_pending), ...(data || [])];
+    const remote = reset ? (data || []) : [...allNotes.filter((n) => !n.is_local_pending && !n.is_local_draft), ...(data || [])];
     await cacheSet('notes_list', remote);
-    allNotes = reset ? [...pending, ...remote] : [...allNotes, ...(data || [])];
+    allNotes = reset ? [...topItems, ...remote] : [...allNotes, ...(data || [])];
   } catch (err) {
     if (reset) {
       const cached = (await cacheGet('notes_list')) || [];
-      allNotes = [...pending, ...cached];
+      allNotes = [...topItems, ...cached];
     }
     if (!allNotes.length) handleError(err);
   }
@@ -281,9 +418,10 @@ async function fetchNotes(reset = true) {
     cacheGet('notes_list'),
     getPendingNotes(),
   ]);
+  const localDrafts = getLocalStorageDrafts();
   if (cachedCourses?.length) populateCoursesFilter(cachedCourses);
-  if (pendingNotes.length || cachedNotes?.length) {
-    allNotes = [...pendingNotes, ...(cachedNotes || [])];
+  if (localDrafts.length || pendingNotes.length || cachedNotes?.length) {
+    allNotes = [...localDrafts, ...pendingNotes, ...(cachedNotes || [])];
     renderList();
   }
 

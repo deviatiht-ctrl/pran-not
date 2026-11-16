@@ -72,8 +72,10 @@ function mimeToExt(mime = '') {
 }
 
 const DRAFT_STORAGE_KEY = 'prannot_note_capture_draft';
+let isNoteSaved = false;
 
 function saveDraftToStorage() {
+  if (isNoteSaved) return;
   try {
     const title = document.getElementById('note-title')?.value || '';
     const rawText = document.getElementById('raw-text')?.value || '';
@@ -112,8 +114,81 @@ function clearDraftStorage() {
   } catch { /* ignore */ }
 }
 
+async function startFreshNote(skipConfirm = false) {
+  const title = document.getElementById('note-title')?.value || '';
+  const rawText = document.getElementById('raw-text')?.value || '';
+  const quillText = quill ? htmlToText(quill.root.innerHTML).trim() : '';
+  const hasContent = Boolean(title.trim() || rawText.trim() || quillText || photoBlobs.length || audioChunksBlobs.length || importedFiles.length || structuredData);
+
+  if (!skipConfirm && hasContent) {
+    const ok = await confirmDialog({
+      title: t('notes.new_fresh'),
+      message: 'Èske ou vle kòmanse yon nouvo nòt nèf a zewo? Sa ap efase sa ki ekri kounye a.',
+      danger: true,
+    });
+    if (!ok) return;
+  }
+
+  isNoteSaved = true;
+  clearDraftStorage();
+
+  const titleInput = document.getElementById('note-title');
+  if (titleInput) titleInput.value = '';
+
+  const rawEl = document.getElementById('raw-text');
+  if (rawEl) {
+    rawEl.value = '';
+    updateRawWordCount();
+  }
+
+  if (quill?.root) {
+    quill.root.innerHTML = '';
+  }
+
+  photoBlobs.length = 0;
+  renderPhotoThumbs();
+
+  audioChunksBlobs.length = 0;
+  renderAudioClips();
+
+  importedFiles.length = 0;
+  const impStatus = document.getElementById('import-status');
+  if (impStatus) impStatus.textContent = '';
+
+  structuredData = null;
+  const structPrev = document.getElementById('structured-preview');
+  if (structPrev) {
+    structPrev.innerHTML = '';
+    structPrev.hidden = true;
+  }
+
+  const courseSug = document.getElementById('course-suggestion-box');
+  if (courseSug) courseSug.hidden = true;
+  suggestedCourseId = null;
+
+  const draftBanner = document.getElementById('draft-alert-banner');
+  if (draftBanner) draftBanner.hidden = true;
+
+  setTimeout(() => {
+    isNoteSaved = false;
+  }, 100);
+
+  toast(t('notes.draft_cleared'), 'info');
+}
+
 function restoreDraftFromStorage() {
   try {
+    if (getParam('new') === '1' || getParam('reset') === '1') {
+      clearDraftStorage();
+      try {
+        const cleanUrl = new URL(window.location.href);
+        cleanUrl.searchParams.delete('new');
+        cleanUrl.searchParams.delete('reset');
+        window.history.replaceState({}, '', cleanUrl.toString());
+      } catch {}
+      return false;
+    }
+
     const raw = localStorage.getItem(DRAFT_STORAGE_KEY);
     if (!raw) return false;
     const d = JSON.parse(raw);
@@ -1116,6 +1191,7 @@ async function saveNote() {
       process_ai: !structuredData && (files.length > 0 || Boolean(rawText)),
       files,
     });
+    isNoteSaved = true;
     clearDraftStorage();
     toast(t('offline.saved_locally'), 'success');
     location.href = appUrl('pages/notes.html');
@@ -1228,10 +1304,12 @@ async function saveNote() {
     await cacheSet(`note_${saved.id}`, saved);
     await recordActivity();
     await awardXp(15, 'note_capture', saved.id);
+    isNoteSaved = true;
     clearDraftStorage();
     toast(t('common.saved'), 'success');
     location.href = appUrl(`pages/note-view.html?id=${saved.id}`);
   } catch (err) {
+    isNoteSaved = false;
     if (isNetworkError(err)) {
       try {
         await saveLocallyToQueue();
@@ -1368,9 +1446,17 @@ async function saveNote() {
     // Si yon draft te egziste nan localStorage, restore l
     const didRestore = restoreDraftFromStorage();
     if (didRestore) {
+      const banner = document.getElementById('draft-alert-banner');
+      if (banner) {
+        banner.hidden = false;
+        icons(banner);
+      }
       toast(t('notes.draft_restored') || 'Bwouyon nòt ou t ap pran an retabli otomatikman !', 'info');
     }
   }).catch(() => {});
+
+  document.getElementById('discard-draft-btn')?.addEventListener('click', () => startFreshNote(false));
+  document.getElementById('header-new-note-btn')?.addEventListener('click', () => startFreshNote(false));
 
   // Otoprezèvasyon / Sauvegarde automatique bwouyon an (Debounce chak 1.5s sou saisie epi sou pagehide/visibilitychange)
   const autoSaveHandler = debounce(saveDraftToStorage, 1500);

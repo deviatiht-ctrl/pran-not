@@ -137,7 +137,7 @@ export async function getQueueCount() {
   return items.length;
 }
 
-async function removeQueueItem(id) {
+export async function removeQueueItem(id) {
   await tx(STORE_QUEUE, 'readwrite', (s) => s.delete(id));
   notifyQueueChange();
 }
