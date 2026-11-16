@@ -363,10 +363,10 @@ export async function runAiTask(
 
   const systemPrompt = [
     facultyPrompt || basePrompt,
-    facRow?.persona ? `Contexte faculté (${facRow.name_fr}) : ${facRow.persona}` : '',
+    facRow?.persona ? `Contexte académique principal (${facRow.name_fr}) : ${facRow.persona}\nATTENTION : N'applique ce prisme de spécialité que si la question de l'étudiant ou le contenu porte explicitement ou indirectement sur ce domaine. Si l'étudiant pose une question de culture générale, de méthodologie générale, de lecture, de logique, ou d'un autre domaine, réponds avec précision et clarté universelle SANS forcer de jargon ou d'analogies hors-sujet avec cette faculté.` : '',
     `Niveau de l'étudiant : ${level}.`,
     langRule,
-    'RÈGLE STRICTE : N’utilise JAMAIS aucun emoji ni symbole décoratif. Si tu n’es pas certain d’un fait, d’un article de loi ou d’une donnée médicale, dis-le explicitement.',
+    'RÈGLE STRICTE : N’utilise JAMAIS aucun emoji ni symbole décoratif. Sois précis, pertinent, pédagogique et rigoureux. Ne réponds jamais à côté de la question. Si tu n’es pas certain d’un fait, d’un article de loi ou d’une donnée médicale, dis-le explicitement.',
     req.systemExtra || '',
   ].filter(Boolean).join('\n\n');
 

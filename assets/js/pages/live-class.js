@@ -787,19 +787,21 @@ async function runQuickSearch(query) {
     const [aiRes, webRes] = await Promise.allSettled([
       askTutor({
         message: q,
-        mode: 'simple',
-        contextType: 'course',
+        mode: 'standard',
+        contextType: selectedCourseId ? 'course' : 'general',
         contextId: selectedCourseId || null,
-        contextText: `Kou an dirèk: ${selectedCourse?.name || ''}\n${document.getElementById('live-notes-area').value.slice(-800)}`,
+        contextText: selectedCourseId
+          ? `Kou an dirèk: ${selectedCourse?.name || ''}\nEkstrè nòt: ${document.getElementById('live-notes-area')?.value.slice(-800) || ''}`
+          : '',
         courseId: selectedCourseId || null,
-        faculty: profileRef?.faculty_id || 'autre',
+        faculty: selectedCourseId ? (profileRef?.faculty_id || 'autre') : 'autre',
         level: profileRef?.level || 'L1',
         language: getLang(),
         history: [],
       }),
       searchLibraryWeb({
         query: q,
-        faculty: profileRef?.faculty_id || 'autre',
+        faculty: selectedCourseId ? (profileRef?.faculty_id || 'autre') : 'autre',
         language: getLang(),
       }),
     ]);
@@ -876,28 +878,41 @@ async function finishLiveClass({ withAi = true } = {}) {
   const contentHtml = `<p>${esc(rawText).replace(/\n{2,}/g, '</p><p>').replace(/\n/g, '<br>')}</p>`;
   const clientId = uid();
 
-  const saveOfflineQueue = async () => {
-    const item = await enqueue('note', {
-      client_id: clientId,
-      course_id: selectedCourseId || null,
-      unit_id: selectedUnitId || null,
-      title,
-      content_html: contentHtml,
-      content_text: rawText,
-      raw_text: rawText,
-      language: getLang(),
-      capture_mode: captureMode,
-      status: withAi ? 'queued' : 'ready',
-      process_ai: withAi && !isDataSaver(),
-      files: audioChunks.map((ch) => ({ kind: 'audio', blob: ch.blob, mime: ch.mime })),
-    });
-    clearDraft();
-    playNotificationSound('success');
-    toast(t('offline.saved_locally'), 'success');
-    location.href = appUrl(`pages/note-view.html?id=${encodeURIComponent(`local:${item.id}`)}`);
+  // Sauvegarde systématique dans le draft localStorage en priorité absolue avant tout traitement réseau
+  saveDraft({ showBadge: true });
+
+  const saveOfflineQueue = async (customMsg = null) => {
+    try {
+      const item = await enqueue('note', {
+        client_id: clientId,
+        course_id: selectedCourseId || null,
+        unit_id: selectedUnitId || null,
+        title,
+        content_html: contentHtml,
+        content_text: rawText,
+        raw_text: rawText,
+        language: getLang(),
+        capture_mode: captureMode,
+        status: withAi ? 'queued' : 'ready',
+        process_ai: withAi && !isDataSaver(),
+        files: audioChunks.map((ch) => ({ kind: 'audio', blob: ch.blob, mime: ch.mime })),
+      });
+      clearDraft();
+      playNotificationSound('success');
+      toast(customMsg || t('offline.saved_locally'), 'success');
+      setTimeout(() => {
+        location.href = appUrl(`pages/note-view.html?id=${encodeURIComponent(`local:${item.id}`)}`);
+      }, 400);
+      return item;
+    } catch (localErr) {
+      console.warn('[live-class] saveOfflineQueue error:', localErr);
+      // Même si IndexedDB a un souci, le draft localStorage existe déjà
+      toast('Nòt ou anrejistre an sekirite nan memwa telefòn nan.', 'success');
+    }
   };
 
-  if (!navigator.onLine) {
+  // Si pas connecté à internet ou utilisateur invité/offline, sauvegarder directement en local
+  if (!navigator.onLine || !userRef || userRef.is_offline_guest || !db) {
     await saveOfflineQueue();
     return;
   }
@@ -994,12 +1009,11 @@ async function finishLiveClass({ withAi = true } = {}) {
     toast(t('live.saved_success'), 'success');
     location.href = appUrl(`pages/note-view.html?id=${encodeURIComponent(noteRow.id)}`);
   } catch (err) {
-    if (isNetworkError(err)) {
-      await saveOfflineQueue();
-    } else {
-      handleError(err);
-      setLoading(btn, false);
-    }
+    console.warn('[live-class] Erreur en ligne, bascule automatique en sauvegarde locale sécurisée:', err);
+    // Tout échec (erreur réseau, timeout, table ou RLS) bascule immédiatement en sauvegarde locale infaillible
+    await saveOfflineQueue('Nòt ou anrejistre an sekirite lokalman sou telefòn ou !');
+  } finally {
+    setLoading(btn, false);
   }
 }
 

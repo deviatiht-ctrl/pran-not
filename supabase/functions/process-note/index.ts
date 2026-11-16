@@ -41,11 +41,13 @@ Deno.serve(async (req) => {
     const prompt = `${langDirective}
 
 RÈGLES IMPORTANTES :
-1. FIDÉLITÉ LOGIQUE : Ne change jamais le raisonnement ou la pensée du professeur.
-2. CORRECTION INTELLIGENTE : Si un mot ou une phrase a été mal transcrit(e) ou mal articulé(e), reformule-le/la correctement et liste la correction dans "corrections".
-3. DÉTECTION DES DEVOIRS : Si le professeur a mentionné un devoir, exercice à rendre ou travail pratique, ajoute-le dans "homework".
-4. RECHERCHES & LIVRES : Propose les thèmes ou livres clés à consulter dans "research_topics".
-5. BILINGUISME HARMONISÉ : Conserve l'équilibre créole haïtien et français universitaire.
+1. FILTRAGE DU BRUIT & NON-SENS : La retranscription brute peut contenir des bruits de classe, des murmures, des phrases incomplètes, des hallucinations audio ou des propos sans rapport. Élimine impitoyablement ces passages parasites. Concentre-toi EXCLUSIVEMENT sur ce que le professeur a réellement enseigné, expliqué et dicté avec rigueur et clarté.
+2. FIDÉLITÉ LOGIQUE : Ne change jamais le raisonnement ou la pensée du professeur.
+3. CONSERVATION PRÉCIEUSE DU CRÉOLE HAÏTIEN : Lorsque le professeur illustre une idée, donne un exemple frappant ou prononce des phrases marquantes en créole haïtien, CONSERVE et METS EN VALEUR ces phrases en créole haïtien (par exemple avec un bloc de citation ou en gras avec leur traduction/explication bilingue) pour que l'étudiant puisse revoir exactement comment le professeur a expliqué le concept.
+4. CORRECTION INTELLIGENTE : Si un mot a été mal capté par la transcription audio, rétablis le vrai terme universitaire exact et liste la correction dans "corrections".
+5. DÉTECTION DES DEVOIRS : Si le professeur a mentionné un devoir, exercice à rendre ou travail pratique, ajoute-le dans "homework".
+6. RECHERCHES & LIVRES : Propose les thèmes ou livres clés à consulter dans "research_topics".
+7. BILINGUISME HARMONISÉ : Conserve l'équilibre créole haïtien et français universitaire.
 
 Cours existants de l'étudiant : ${JSON.stringify(courses.map((c: { id: string; name: string }) => ({ id: c.id, name: c.name })))}
 
