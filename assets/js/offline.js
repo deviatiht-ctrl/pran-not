@@ -229,6 +229,13 @@ async function syncNoteItem(db, userId, payload) {
     .single();
   if (error) throw error;
 
+  if (savedNote) {
+    await cacheSet(`note_${savedNote.id}`, savedNote);
+    if (savedNote.client_id) {
+      await cacheSet(`note_${savedNote.client_id}`, savedNote);
+    }
+  }
+
   // Upload des sources binaires (images/audio) si présentes
   const files = payload.files || [];
   let collectedRaw = noteRow.raw_text || noteRow.content_text || '';

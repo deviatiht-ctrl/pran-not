@@ -189,7 +189,8 @@ async function startFreshNote(skipConfirm = false) {
 
 function restoreDraftFromStorage() {
   try {
-    if (getParam('new') === '1' || getParam('reset') === '1') {
+    const restoreParam = getParam('restoreDraft');
+    if (!restoreParam && (getParam('new') === '1' || getParam('reset') === '1')) {
       try {
         const cleanUrl = new URL(window.location.href);
         cleanUrl.searchParams.delete('new');
@@ -199,13 +200,35 @@ function restoreDraftFromStorage() {
       return false;
     }
 
-    const raw = localStorage.getItem(DRAFT_STORAGE_KEY);
-    if (!raw) return false;
-    const d = JSON.parse(raw);
+    let d = null;
+    if (restoreParam) {
+      if (restoreParam === 'draft:capture') {
+        const raw = localStorage.getItem(DRAFT_STORAGE_KEY);
+        if (raw) d = JSON.parse(raw);
+      } else if (restoreParam.startsWith('draft:hist:')) {
+        const idx = parseInt(restoreParam.replace('draft:hist:', ''), 10);
+        const hist = JSON.parse(localStorage.getItem('prannot.draft_history') || '[]');
+        if (hist[idx]) d = hist[idx];
+      } else if (restoreParam.startsWith('draft:other:')) {
+        const raw = localStorage.getItem(restoreParam.replace('draft:other:', ''));
+        if (raw) d = JSON.parse(raw);
+      }
+      try {
+        const cleanUrl = new URL(window.location.href);
+        cleanUrl.searchParams.delete('restoreDraft');
+        window.history.replaceState({}, '', cleanUrl.toString());
+      } catch {}
+    }
+
+    if (!d) {
+      const raw = localStorage.getItem(DRAFT_STORAGE_KEY);
+      if (!raw) return false;
+      d = JSON.parse(raw);
+    }
     if (!d) return false;
 
-    // Pa restore si draft la gen plis pase 7 jou
-    if (Date.now() - (d.savedAt || 0) > 7 * 86400000) {
+    // Pa restore si draft otomatik la gen plis pase 7 jou (sèlman si se pa yon restoreDraft manyèl)
+    if (!restoreParam && Date.now() - (d.savedAt || 0) > 7 * 86400000) {
       clearDraftStorage();
       return false;
     }

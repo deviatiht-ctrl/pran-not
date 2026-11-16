@@ -455,6 +455,7 @@
     "status_in_progress": "En cours",
     "status_done": "Terminé",
     "status_submitted": "Rendu",
+    "assist_solve": "Rédiger le devoir / Résoudre",
     "assist_plan": "Proposer un plan et des pistes",
     "assist_coherence": "Vérifier la cohérence",
     "assist_biblio": "Pistes bibliographiques",

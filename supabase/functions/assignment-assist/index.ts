@@ -14,7 +14,7 @@ Deno.serve(async (req) => {
     if ('error' in auth) return errorResponse(auth.error, 'Non authentifié', auth.status);
 
     const body = await req.json();
-    const action = String(body.action || 'plan'); // 'plan' | 'coherence' | 'biblio' | 'rephrase' | 'library_research' | 'critique_submission' | 'qa'
+    const action = String(body.action || 'plan'); // 'solve' | 'plan' | 'coherence' | 'biblio' | 'rephrase' | 'library_research' | 'critique_submission' | 'qa' | 'instruct' | 'explain_details'
     const title = String(body.title || '').trim();
     const instructions = String(body.instructions || '').trim();
     const content = String(body.content || '').trim();
@@ -30,7 +30,11 @@ Deno.serve(async (req) => {
     const level = body.level || auth.profile?.level || 'L1';
     const language = body.language || auth.profile?.language || 'ht';
 
-    // Recherche contextuelle dans les livres, manuels et codes juridiques de la Bibliothèque
+    // Détecter si la consigne concerne la grammaire, la conjugaison ou la langue française
+    const combinedQuery = `${title} ${instructions} ${question} ${content.slice(0, 300)}`.toLowerCase();
+    const isGrammarOrLanguage = /verbe|conjug|grammai|orthograph|participe|subjonctif|imparfait|passé simple|passé composé|futur|conditionnel|accord |temps de l|temps du verbe/i.test(combinedQuery);
+
+    // Recherche contextuelle dans les livres, manuels et codes juridiques de la Bibliothèque (sauf si purement linguistique)
     let librarySources: Array<{
       book_id: string;
       book_title: string;
@@ -42,7 +46,7 @@ Deno.serve(async (req) => {
     }> = [];
     let libraryContext = '';
 
-    if (useLibrary || action === 'library_research') {
+    if ((useLibrary || action === 'library_research') && !isGrammarOrLanguage) {
       const searchQuery = [title, instructions].filter(Boolean).join(' ').slice(0, 220) || content.slice(0, 220);
       try {
         const { data: libHits } = await auth.userClient.rpc('pran_not_search_library', {
@@ -77,13 +81,36 @@ Deno.serve(async (req) => {
     }
 
     let prompt = '';
-    if (action === 'instruct') {
+    if (action === 'solve' || action === 'draft_full') {
+      prompt = `Tu es l'assistant de rédaction et de résolution académique de devoirs pour l'étudiant.
+L'étudiant te demande de résoudre complètement son exercice, son devoir ou sa consigne de manière exhaustive, rigoureuse et immédiatement prête à l'emploi.
+
+RÈGLES IMPORTANTES :
+1. Exécute TOTALEMENT et CONCRÈTEMENT ce qui est demandé. Ne renvoie JAMAIS l'étudiant à faire le travail seul, ne te contente pas de donner un plan si un devoir ou exercice complet est demandé.
+2. CONJUGAISON & GRAMMAIRE : Si la consigne porte sur une conjugaison (ex: verbe à tous les temps), fournis TOUS les modes (indicatif, subjonctif, conditionnel, impératif, participe, infinitif, gérondif) et TOUS les temps sans exception ni omission (présent, imparfait, passé simple, futur simple, passé composé, plus-que-parfait, passé antérieur, futur antérieur, etc.). Présente chaque temps clairement.
+3. EXERCICE & DISSERTATION : Fournis la résolution intégrale, étape par étape, détaillée, avec justification des résultats ou argumentation rédigée.
+4. LINGUISTIQUE : Si la demande porte sur la langue française (grammaire, conjugaison, dissertation, littérature française), le contenu rédigé DOIT être en français impeccable.
+5. ZÉRO EMOJI : Aucun emoji ni pictogramme décoratif dans la réponse.
+
+Retourne STRICTEMENT ce JSON :
+{
+  "content_proposal": "Texte complet, structuré et rédigé de la solution ou du devoir prêt à être inséré",
+  "explanation": "Explication méthodologique ou règles clés appliquées",
+  "tips": ["Conseil ou règle essentielle à retenir pour réussir ce type d'exercice"]
+}
+
+Titre du devoir : ${title}
+Consigne du devoir : ${instructions}
+${content ? `Brouillon actuel ou extrait du devoir :\n${content.slice(0, 4000)}\n` : ''}
+Demande ou consigne de l'étudiant : ${question || title || instructions}`;
+    } else if (action === 'instruct') {
       prompt = `L'étudiant te donne une consigne ou des directives spécifiques sur son devoir. Tu es son assistant IA personnel de rédaction et d'étude.
 RÈGLES IMPORTANTES :
-1. Exécute EXACTEMENT ce que l'étudiant te demande (rédiger un passage, développer une argumentation, résoudre un exercice, faire une synthèse ou suivre ses consignes).
-2. Fournis un contenu directement réutilisable dans son devoir.
-3. Reste clair, structuré, académique et sans remplissage inutile.
-4. Aucun emoji.
+1. Exécute EXACTEMENT ce que l'étudiant te demande (rédiger un passage, développer une argumentation, résoudre un exercice, conjuguer un verbe à tous les temps, faire une synthèse).
+2. Fournis un contenu directement réutilisable et complet dans son devoir, sans tronquer.
+3. Si la demande concerne la langue française (conjugaison, grammaire, orthographe), fournis la réponse complète en français impeccable.
+4. Reste clair, structuré, académique et sans remplissage inutile.
+5. Aucun emoji.
 
 Retourne STRICTEMENT ce JSON :
 {
@@ -121,14 +148,15 @@ ${content.slice(0, 14000)}`;
     } else if (action === 'qa') {
       prompt = `Tu es le tuteur d'assistance pour le devoir de l'étudiant.
 RÈGLES IMPORTANTES :
-1. Sois direct, concis et précis. Évite impérativement les bavardages, introductions superflues ou longs blocs de texte inutiles.
-2. Si la demande porte sur une question directe ou un exercice spécifique (ex: conjugaison, calcul, définition, règle juridique, analyse courte), donne directement la réponse exacte et claire avec juste l'explication indispensable.
-3. Reste pédagogique mais sans surcharge cognitive.
-4. Aucun emoji.
+1. Sois direct, complet et précis. Ne refuse JAMAIS de répondre ou de conjuguer.
+2. Si la demande porte sur une question directe ou un exercice spécifique (ex: conjugaison d'un verbe à tous les temps, calcul, définition, règle juridique, analyse courte), donne directement TOUTE la réponse exacte sans rien omettre. Si tous les temps d'un verbe sont demandés, fournis TOUS les modes (indicatif, subjonctif, conditionnel, impératif, participe, infinitif, gérondif) et TOUS les temps en français complet sans tronquer.
+3. Si la question concerne la langue française ou une consigne en français, réponds en français correct et complet.
+4. Reste pédagogique mais sans surcharge inutile ni bavardage.
+5. Aucun emoji.
 
 Retourne STRICTEMENT ce JSON :
 {
-  "answer": "Réponse directe, claire et concise à la question",
+  "answer": "Réponse directe, complète, claire et bien structurée à la question",
   "tips": ["Point clé ou règle essentielle à retenir"]
 }
 
@@ -231,11 +259,13 @@ Texte à reformuler :
 ${content.slice(0, 6000)}`;
     }
 
+    const needsLongOutput = action === 'solve' || action === 'draft_full' || action === 'qa' || action === 'instruct';
     const out = await runAiTask(auth.admin, auth.user.id, auth.profile?.ai_daily_quota || 500, {
       task: 'assignment_assist',
       faculty,
       level,
-      language,
+      language: isGrammarOrLanguage ? 'fr' : language,
+      maxTokens: needsLongOutput ? 6144 : 4096,
       prompt,
       expectJson: true,
       cacheKeyPayload: { action, title, instructions, content: content.slice(0, 6000), question, language, useLibrary, bookIds },

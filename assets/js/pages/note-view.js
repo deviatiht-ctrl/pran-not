@@ -10,10 +10,14 @@ import { t, getLang, formatDate } from '../i18n.js';
 import {
   icons, icon, esc, sanitizeHtml, renderMarkdown, openModal, confirmDialog,
   toast, handleError, setLoading, getParam, isUuid, pageEnter, promptDialog,
+  htmlToText,
 } from '../utils.js';
 import { generateFlashcards, generateTest, explainText, processNote } from '../ai.js';
 import { exportNotePdf, exportNoteDocx, exportNoteMarkdown } from '../export.js';
-import { cacheSet, cacheGet, isDataSaver, enqueue, getQueueItems, updateQueuedNotePayload, isNetworkError } from '../offline.js';
+import {
+  cacheSet, cacheGet, cacheEntriesByPrefix, isDataSaver, enqueue,
+  getQueueItems, updateQueuedNotePayload, removeQueueItem, isNetworkError,
+} from '../offline.js';
 import { openSendTransferModal, openReceiveTransferModal } from '../live-transfer.js';
 import { playNotificationSound } from '../notifications.js';
 
@@ -66,6 +70,20 @@ async function renderNote() {
         <button type="button" class="btn btn-danger btn-sm" id="btn-delete-note">${icon('trash-2')}</button>
       </div>
     </div>
+
+    ${note.is_local_draft ? `
+      <div class="alert alert-warning row-between mb-4" style="border-left:4px solid var(--c-warning,#f59e0b);">
+        <div class="row" style="gap:10px;">
+          ${icon('file-edit')}
+          <div>
+            <strong>${esc(t('notes.local_draft') || 'Bwouyon lokal')}</strong>
+            <p class="text-sm mb-0">Nòt sa a nan memwa aparèy la kòm bwouyon. Ou ka modifye l oswa finalize li nan editè a.</p>
+          </div>
+        </div>
+        <a href="${esc(note.draft_target || './note-capture.html')}" class="btn btn-sm btn-primary">
+          ${icon('pencil')}<span>${esc(t('notes.continue_draft') || 'Kontinye ekri')}</span>
+        </a>
+      </div>` : ''}
 
     ${(!note.course_id && suggestedCourse) ? `
       <div class="ai-suggestion mb-6 row-between">
@@ -307,6 +325,14 @@ async function applyNoteCourseAssignment(courseId, unitId, coursesList = []) {
       courseId: note.course_id,
     });
   };
+
+  if (note.is_local_draft) {
+    saveDraftPatchById(note.id, { course_id: cleanCourseId, unit_id: cleanUnitId });
+    await updateCaches();
+    toast(t('notes.course_assigned'), 'success');
+    renderNote();
+    return;
+  }
 
   if (note.is_local_pending) {
     const qId = note.id.slice('local:'.length);
@@ -878,7 +904,9 @@ function bindActions() {
       const applyLocalSave = async () => {
         note.title = title; note.course_id = courseId; note.summary = summary; note.content_text = contentText; note.content_html = contentHtml;
         course = courseId ? coursesList.find((c) => c.id === courseId) || null : null;
-        if (note.is_local_pending) {
+        if (note.is_local_draft) {
+          saveDraftPatchById(note.id, patch);
+        } else if (note.is_local_pending) {
           await updateQueuedNotePayload(note.id.slice('local:'.length), patch);
         } else {
           await cacheSet(`note_${note.id}`, note);
@@ -893,7 +921,7 @@ function bindActions() {
         renderNote();
       };
 
-      if (!navigator.onLine || note.is_local_pending) {
+      if (!navigator.onLine || note.is_local_draft || note.is_local_pending || !isUuid(note.id)) {
         await applyLocalSave();
         return;
       }
@@ -1063,10 +1091,281 @@ function bindActions() {
   document.getElementById('btn-delete-note')?.addEventListener('click', async () => {
     const ok = await confirmDialog({ title: t('common.delete'), message: t('common.confirm_title'), danger: true });
     if (!ok) return;
+    if (note.is_local_draft) {
+      deleteDraftById(note.id);
+      toast(t('common.deleted'), 'success');
+      location.replace(appUrl('pages/notes.html'));
+      return;
+    }
+    if (note.is_local_pending) {
+      const qId = note.id.replace('local:', '');
+      await removeQueueItem(qId);
+      toast(t('common.deleted'), 'success');
+      location.replace(appUrl('pages/notes.html'));
+      return;
+    }
     const { error } = await db.from('pran_not_notes').delete().eq('id', note.id);
     if (error) handleError(error);
     else location.replace(appUrl('pages/notes.html'));
   });
+}
+
+function formatDraftToNote(id, d, target) {
+  const cleanRaw = (d.rawText || d.body || d.content || '').trim();
+  const cleanHtml = (d.quillHtml || d.content_html || '').trim();
+  const html = cleanHtml || (cleanRaw ? `<p>${esc(cleanRaw).replace(/\n{2,}/g, '</p><p>').replace(/\n/g, '<br>')}</p>` : '');
+  const text = cleanRaw || (cleanHtml ? htmlToText(cleanHtml).trim() : '');
+  const title = d.title?.trim() || (text ? text.split('\n')[0].slice(0, 80) : t('notes.untitled'));
+
+  return {
+    id,
+    is_local_draft: true,
+    draft_target: target,
+    draft_data: d,
+    title,
+    content_html: html,
+    content_text: text,
+    raw_text: cleanRaw || null,
+    summary: (d.summary || text).slice(0, 240),
+    course_id: d.courseId || d.course_id || null,
+    capture_mode: d.currentMode || (id.includes('live') ? 'audio' : 'text'),
+    created_at: new Date(d.archivedAt || d.savedAt || Date.now()).toISOString(),
+    updated_at: new Date(d.archivedAt || d.savedAt || Date.now()).toISOString(),
+  };
+}
+
+function loadDraftById(id) {
+  if (!id) return null;
+  if (id === 'draft:capture') {
+    try {
+      const raw = localStorage.getItem('prannot_note_capture_draft');
+      if (raw) return formatDraftToNote('draft:capture', JSON.parse(raw), './note-capture.html');
+    } catch {}
+  }
+  if (id === 'draft:live') {
+    try {
+      const raw = localStorage.getItem('prannot.liveClassDraft');
+      if (raw) return formatDraftToNote('draft:live', JSON.parse(raw), './live-class.html');
+    } catch {}
+  }
+  if (id.startsWith('draft:hist:')) {
+    const idx = parseInt(id.replace('draft:hist:', ''), 10);
+    try {
+      const raw = localStorage.getItem('prannot.draft_history');
+      if (raw) {
+        const hist = JSON.parse(raw);
+        if (Array.isArray(hist) && hist[idx]) {
+          const d = hist[idx];
+          const isLive = d.source === 'live' || d.kind === 'live';
+          const target = isLive ? './live-class.html' : `./note-capture.html?restoreDraft=${encodeURIComponent(id)}`;
+          return formatDraftToNote(id, d, target);
+        }
+      }
+    } catch {}
+  }
+  if (id.startsWith('draft:other:')) {
+    const k = id.replace('draft:other:', '');
+    try {
+      const raw = localStorage.getItem(k);
+      if (raw) {
+        return formatDraftToNote(id, JSON.parse(raw), `./note-capture.html?restoreDraft=${encodeURIComponent(id)}`);
+      }
+    } catch {}
+  }
+
+  // Scan any matching draft in history or localStorage
+  try {
+    const histRaw = localStorage.getItem('prannot.draft_history');
+    if (histRaw) {
+      const hist = JSON.parse(histRaw);
+      if (Array.isArray(hist)) {
+        for (let i = 0; i < hist.length; i++) {
+          const item = hist[i];
+          const tName = item?.title || '';
+          if (id === `draft:hist:${i}` || tName.toLowerCase() === id.toLowerCase() || (item?.id && item.id === id)) {
+            const isLive = item.source === 'live' || item.kind === 'live';
+            const target = isLive ? './live-class.html' : `./note-capture.html?restoreDraft=draft:hist:${i}`;
+            return formatDraftToNote(`draft:hist:${i}`, item, target);
+          }
+        }
+      }
+    }
+  } catch {}
+
+  return null;
+}
+
+function deleteDraftById(id) {
+  if (id === 'draft:capture') {
+    localStorage.removeItem('prannot_note_capture_draft');
+    return;
+  }
+  if (id === 'draft:live') {
+    localStorage.removeItem('prannot.liveClassDraft');
+    return;
+  }
+  if (id.startsWith('draft:hist:')) {
+    const idx = parseInt(id.replace('draft:hist:', ''), 10);
+    try {
+      const raw = localStorage.getItem('prannot.draft_history');
+      if (raw) {
+        const hist = JSON.parse(raw);
+        if (Array.isArray(hist)) {
+          hist.splice(idx, 1);
+          localStorage.setItem('prannot.draft_history', JSON.stringify(hist));
+        }
+      }
+    } catch {}
+    return;
+  }
+  if (id.startsWith('draft:other:')) {
+    const k = id.replace('draft:other:', '');
+    localStorage.removeItem(k);
+  }
+}
+
+function saveDraftPatchById(id, patch) {
+  if (id === 'draft:capture') {
+    try {
+      const raw = localStorage.getItem('prannot_note_capture_draft');
+      const d = raw ? JSON.parse(raw) : {};
+      if ('title' in patch) d.title = patch.title;
+      if ('course_id' in patch) d.courseId = patch.course_id;
+      if ('summary' in patch) d.summary = patch.summary;
+      if ('content_text' in patch) d.rawText = patch.content_text;
+      if ('content_html' in patch) d.quillHtml = patch.content_html;
+      d.savedAt = Date.now();
+      localStorage.setItem('prannot_note_capture_draft', JSON.stringify(d));
+    } catch {}
+    return;
+  }
+  if (id === 'draft:live') {
+    try {
+      const raw = localStorage.getItem('prannot.liveClassDraft');
+      const d = raw ? JSON.parse(raw) : {};
+      if ('title' in patch) d.title = patch.title;
+      if ('course_id' in patch) d.courseId = patch.course_id;
+      if ('content_text' in patch) d.body = patch.content_text;
+      d.savedAt = Date.now();
+      localStorage.setItem('prannot.liveClassDraft', JSON.stringify(d));
+    } catch {}
+    return;
+  }
+  if (id.startsWith('draft:hist:')) {
+    const idx = parseInt(id.replace('draft:hist:', ''), 10);
+    try {
+      const raw = localStorage.getItem('prannot.draft_history');
+      if (raw) {
+        const hist = JSON.parse(raw);
+        if (Array.isArray(hist) && hist[idx]) {
+          if ('title' in patch) hist[idx].title = patch.title;
+          if ('course_id' in patch) hist[idx].courseId = patch.course_id;
+          if ('summary' in patch) hist[idx].summary = patch.summary;
+          if ('content_text' in patch) hist[idx].rawText = patch.content_text;
+          if ('content_html' in patch) hist[idx].quillHtml = patch.content_html;
+          localStorage.setItem('prannot.draft_history', JSON.stringify(hist));
+        }
+      }
+    } catch {}
+  }
+}
+
+async function resolveNote(rawId) {
+  if (!rawId) return null;
+  const id = String(rawId).trim();
+
+  // 1. Brouillon local
+  if (id.startsWith('draft:')) {
+    const draft = loadDraftById(id);
+    if (draft) return draft;
+  }
+
+  // 2. Note dans la file d'attente hors-ligne (local:<id>)
+  if (id.startsWith('local:')) {
+    const qId = id.slice('local:'.length);
+    const items = await getQueueItems();
+    const item = items.find((x) => String(x.id) === String(qId) || String(x.payload?.client_id) === String(qId));
+    if (item?.payload) {
+      const p = item.payload;
+      return {
+        id,
+        is_local_pending: true,
+        title: p.title || t('notes.untitled'),
+        content_html: p.content_html || (p.content_text ? `<p>${esc(p.content_text).replace(/\n+/g, '</p><p>')}</p>` : ''),
+        content_text: p.content_text || p.raw_text || '',
+        raw_text: p.raw_text || null,
+        summary: (p.content_text || p.raw_text || '').slice(0, 240),
+        course_id: p.course_id || null,
+        capture_mode: p.capture_mode || 'text',
+        created_at: new Date(item.createdAt).toISOString(),
+        updated_at: new Date(item.createdAt).toISOString(),
+      };
+    }
+    // Si la file a déjà été synchronisée avec Supabase, chercher par client_id dans Supabase ou dans le cache
+    if (navigator.onLine) {
+      try {
+        const { data } = await db.from('pran_not_notes').select('*').eq('client_id', qId).maybeSingle();
+        if (data) {
+          await cacheSet(`note_${data.id}`, data);
+          return data;
+        }
+      } catch {}
+    }
+  }
+
+  // 3. Cache direct note_${id}
+  const cachedNote = (await cacheGet(`note_${id}`)) || (await cacheGet(id));
+  if (cachedNote && !navigator.onLine) {
+    return cachedNote;
+  }
+
+  // 4. Supabase distant si en ligne et UUID valide
+  if (navigator.onLine && isUuid(id)) {
+    try {
+      const { data, error } = await db.from('pran_not_notes').select('*').eq('id', id).maybeSingle();
+      if (!error && data) {
+        await cacheSet(`note_${id}`, data);
+        return data;
+      }
+    } catch {}
+  }
+
+  // 5. Repli sur le cache direct même si en ligne (si Supabase n'a pas répondu ou en erreur)
+  if (cachedNote) return cachedNote;
+
+  // 6. Recherche dans le cache de liste notes_list
+  const cachedList = (await cacheGet('notes_list')) || [];
+  const fromList = cachedList.find((x) => x.id === id || x.client_id === id);
+  if (fromList) {
+    return {
+      ...fromList,
+      content_html: fromList.content_html || (fromList.content_text ? `<p>${esc(fromList.content_text).replace(/\n+/g, '</p><p>')}</p>` : ''),
+    };
+  }
+
+  // 7. Recherche dans toutes les entrées du cache commençant par 'note_'
+  try {
+    const allCached = await cacheEntriesByPrefix('note_');
+    const matched = allCached.find((e) => e.data?.id === id || e.key === `note_${id}` || e.data?.client_id === id);
+    if (matched?.data) return matched.data;
+  } catch {}
+
+  // 8. Recherche de dernier recours dans les brouillons localStorage
+  const fallbackDraft = loadDraftById(id);
+  if (fallbackDraft) return fallbackDraft;
+
+  // 9. Recherche par client_id dans Supabase si l'id était un client_id non-UUID
+  if (navigator.onLine) {
+    try {
+      const { data } = await db.from('pran_not_notes').select('*').or(`id.eq.${id},client_id.eq.${id}`).maybeSingle();
+      if (data) {
+        await cacheSet(`note_${data.id}`, data);
+        return data;
+      }
+    } catch {}
+  }
+
+  return null;
 }
 
 (async () => {
@@ -1078,81 +1377,39 @@ function bindActions() {
   await initAppChrome({ profile, user, active: 'notes' });
   pageEnter();
 
-  if (id && id.startsWith('local:')) {
-    const qId = id.slice('local:'.length);
-    const items = await getQueueItems();
-    const item = items.find((x) => x.id === qId && x.kind === 'note');
-    if (!item?.payload) {
-      document.getElementById('note-root').innerHTML = `<div class="alert alert-error">${esc(t('errors.not_found'))}</div>`;
-      return;
-    }
-    const p = item.payload;
-    note = {
-      id,
-      is_local_pending: true,
-      title: p.title || t('notes.untitled'),
-      content_html: p.content_html || '',
-      content_text: p.content_text || '',
-      raw_text: p.raw_text || null,
-      summary: (p.content_text || '').slice(0, 240),
-      course_id: p.course_id || null,
-      created_at: new Date(item.createdAt).toISOString(),
-      updated_at: new Date(item.createdAt).toISOString(),
-    };
-    if (note.course_id) {
-      const cachedCourses = (await cacheGet('courses_list')) || [];
-      course = cachedCourses.find((c) => c.id === note.course_id) || null;
-    }
-    await renderNote();
-    return;
-  }
-
-  if (!isUuid(id)) {
+  note = await resolveNote(id);
+  if (!note) {
     document.getElementById('note-root').innerHTML = `<div class="alert alert-error">${esc(t('errors.not_found'))}</div>`;
     return;
   }
 
-  // Rendu rapide depuis le cache si disponible
-  const cachedNote = await cacheGet(`note_${id}`);
-  if (cachedNote && !navigator.onLine) {
-    note = cachedNote;
-    if (note.course_id) {
-      const cachedCourses = (await cacheGet('courses_list')) || [];
-      course = cachedCourses.find((c) => c.id === note.course_id) || null;
-    }
-  } else {
-    try {
-      const { data, error } = await db.from('pran_not_notes').select('*').eq('id', id).maybeSingle();
-      if (error) throw error;
-      if (!data) throw new Error('not_found');
-      note = data;
-      await cacheSet(`note_${id}`, note);
-
-      if (note.course_id) {
+  // Si un cours est associé, le charger
+  if (note.course_id) {
+    const cachedCourses = (await cacheGet('courses_list')) || [];
+    course = cachedCourses.find((c) => c.id === note.course_id) || null;
+    if (!course && navigator.onLine && isUuid(note.course_id)) {
+      try {
         const { data: c } = await db.from('pran_not_courses').select('id, name, color').eq('id', note.course_id).maybeSingle();
         course = c;
-      } else if (note.ai_course_suggestion) {
+      } catch {}
+    }
+  } else if (note.ai_course_suggestion) {
+    const cachedCourses = (await cacheGet('courses_list')) || [];
+    suggestedCourse = cachedCourses.find((c) => c.id === note.ai_course_suggestion) || null;
+    if (!suggestedCourse && navigator.onLine && isUuid(note.ai_course_suggestion)) {
+      try {
         const { data: sc } = await db.from('pran_not_courses').select('id, name, color').eq('id', note.ai_course_suggestion).maybeSingle();
         suggestedCourse = sc;
-      }
-
-      const { data: sRows } = await db.from('pran_not_note_sources').select('*').eq('note_id', id).order('chunk_index');
-      sources = sRows || [];
-    } catch (err) {
-      note = cachedNote;
-      if (!note) {
-        const cachedList = (await cacheGet('notes_list')) || [];
-        note = cachedList.find((x) => x.id === id) || null;
-      }
-      if (!note) {
-        document.getElementById('note-root').innerHTML = `<div class="alert alert-error">${esc(t('errors.not_found'))}</div>`;
-        return;
-      }
-      if (note.course_id) {
-        const cachedCourses = (await cacheGet('courses_list')) || [];
-        course = cachedCourses.find((c) => c.id === note.course_id) || null;
-      }
+      } catch {}
     }
+  }
+
+  // Sources originales
+  if (navigator.onLine && isUuid(note.id)) {
+    try {
+      const { data: sRows } = await db.from('pran_not_note_sources').select('*').eq('note_id', note.id).order('chunk_index');
+      sources = sRows || [];
+    } catch {}
   }
 
   setTutorContext({

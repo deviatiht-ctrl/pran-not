@@ -64,9 +64,7 @@ function renderList(append = false) {
     const ic = modeIcons[n.capture_mode] || 'file-text';
     const noteStatus = n.status || (n.is_local_pending || n.is_local_draft ? 'draft' : 'ready');
     const isDraft = noteStatus === 'draft';
-    const linkTarget = n.is_local_draft
-      ? esc(n.draft_target || './note-capture.html')
-      : `./note-view.html?id=${esc(encodeURIComponent(n.id))}`;
+    const linkTarget = `./note-view.html?id=${esc(encodeURIComponent(n.id))}`;
 
     return `<article class="card card-sm" style="display:flex;flex-direction:column;gap:10px;">
       <div class="row-between">
@@ -77,6 +75,9 @@ function renderList(append = false) {
         </div>
         <div class="row" style="gap:4px;">
           ${n.is_local_draft ? `
+            <a href="${esc(n.draft_target || './note-capture.html')}" class="btn-icon" aria-label="${esc(t('common.edit'))}" title="Kontinye ekri bwouyon sa a">
+              ${icon('edit-3')}
+            </a>
             <button type="button" class="btn-icon text-error" data-del-draft="${esc(n.id)}" aria-label="${esc(t('common.delete'))}" title="Efase bwouyon sa a">
               ${icon('trash-2')}
             </button>
@@ -105,7 +106,7 @@ function renderList(append = false) {
             : `${icon('folder-plus')}<span>${esc(t('notes.assign_course'))}</span>`}
         </button>
         <div class="row" style="gap:6px;">
-          ${n.is_local_draft ? `<span class="badge badge-xs badge-outline">Klike pou kontinye</span>` : ''}
+          ${n.is_local_draft ? `<a href="${esc(n.draft_target || './note-capture.html')}" class="badge badge-xs badge-outline" style="text-decoration:none;">Klike pou kontinye</a>` : ''}
           <span>${esc(formatRelative(n.updated_at || n.created_at))}</span>
         </div>
       </div>
@@ -381,7 +382,7 @@ function getLocalStorageDrafts() {
               status: 'draft',
               is_pinned: false,
               is_local_draft: true,
-              draft_target: isLive ? './live-class.html' : './note-capture.html',
+              draft_target: isLive ? './live-class.html' : `./note-capture.html?restoreDraft=${encodeURIComponent(`draft:hist:${idx}`)}`,
               created_at: new Date(d.archivedAt || d.savedAt || Date.now()).toISOString(),
               updated_at: new Date(d.archivedAt || d.savedAt || Date.now()).toISOString(),
             });
@@ -414,7 +415,7 @@ function getLocalStorageDrafts() {
                 status: 'draft',
                 is_pinned: false,
                 is_local_draft: true,
-                draft_target: './note-capture.html',
+                draft_target: `./note-capture.html?restoreDraft=${encodeURIComponent(`draft:other:${k}`)}`,
                 created_at: new Date(parsed.savedAt || Date.now()).toISOString(),
                 updated_at: new Date(parsed.savedAt || Date.now()).toISOString(),
               });

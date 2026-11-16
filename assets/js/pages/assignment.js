@@ -75,8 +75,11 @@ function renderAiPlan(plan, librarySources = []) {
     `;
   } else if (plan?.answer) {
     contentHtml += `
-      <div class="ai-suggestion-label mb-2">${icon('sparkles')}<span>Repons IA Dirèk</span></div>
-      <div class="card card-sm mb-2" style="background:var(--c-surface);"><p class="text-sm mb-0" style="white-space:pre-wrap;">${esc(plan.answer)}</p></div>
+      <div class="row-between mb-2">
+        <div class="ai-suggestion-label">${icon('sparkles')}<span>Repons IA Dirèk</span></div>
+        <button type="button" class="btn btn-sm btn-primary" id="asg-insert-answer-btn">${icon('plus')}<span>${esc(t('assignments.insert_in_draft'))}</span></button>
+      </div>
+      <div class="card card-sm mb-2" style="background:var(--c-surface);"><p class="text-sm mb-0" id="asg-answer-text" style="white-space:pre-wrap;">${esc(plan.answer)}</p></div>
     `;
   } else {
     contentHtml += `<div class="ai-suggestion-label">${icon('sparkles')}<span>Gid metodolojik IA</span></div>`;
@@ -126,12 +129,26 @@ function renderAiPlan(plan, librarySources = []) {
 
   box.innerHTML = contentHtml;
 
-  box.querySelector('#asg-insert-proposal-btn')?.addEventListener('click', () => {
-    const textToInsert = plan?.content_proposal;
-    if (!textToInsert || !quill) return;
-    const idx = quill.getLength() - 1;
-    quill.insertText(Math.max(0, idx), `\n\n${textToInsert}\n`);
+  const insertTextInEditor = (textToInsert) => {
+    if (!textToInsert) return;
+    if (quill) {
+      const idx = quill.getLength() - 1;
+      quill.insertText(Math.max(0, idx), `\n\n${textToInsert}\n`);
+    } else {
+      const fb = document.getElementById('asg-quill-fallback');
+      if (fb) {
+        fb.value = `${fb.value}\n\n${textToInsert}\n`.trim();
+      }
+    }
     toast(t('common.saved'), 'success');
+  };
+
+  box.querySelector('#asg-insert-proposal-btn')?.addEventListener('click', () => {
+    insertTextInEditor(plan?.content_proposal);
+  });
+
+  box.querySelector('#asg-insert-answer-btn')?.addEventListener('click', () => {
+    insertTextInEditor(plan?.answer);
   });
 
   box.querySelectorAll('[data-insert-src]').forEach((btn) => {
@@ -199,7 +216,8 @@ async function renderPage() {
           </div>
 
           <div class="row-wrap mb-4">
-            <button type="button" class="btn btn-sm btn-primary" data-assist="plan">${icon('sparkles')}<span>${esc(t('assignments.assist_plan'))}</span></button>
+            <button type="button" class="btn btn-sm btn-primary" data-assist="solve">${icon('sparkles')}<span>${esc(t('assignments.assist_solve'))}</span></button>
+            <button type="button" class="btn btn-sm btn-secondary" data-assist="plan">${icon('layers')}<span>${esc(t('assignments.assist_plan'))}</span></button>
             <button type="button" class="btn btn-sm btn-secondary" data-assist="explain_details">${icon('book-open')}<span>${esc(t('assignments.assist_explain_details'))}</span></button>
             <button type="button" class="btn btn-sm btn-secondary" data-assist="library_research">${icon('library')}<span>${esc(t('assignments.assist_library'))}</span></button>
             <button type="button" class="btn btn-sm btn-secondary" data-assist="coherence">${esc(t('assignments.assist_coherence'))}</button>
