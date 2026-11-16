@@ -32,7 +32,7 @@
         <div class="row-wrap mb-2">
           <span class="badge badge-error" id="live-status-pill">
             <span class="live-pulse-dot" aria-hidden="true"></span>
-            <span id="live-status-text" data-i18n="live.badge_live"></span>
+            <span id="live-status-text" data-i18n="live.badge_live">AN DIRÈK</span>
           </span>
           <span class="badge badge-outline" id="live-clock-badge">00:00</span>
           <span class="badge" id="live-schedule-badge" hidden></span>
@@ -41,8 +41,8 @@
             <span id="live-autosave-text">Sove</span>
           </span>
         </div>
-        <h1 id="live-heading" data-i18n="live.title"></h1>
-        <p id="live-sub" data-i18n="live.subtitle"></p>
+        <h1 id="live-heading" data-i18n="live.title">Kou an dirèk</h1>
+        <p id="live-sub" data-i18n="live.subtitle">Swiv etap yo pou konprann kou a pandan pwofesè a ap pale, pran mo kle, chèche nan liv ak estriktire tout apre.</p>
 
         <!-- Kontwòl tan adisyonèl & Fini kou -->
         <div class="row-wrap mt-2" style="gap:6px;">
@@ -69,42 +69,42 @@
         </button>
         <button type="button" class="btn btn-sm btn-secondary" id="live-wa-btn">
           <i data-lucide="message-circle" aria-hidden="true"></i>
-          <span data-i18n="live.send_wa_alert"></span>
+          <span data-i18n="live.send_wa_alert">Rapèl WhatsApp</span>
         </button>
         <a class="btn btn-sm btn-ghost" href="./courses.html">
           <i data-lucide="arrow-left" aria-hidden="true"></i>
-          <span data-i18n="common.back"></span>
+          <span data-i18n="common.back">Retounen</span>
         </a>
       </div>
     </div>
 
     <!-- Barre d'étapes guidées -->
     <div class="live-steps-bar" id="live-steps-bar" aria-label="Etap kou an dirèk">
-      <div class="live-step-pill is-active" data-step="1"><span>1.</span><span data-i18n="live.step_1"></span></div>
-      <div class="live-step-pill" data-step="2"><span>2.</span><span data-i18n="live.step_2"></span></div>
-      <div class="live-step-pill" data-step="3"><span>3.</span><span data-i18n="live.step_3"></span></div>
-      <div class="live-step-pill" data-step="4"><span>4.</span><span data-i18n="live.step_4"></span></div>
-      <div class="live-step-pill" data-step="5"><span>5.</span><span data-i18n="live.step_5"></span></div>
+      <div class="live-step-pill is-active" data-step="1"><span>1.</span><span data-i18n="live.step_1">Objektif & Chapit</span></div>
+      <div class="live-step-pill" data-step="2"><span>2.</span><span data-i18n="live.step_2">Koute & Pran Nòt</span></div>
+      <div class="live-step-pill" data-step="3"><span>3.</span><span data-i18n="live.step_3">Mo Kle Pwofesè</span></div>
+      <div class="live-step-pill" data-step="4"><span>4.</span><span data-i18n="live.step_4">Rechèch Rapid</span></div>
+      <div class="live-step-pill" data-step="5"><span>5.</span><span data-i18n="live.step_5">Estriktire & Sove</span></div>
     </div>
 
     <!-- Étape 1 : Sélection du cours + Chapitre syllabus -->
     <section class="card card-accent mb-5">
       <div class="form-row">
         <div class="field mb-0">
-          <label for="live-course-select" data-i18n="capture.course"></label>
+          <label for="live-course-select" data-i18n="capture.course">Kou a</label>
           <select class="select" id="live-course-select">
-            <option value="" data-i18n="common.no_course"></option>
+            <option value="" data-i18n="common.no_course">San kou</option>
           </select>
         </div>
         <div class="field mb-0">
-          <label for="live-unit-select" data-i18n="notes.unit_optional"></label>
+          <label for="live-unit-select" data-i18n="notes.unit_optional">Chapit silabis (si ou vle)</label>
           <select class="select" id="live-unit-select">
-            <option value="" data-i18n="common.none"></option>
+            <option value="" data-i18n="common.none">Okenn</option>
           </select>
         </div>
       </div>
       <div id="live-unit-focus" class="mt-3 pt-3" style="border-top:1px solid var(--c-border);" hidden>
-        <div class="text-xs font-bold mb-1" data-i18n="live.unit_focus_label"></div>
+        <div class="text-xs font-bold mb-1" data-i18n="live.unit_focus_label">Objektif chapit la jodi a</div>
         <p class="text-sm muted mb-2" id="live-unit-desc"></p>
         <div class="row-wrap" id="live-unit-kws"></div>
       </div>
@@ -117,8 +117,8 @@
         <section class="card">
           <div class="row-between mb-3">
             <div>
-              <h2 class="card-title mb-0" data-i18n="live.listen_title"></h2>
-              <div class="text-xs muted" id="live-audio-hint" data-i18n="live.listen_sub"></div>
+              <h2 class="card-title mb-0" data-i18n="live.listen_title">Koute vwa pwofesè a</h2>
+              <div class="text-xs muted" id="live-audio-hint" data-i18n="live.listen_sub">Filt sal kou (85 Hz - 2.6 kHz) ak apèsi vwa. Mache menm san entènèt.</div>
             </div>
             <div class="row" style="gap:8px;">
               <span class="rec-dot" id="live-rec-dot" hidden></span>
@@ -131,7 +131,7 @@
           <div class="alert alert-info mb-3" id="live-speech-box" hidden>
             <i data-lucide="captions" aria-hidden="true"></i>
             <div class="flex-1">
-              <strong class="text-xs" data-i18n="capture.live_speech_label"></strong>
+              <strong class="text-xs" data-i18n="capture.live_speech_label">Transkripsyon an dirèk</strong>
               <div class="text-sm mt-1" id="live-speech-preview"></div>
             </div>
           </div>
@@ -139,11 +139,11 @@
           <div class="row-wrap">
             <button type="button" class="btn btn-primary" id="live-rec-start">
               <i data-lucide="mic" aria-hidden="true"></i>
-              <span data-i18n="live.rec_start"></span>
+              <span data-i18n="live.rec_start">Kòmanse koute</span>
             </button>
             <button type="button" class="btn btn-dark" id="live-rec-stop" hidden>
               <i data-lucide="square" aria-hidden="true"></i>
-              <span data-i18n="live.rec_stop"></span>
+              <span data-i18n="live.rec_stop">Kanpe mikwo</span>
             </button>
             <span class="badge badge-outline" id="live-chunks-count">0 segman</span>
           </div>
@@ -153,14 +153,14 @@
         <!-- Étape 2b : Prise de notes en direct -->
         <section class="card">
           <div class="row-between mb-2">
-            <h2 class="card-title mb-0" data-i18n="live.scratchpad_title"></h2>
+            <h2 class="card-title mb-0" data-i18n="live.scratchpad_title">Nòt rapid an dirèk</h2>
             <button type="button" class="btn btn-sm btn-secondary" id="live-stamp-btn">
               <i data-lucide="clock" aria-hidden="true"></i>
-              <span data-i18n="live.add_timestamp"></span>
+              <span data-i18n="live.add_timestamp">+ Lè [MM:SS]</span>
             </button>
           </div>
           <div class="field mb-3">
-            <label for="live-note-title" data-i18n="live.note_title_label"></label>
+            <label for="live-note-title" data-i18n="live.note_title_label">Tit sesyon an</label>
             <input class="input" id="live-note-title" type="text" data-i18n-placeholder="live.note_title_placeholder">
           </div>
           <textarea class="textarea" id="live-notes-area" rows="10" data-i18n-placeholder="live.scratchpad_placeholder"></textarea>
@@ -202,27 +202,27 @@
 
         <!-- Étape 3 : Mots-clés pendant le cours -->
         <section class="card">
-          <h2 class="card-title mb-2" data-i18n="live.keywords_title"></h2>
-          <p class="text-xs muted mb-3" data-i18n="live.keywords_sub"></p>
+          <h2 class="card-title mb-2" data-i18n="live.keywords_title">Mo kle ak pwen cho</h2>
+          <p class="text-xs muted mb-3" data-i18n="live.keywords_sub">Tape yon konsèp, definisyon oswa mo pwofesè a repete pou ou pa bliye revize l apre kou a.</p>
 
           <form class="row-wrap mb-3" id="live-kw-form">
             <input class="input flex-1" id="live-kw-input" type="text" style="min-width:170px;" data-i18n-placeholder="live.keyword_placeholder">
             <select class="select" id="live-kw-tag" style="width:auto;">
-              <option value="definition" data-i18n="live.tag_definition"></option>
-              <option value="exam" data-i18n="live.tag_exam"></option>
-              <option value="question" data-i18n="live.tag_question"></option>
-              <option value="article" data-i18n="live.tag_article"></option>
+              <option value="definition" data-i18n="live.tag_definition">Definisyon</option>
+              <option value="exam" data-i18n="live.tag_exam">Egzamen</option>
+              <option value="question" data-i18n="live.tag_question">Kesyon</option>
+              <option value="article" data-i18n="live.tag_article">Atik / Lwa</option>
             </select>
             <button type="submit" class="btn btn-primary btn-sm">
               <i data-lucide="plus" aria-hidden="true"></i>
-              <span data-i18n="live.add_keyword"></span>
+              <span data-i18n="live.add_keyword">Ajoute</span>
             </button>
           </form>
 
           <div class="row-wrap mb-3" id="live-quick-tags">
-            <button type="button" class="chip" data-quick-tag="exam" data-i18n="live.tag_exam"></button>
-            <button type="button" class="chip" data-quick-tag="definition" data-i18n="live.tag_definition"></button>
-            <button type="button" class="chip" data-quick-tag="question" data-i18n="live.tag_question"></button>
+            <button type="button" class="chip" data-quick-tag="exam" data-i18n="live.tag_exam">Egzamen</button>
+            <button type="button" class="chip" data-quick-tag="definition" data-i18n="live.tag_definition">Definisyon</button>
+            <button type="button" class="chip" data-quick-tag="question" data-i18n="live.tag_question">Kesyon</button>
           </div>
 
           <div id="live-keywords-list" class="row-wrap"></div>
@@ -232,13 +232,13 @@
       <!-- Colonne droite : Étape 4 (Recherche rapide pendant que le prof parle) -->
       <aside class="stack">
         <section class="card">
-          <h2 class="card-title mb-1" data-i18n="live.search_title"></h2>
-          <p class="text-xs muted mb-3" data-i18n="live.search_sub"></p>
+          <h2 class="card-title mb-1" data-i18n="live.search_title">Rechèch rapid pandan kou a</h2>
+          <p class="text-xs muted mb-3" data-i18n="live.search_sub">Chèche san ou pa kite kou a : nan Bibliyotèk (menm san entènèt), ansyen nòt ou oswa IA.</p>
 
           <div class="segmented mb-3" id="live-search-tabs" style="width:100%;">
-            <button type="button" data-search-tab="library" aria-pressed="true" data-i18n="live.tab_library"></button>
-            <button type="button" data-search-tab="notes" aria-pressed="false" data-i18n="live.tab_notes"></button>
-            <button type="button" data-search-tab="ai" aria-pressed="false" data-i18n="live.tab_ai"></button>
+            <button type="button" data-search-tab="library" aria-pressed="true" data-i18n="live.tab_library">Bibliyotèk</button>
+            <button type="button" data-search-tab="notes" aria-pressed="false" data-i18n="live.tab_notes">Nòt mwen</button>
+            <button type="button" data-search-tab="ai" aria-pressed="false" data-i18n="live.tab_ai">IA / Web</button>
           </div>
 
           <form class="row mb-3" id="live-search-form" style="gap:8px;">
@@ -249,22 +249,22 @@
           </form>
 
           <div id="live-search-results" class="stack-sm">
-            <p class="text-xs muted mb-0" data-i18n="live.search_hint"></p>
+            <p class="text-xs muted mb-0" data-i18n="live.search_hint">Tape yon mo kle pou wè definisyon oswa pasaj liv touswit.</p>
           </div>
         </section>
 
         <!-- Étape 5 : Sauvegarde & Structuration après cours -->
         <section class="card card-accent">
-          <h2 class="card-title mb-2" data-i18n="live.finish_title"></h2>
-          <p class="text-xs muted mb-4" data-i18n="live.finish_sub"></p>
+          <h2 class="card-title mb-2" data-i18n="live.finish_title">Fini kou a & Estriktire</h2>
+          <p class="text-xs muted mb-4" data-i18n="live.finish_sub">Lè pwofesè a fini, sove nòt ou a pou IA a byen estriktire l epi prepare w pou revizyon kalm.</p>
           <div class="stack-sm">
             <button type="button" class="btn btn-primary btn-block" id="live-finish-ai-btn">
               <i data-lucide="sparkles" aria-hidden="true"></i>
-              <span data-i18n="live.finish_ai_btn"></span>
+              <span data-i18n="live.finish_ai_btn">Fini kou a ak Estriktire ak IA</span>
             </button>
             <button type="button" class="btn btn-secondary btn-block" id="live-save-quick-btn">
               <i data-lucide="save" aria-hidden="true"></i>
-              <span data-i18n="live.save_quick_btn"></span>
+              <span data-i18n="live.save_quick_btn">Sove vit (san tann / san entènèt)</span>
             </button>
             <button type="button" class="btn btn-outline btn-block" id="live-translate-btn">
               <i data-lucide="languages" aria-hidden="true"></i>

@@ -28,9 +28,9 @@
   <main id="main" class="app-main">
     <div class="page-head">
       <div>
-        <span class="eyebrow"><i data-lucide="library" aria-hidden="true"></i><span data-i18n="library.eyebrow"></span></span>
-        <h1 data-i18n="library.title"></h1>
-        <p data-i18n="library.sub"></p>
+        <span class="eyebrow"><i data-lucide="library" aria-hidden="true"></i><span data-i18n="library.eyebrow">Bibliyotèk Inivèsitè & Rechèch</span></span>
+        <h1 data-i18n="library.title">Bibliyotèk, Kòd Lwa ak Kreyatè Liv</h1>
+        <p data-i18n="library.sub">Jwenn Konstitisyon ak Kòd Ayiti yo, telechaje PDF pa ou, chèche sou tout Entènèt la san plajya epi kreye pwòp liv etid ou.</p>
       </div>
       <div class="page-head-actions">
         <button type="button" class="btn btn-primary" id="lib-scan-cover-btn">
@@ -45,11 +45,11 @@
         <input type="file" id="lib-cover-gallery-input" accept="image/*" style="display:none;">
         <button type="button" class="btn btn-secondary" id="lib-droit-btn">
           <i data-lucide="scale" aria-hidden="true"></i>
-          <span data-i18n="library.droit_quick_btn"></span>
+          <span data-i18n="library.droit_quick_btn">Kòd ak Lwa Ayiti (Dwa)</span>
         </button>
         <button type="button" class="btn btn-secondary" id="lib-upload-btn">
           <i data-lucide="upload" aria-hidden="true"></i>
-          <span data-i18n="library.upload_btn"></span>
+          <span data-i18n="library.upload_btn">Ajoute yon PDF / Liv</span>
         </button>
       </div>
     </div>
@@ -58,19 +58,19 @@
     <div class="tabs" role="tablist" id="library-tabs">
       <button type="button" class="tab" role="tab" data-tab="books" aria-selected="true">
         <i data-lucide="book-open" aria-hidden="true"></i>
-        <span data-i18n="library.tab_books"></span>
+        <span data-i18n="library.tab_books">Bibliyotèk ak Kòd</span>
       </button>
       <button type="button" class="tab" role="tab" data-tab="web" aria-selected="false">
         <i data-lucide="globe" aria-hidden="true"></i>
-        <span data-i18n="library.tab_web"></span>
+        <span data-i18n="library.tab_web">Rechèch Web & Anti-Plajya</span>
       </button>
       <button type="button" class="tab" role="tab" data-tab="ask" aria-selected="false">
         <i data-lucide="sparkles" aria-hidden="true"></i>
-        <span data-i18n="library.tab_ask"></span>
+        <span data-i18n="library.tab_ask">Asistan IA sou Liv</span>
       </button>
       <button type="button" class="tab" role="tab" data-tab="creator" aria-selected="false">
         <i data-lucide="book-plus" aria-hidden="true"></i>
-        <span data-i18n="library.tab_creator"></span>
+        <span data-i18n="library.tab_creator">Kreyatè Liv IA</span>
       </button>
     </div>
 
@@ -110,13 +110,13 @@
             <input class="input" type="search" id="lib-book-search" data-i18n-placeholder="library.search_books_ph">
           </div>
           <select class="select" id="lib-scope-filter" style="width:auto;min-width:160px;">
-            <option value="" data-i18n="library.filter_scope_all"></option>
-            <option value="official" data-i18n="library.scope_official"></option>
-            <option value="personal" data-i18n="library.scope_personal"></option>
-            <option value="generated" data-i18n="library.scope_generated"></option>
+            <option value="" data-i18n="library.filter_scope_all">Tout sous yo</option>
+            <option value="official" data-i18n="library.scope_official">Tèks Ofisyèl</option>
+            <option value="personal" data-i18n="library.scope_personal">Liv Mwen Yo</option>
+            <option value="generated" data-i18n="library.scope_generated">Liv Kreye ak IA</option>
           </select>
           <select class="select" id="lib-faculty-filter" style="width:auto;min-width:175px;">
-            <option value="" data-i18n="library.filter_faculty_all"></option>
+            <option value="" data-i18n="library.filter_faculty_all">Tout fakilte</option>
           </select>
         </div>
       </div>
@@ -138,7 +138,7 @@
       <div class="grid grid-main-side">
         <div class="stack">
           <div class="card">
-            <h2 class="card-title mb-3" data-i18n="library.tab_web"></h2>
+            <h2 class="card-title mb-3" data-i18n="library.tab_web">Rechèch Web & Anti-Plajya</h2>
             <form id="web-search-form" class="row-wrap" style="gap:10px;">
               <div class="input-group flex-1" style="min-width:220px;">
                 <i data-lucide="globe" aria-hidden="true"></i>
@@ -146,7 +146,7 @@
               </div>
               <button type="submit" class="btn btn-primary" id="web-search-btn">
                 <i data-lucide="search" aria-hidden="true"></i>
-                <span data-i18n="library.web_search_btn"></span>
+                <span data-i18n="library.web_search_btn">Chèche sou Web + Bibliyotèk</span>
               </button>
             </form>
           </div>
@@ -156,28 +156,28 @@
 
         <aside class="stack">
           <div class="card">
-            <h2 class="card-title mb-3" data-i18n="library.analyze_custom_title"></h2>
+            <h2 class="card-title mb-3" data-i18n="library.analyze_custom_title">Analiz pwofon yon lyen Web / PDF oswa tèks (Anti-Plajya)</h2>
             <form id="analyze-form">
               <div class="field">
-                <label for="analyze-url" data-i18n="library.analyze_url_label"></label>
+                <label for="analyze-url" data-i18n="library.analyze_url_label">Adrès Web oswa PDF (URL https://...)</label>
                 <input class="input" type="url" id="analyze-url" placeholder="https://...">
               </div>
               <div class="field">
-                <label for="analyze-topic" data-i18n="library.analyze_topic_label"></label>
+                <label for="analyze-topic" data-i18n="library.analyze_topic_label">Sijè devwa oswa rechèch (si ou vle)</label>
                 <input class="input" type="text" id="analyze-topic" placeholder="Ex : Responsabilite civile / Atik 24">
               </div>
               <div class="field">
-                <label for="analyze-text" data-i18n="library.analyze_text_label"></label>
+                <label for="analyze-text" data-i18n="library.analyze_text_label">Oswa kole tèks la dirèkteman isit la</label>
                 <textarea class="textarea" id="analyze-text" rows="5" placeholder="Kole tèks yon atik oswa yon kòd lwa pou resevwa yon sentèz san plajya ak referans APA..."></textarea>
               </div>
               <label class="switch mb-4">
                 <input type="checkbox" id="analyze-save-switch" checked>
                 <span class="switch-track"></span>
-                <span class="text-sm" data-i18n="library.analyze_save_switch"></span>
+                <span class="text-sm" data-i18n="library.analyze_save_switch">Sove sentèz la nan Bibliyotèk mwen otomatikman</span>
               </label>
               <button type="submit" class="btn btn-primary btn-block" id="analyze-run-btn">
                 <i data-lucide="shield-check" aria-hidden="true"></i>
-                <span data-i18n="library.analyze_run_btn"></span>
+                <span data-i18n="library.analyze_run_btn">Analize ak verifye orijinalite</span>
               </button>
             </form>
             <div id="analyze-result-box" class="mt-4" hidden></div>
@@ -193,12 +193,12 @@
       <div class="grid grid-main-side">
         <aside class="stack">
           <div class="card">
-            <label class="label mb-2" style="display:block;" data-i18n="library.ask_select_books"></label>
+            <label class="label mb-2" style="display:block;" data-i18n="library.ask_select_books">Chwazi youn oswa plizyè liv / kòd pou konsilte</label>
             <div class="lib-checklist" id="ask-books-list"></div>
             <label class="switch mt-4">
               <input type="checkbox" id="ask-web-switch">
               <span class="switch-track"></span>
-              <span class="text-sm" data-i18n="library.ask_web_switch"></span>
+              <span class="text-sm" data-i18n="library.ask_web_switch">Konplete ak rechèch Web an dirèk si sa nesesè</span>
             </label>
           </div>
         </aside>
@@ -216,7 +216,7 @@
               </div>
               <button type="submit" class="btn btn-primary" id="ask-run-btn">
                 <i data-lucide="sparkles" aria-hidden="true"></i>
-                <span data-i18n="library.ask_run_btn"></span>
+                <span data-i18n="library.ask_run_btn">Mande IA a ak referans</span>
               </button>
             </form>
           </div>
@@ -233,18 +233,18 @@
       <div class="grid grid-main-side">
         <div class="stack">
           <div class="card">
-            <h2 class="card-title mb-1" data-i18n="library.creator_title"></h2>
-            <p class="text-sm muted mb-4" data-i18n="library.creator_sub"></p>
+            <h2 class="card-title mb-1" data-i18n="library.creator_title">Kreyatè Liv ak Manyèl Inivèsitè Original</h2>
+            <p class="text-sm muted mb-4" data-i18n="library.creator_sub">Konbine liv Bibliyotèk ou yo ak rechèch sou Entènèt pou jenere yon manyèl konplè, verifye kont plajya, pare pou ekspòte an PDF oswa Word.</p>
 
             <form id="creator-form">
               <div class="field">
-                <label for="creator-topic" data-i18n="library.creator_topic_label"></label>
+                <label for="creator-topic" data-i18n="library.creator_topic_label">Sijè oswa tit liv ou vle kreye a</label>
                 <input class="input" type="text" id="creator-topic" required data-i18n-placeholder="library.creator_topic_ph">
               </div>
 
               <div class="form-row">
                 <div class="field">
-                  <label for="creator-chapters" data-i18n="library.creator_chapters_label"></label>
+                  <label for="creator-chapters" data-i18n="library.creator_chapters_label">Kantite chapit</label>
                   <select class="select" id="creator-chapters">
                     <option value="3">3 chapit</option>
                     <option value="4">4 chapit</option>
@@ -254,13 +254,13 @@
                   </select>
                 </div>
                 <div class="field">
-                  <label data-i18n="library.creator_books_label"></label>
+                  <label data-i18n="library.creator_books_label">Liv ak Kòd sous nan Bibliyotèk la</label>
                   <div class="lib-checklist" id="creator-books-list"></div>
                 </div>
               </div>
 
               <div class="field mt-2">
-                <label for="creator-instructions" data-i18n="library.creator_inst_label"></label>
+                <label for="creator-instructions" data-i18n="library.creator_inst_label">Plan, fakilte oswa egzijans espesifik (si ou vle)</label>
                 <textarea class="textarea" id="creator-instructions" rows="3" data-i18n-placeholder="library.creator_inst_ph"></textarea>
               </div>
 
@@ -268,18 +268,18 @@
                 <label class="switch">
                   <input type="checkbox" id="creator-web-switch" checked>
                   <span class="switch-track"></span>
-                  <span class="text-sm" data-i18n="library.creator_web_switch"></span>
+                  <span class="text-sm" data-i18n="library.creator_web_switch">Anrichi ak sous verifye sou Entènèt la</span>
                 </label>
                 <label class="switch">
                   <input type="checkbox" id="creator-save-switch" checked>
                   <span class="switch-track"></span>
-                  <span class="text-sm" data-i18n="library.creator_save_switch"></span>
+                  <span class="text-sm" data-i18n="library.creator_save_switch">Anrejistre liv la nan Bibliyotèk mwen</span>
                 </label>
               </div>
 
               <button type="submit" class="btn btn-primary btn-lg" id="creator-run-btn">
                 <i data-lucide="book-plus" aria-hidden="true"></i>
-                <span data-i18n="library.creator_run_btn"></span>
+                <span data-i18n="library.creator_run_btn">Konpoze liv la kounye a</span>
               </button>
             </form>
           </div>

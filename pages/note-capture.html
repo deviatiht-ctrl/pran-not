@@ -31,24 +31,24 @@
   <main id="main" class="app-main">
     <div class="page-head">
       <div>
-        <span class="eyebrow"><i data-lucide="zap" aria-hidden="true"></i><span data-i18n="capture.page_title"></span></span>
-        <h1 data-i18n="capture.page_title"></h1>
+        <span class="eyebrow"><i data-lucide="zap" aria-hidden="true"></i><span data-i18n="capture.page_title">Kaptire nòt</span></span>
+        <h1 data-i18n="capture.page_title">Kaptire nòt</h1>
       </div>
       <div class="page-head-actions">
         <a class="btn btn-secondary" href="./notes.html">
           <i data-lucide="arrow-left" aria-hidden="true"></i>
-          <span data-i18n="common.back"></span>
+          <span data-i18n="common.back">Retounen</span>
         </a>
       </div>
     </div>
 
     <!-- Sélecteur de mode -->
     <div class="segmented mb-6" role="tablist" id="capture-modes">
-      <button type="button" role="tab" data-mode="photo" aria-selected="true"><i data-lucide="camera" aria-hidden="true"></i><span data-i18n="capture.mode_photo"></span></button>
-      <button type="button" role="tab" data-mode="audio" aria-selected="false"><i data-lucide="mic" aria-hidden="true"></i><span data-i18n="capture.mode_audio"></span></button>
-      <button type="button" role="tab" data-mode="flash" aria-selected="false"><i data-lucide="zap" aria-hidden="true"></i><span data-i18n="capture.mode_flash"></span></button>
-      <button type="button" role="tab" data-mode="text" aria-selected="false"><i data-lucide="file-edit" aria-hidden="true"></i><span data-i18n="capture.mode_text"></span></button>
-      <button type="button" role="tab" data-mode="import" aria-selected="false"><i data-lucide="upload" aria-hidden="true"></i><span data-i18n="capture.mode_import"></span></button>
+      <button type="button" role="tab" data-mode="photo" aria-selected="true"><i data-lucide="camera" aria-hidden="true"></i><span data-i18n="capture.mode_photo">Foto tablo / kaye</span></button>
+      <button type="button" role="tab" data-mode="audio" aria-selected="false"><i data-lucide="mic" aria-hidden="true"></i><span data-i18n="capture.mode_audio">Anrejistre kou a</span></button>
+      <button type="button" role="tab" data-mode="flash" aria-selected="false"><i data-lucide="zap" aria-hidden="true"></i><span data-i18n="capture.mode_flash">Nòt rapid (dikte)</span></button>
+      <button type="button" role="tab" data-mode="text" aria-selected="false"><i data-lucide="file-edit" aria-hidden="true"></i><span data-i18n="capture.mode_text">Ekri ak editè</span></button>
+      <button type="button" role="tab" data-mode="import" aria-selected="false"><i data-lucide="upload" aria-hidden="true"></i><span data-i18n="capture.mode_import">Enpòte PDF / imaj</span></button>
     </div>
 
     <div class="grid grid-main-side">
@@ -59,18 +59,18 @@
             <label class="switch">
               <input type="checkbox" id="opt-enhance" checked>
               <span class="switch-track"></span>
-              <span class="text-sm" data-i18n="capture.enhance_label"></span>
+              <span class="text-sm" data-i18n="capture.enhance_label">Amelyore kontras (rekòmande pou tablo)</span>
             </label>
             <label class="switch">
               <input type="checkbox" id="opt-autocrop" checked>
               <span class="switch-track"></span>
-              <span class="text-sm" data-i18n="capture.autocrop_label"></span>
+              <span class="text-sm" data-i18n="capture.autocrop_label">Rekadre otomatikman</span>
             </label>
           </div>
 
           <label class="drop-zone" for="photo-input" id="photo-drop">
             <span class="icon-chip accent"><i data-lucide="camera" aria-hidden="true"></i></span>
-            <strong data-i18n="capture.take_photos"></strong>
+            <strong data-i18n="capture.take_photos">Pran foto oswa chwazi imaj</strong>
             <span class="text-xs muted">JPEG / PNG / WEBP — konprese otomatikman anvan voye</span>
             <input id="photo-input" type="file" accept="image/*" capture="environment" multiple hidden>
           </label>
@@ -92,7 +92,7 @@
           <div class="row-wrap mt-4">
             <button type="button" class="btn btn-primary" id="ocr-run-btn" disabled>
               <i data-lucide="sparkles" aria-hidden="true"></i>
-              <span data-i18n="capture.read_board"></span>
+              <span data-i18n="capture.read_board">Li tablo a ak IA</span>
             </button>
           </div>
         </section>
@@ -114,8 +114,8 @@
           <!-- Moniteur vocal temps réel (waveform + statut) -->
           <div class="audio-meter-wrap mb-4">
             <div class="row-between text-xs mb-2">
-              <span class="badge badge-outline" id="audio-signal-badge" data-i18n="capture.audio_meter_idle"></span>
-              <span class="muted" id="audio-auto-note" data-i18n="capture.audio_segment_auto"></span>
+              <span class="badge badge-outline" id="audio-signal-badge" data-i18n="capture.audio_meter_idle">Mikwofòn pare</span>
+              <span class="muted" id="audio-auto-note" data-i18n="capture.audio_segment_auto">Chak 45 segonn yon nouvo segman transkri otomatikman pou vwa a rete presi.</span>
             </div>
             <canvas id="audio-meter" class="audio-meter-canvas" height="64" aria-hidden="true"></canvas>
           </div>
@@ -123,32 +123,32 @@
           <!-- Sélecteur de micro matériel -->
           <div class="field mb-3">
             <div class="row-between mb-1">
-              <label class="label text-xs mb-0" for="mic-device-select" data-i18n="capture.mic_device_label"></label>
+              <label class="label text-xs mb-0" for="mic-device-select" data-i18n="capture.mic_device_label">Chwazi mikwofòn aparèy la</label>
               <button type="button" class="btn btn-sm btn-ghost" id="mic-refresh-btn">
                 <i data-lucide="refresh-cw" aria-hidden="true"></i>
-                <span data-i18n="common.retry"></span>
+                <span data-i18n="common.retry">Eseye ankò</span>
               </button>
             </div>
             <select class="select" id="mic-device-select">
-              <option value="" data-i18n="capture.mic_device_default"></option>
+              <option value="" data-i18n="capture.mic_device_default">Mikwofòn pa defo</option>
             </select>
           </div>
 
           <!-- Options acoustiques : profil salle de cours, précision IA et gain micro -->
           <div class="form-row mb-4">
             <div>
-              <label class="label text-xs mb-2" style="display:block;" data-i18n="capture.audio_profile_label"></label>
+              <label class="label text-xs mb-2" style="display:block;" data-i18n="capture.audio_profile_label">Anviwònman mikwofòn</label>
               <div class="segmented" id="audio-profile-group">
-                <button type="button" data-audio-profile="classroom" aria-pressed="true" data-i18n="capture.audio_profile_classroom"></button>
-                <button type="button" data-audio-profile="close" aria-pressed="false" data-i18n="capture.audio_profile_close"></button>
-                <button type="button" data-audio-profile="direct" aria-pressed="false" data-i18n="capture.audio_profile_direct"></button>
+                <button type="button" data-audio-profile="classroom" aria-pressed="true" data-i18n="capture.audio_profile_classroom">Sal kou (Vwa pwofesè lwen)</button>
+                <button type="button" data-audio-profile="close" aria-pressed="false" data-i18n="capture.audio_profile_close">Pròch (Dikte / silans)</button>
+                <button type="button" data-audio-profile="direct" aria-pressed="false" data-i18n="capture.audio_profile_direct">Dirèk (San filt)</button>
               </div>
             </div>
             <div>
-              <label class="label text-xs mb-2" style="display:block;" data-i18n="capture.audio_mode_label"></label>
+              <label class="label text-xs mb-2" style="display:block;" data-i18n="capture.audio_mode_label">Presizyon transkripsyon</label>
               <div class="segmented" id="transcribe-mode-group">
-                <button type="button" data-transcribe-mode="detailed" aria-pressed="true" data-i18n="capture.audio_mode_detailed"></button>
-                <button type="button" data-transcribe-mode="fast" aria-pressed="false" data-i18n="capture.audio_mode_fast"></button>
+                <button type="button" data-transcribe-mode="detailed" aria-pressed="true" data-i18n="capture.audio_mode_detailed">Detaye ak IA (Kreyòl + Fransè)</button>
+                <button type="button" data-transcribe-mode="fast" aria-pressed="false" data-i18n="capture.audio_mode_fast">Rapid (ekonomi done)</button>
               </div>
             </div>
           </div>
@@ -156,14 +156,14 @@
           <div class="alert alert-info mb-3" id="live-speech-box" hidden>
             <i data-lucide="captions" aria-hidden="true"></i>
             <div class="flex-1">
-              <strong class="text-xs" data-i18n="capture.live_speech_label"></strong>
+              <strong class="text-xs" data-i18n="capture.live_speech_label">Transkripsyon an dirèk</strong>
               <div class="text-sm mt-1" id="live-speech-preview"></div>
             </div>
           </div>
 
           <div class="field mb-4">
             <div class="row-between mb-1">
-              <label class="label text-xs mb-0" for="rec-gain-slider" data-i18n="capture.audio_gain_label"></label>
+              <label class="label text-xs mb-0" for="rec-gain-slider" data-i18n="capture.audio_gain_label">Anplifikasyon vwa</label>
               <span class="badge badge-accent" id="rec-gain-val">2.0x</span>
             </div>
             <input type="range" class="studio-range" id="rec-gain-slider" min="1.0" max="3.5" step="0.1" value="2.0">
@@ -172,19 +172,19 @@
           <div class="row-wrap">
             <button type="button" class="btn btn-primary" id="rec-start-btn">
               <i data-lucide="mic" aria-hidden="true"></i>
-              <span data-i18n="capture.rec_start"></span>
+              <span data-i18n="capture.rec_start">Kòmanse anrejistre</span>
             </button>
             <button type="button" class="btn btn-secondary" id="rec-pause-btn" hidden>
               <i data-lucide="pause" aria-hidden="true"></i>
-              <span data-i18n="capture.rec_pause"></span>
+              <span data-i18n="capture.rec_pause">Poz</span>
             </button>
             <button type="button" class="btn btn-dark" id="rec-stop-btn" hidden>
               <i data-lucide="square" aria-hidden="true"></i>
-              <span data-i18n="capture.rec_stop"></span>
+              <span data-i18n="capture.rec_stop">Fini epi transkri</span>
             </button>
             <label class="btn btn-secondary" for="audio-file-input" title="MP3, M4A, WAV, OGG, WEBM">
               <i data-lucide="file-audio" aria-hidden="true"></i>
-              <span data-i18n="capture.audio_import_btn"></span>
+              <span data-i18n="capture.audio_import_btn">Enpòte fichye odyo</span>
               <input id="audio-file-input" type="file" accept="audio/*" multiple hidden>
             </label>
           </div>
@@ -195,7 +195,7 @@
         <section class="card" id="panel-import" hidden>
           <label class="drop-zone" for="import-input">
             <span class="icon-chip accent"><i data-lucide="upload" aria-hidden="true"></i></span>
-            <strong data-i18n="capture.mode_import_sub"></strong>
+            <strong data-i18n="capture.mode_import_sub">Dokiman oswa foto deja nan telefòn nan</strong>
             <span class="text-xs muted">PDF (max 20 Mo) oswa imaj</span>
             <input id="import-input" type="file" accept="application/pdf,image/*" multiple hidden>
           </label>
@@ -205,14 +205,14 @@
         <!-- Zone de texte brut + passages incertains -->
         <section class="card" id="raw-section">
           <div class="row-between mb-2">
-            <label class="label mb-0" for="raw-text" data-i18n="capture.raw_text"></label>
+            <label class="label mb-0" for="raw-text" data-i18n="capture.raw_text">Tèks brit / transkripsyon</label>
             <span class="text-xs muted" id="raw-count">0 mo</span>
           </div>
 
           <div class="alert alert-warning mb-3" id="uncertain-alert" hidden>
             <i data-lucide="alert-triangle" aria-hidden="true"></i>
             <div class="flex-1">
-              <div data-i18n="capture.uncertain_banner"></div>
+              <div data-i18n="capture.uncertain_banner">IA a make kèk mo ki pa klè an jòn. Klike sou yo pou korije anvan ou sove.</div>
               <div id="uncertain-chips" class="row-wrap mt-2"></div>
             </div>
           </div>
@@ -222,10 +222,10 @@
           <div class="row-wrap mt-4">
             <button type="button" class="btn btn-primary" id="ai-structure-btn">
               <i data-lucide="sparkles" aria-hidden="true"></i>
-              <span data-i18n="capture.structure_ai"></span>
+              <span data-i18n="capture.structure_ai">Netwaye epi estriktire ak IA</span>
             </button>
-            <button type="button" class="btn btn-secondary" id="ai-ht-btn" data-i18n="capture.harmonize_ht"></button>
-            <button type="button" class="btn btn-secondary" id="ai-fr-btn" data-i18n="capture.harmonize_fr"></button>
+            <button type="button" class="btn btn-secondary" id="ai-ht-btn" data-i18n="capture.harmonize_ht">Amelyore an Kreyòl</button>
+            <button type="button" class="btn btn-secondary" id="ai-fr-btn" data-i18n="capture.harmonize_fr">Amonize an Fransè</button>
           </div>
         </section>
 
@@ -249,20 +249,20 @@
           <div id="course-suggestion-box" class="ai-suggestion mb-4" hidden>
             <div class="ai-suggestion-label"><i data-lucide="sparkles" aria-hidden="true"></i><span>IA</span></div>
             <p class="text-sm mb-2" id="course-suggestion-text"></p>
-            <button type="button" class="btn btn-sm btn-primary" id="confirm-course-btn" data-i18n="capture.confirm_course"></button>
+            <button type="button" class="btn btn-sm btn-primary" id="confirm-course-btn" data-i18n="capture.confirm_course">Konfime kou sa a</button>
           </div>
 
           <div class="field">
-            <label for="note-course" data-i18n="nav.courses"></label>
+            <label for="note-course" data-i18n="nav.courses">Kou</label>
             <select class="select" id="note-course">
-              <option value="" data-i18n="common.no_course"></option>
+              <option value="" data-i18n="common.no_course">San kou</option>
             </select>
           </div>
 
           <div class="field">
             <label for="note-unit">Chapit silabis / Unité</label>
             <select class="select" id="note-unit">
-              <option value="" data-i18n="common.none"></option>
+              <option value="" data-i18n="common.none">Okenn</option>
             </select>
           </div>
 
@@ -277,7 +277,7 @@
 
           <button type="button" class="btn btn-primary btn-block btn-lg mt-2" id="save-note-btn">
             <i data-lucide="save" aria-hidden="true"></i>
-            <span data-i18n="capture.save_note"></span>
+            <span data-i18n="capture.save_note">Anrejistre nòt la</span>
           </button>
         </section>
       </aside>

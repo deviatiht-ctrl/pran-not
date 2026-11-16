@@ -28,9 +28,9 @@
   <main id="main" class="app-main narrow">
     <div class="page-head">
       <div>
-        <span class="eyebrow"><i data-lucide="settings" aria-hidden="true"></i><span data-i18n="nav.settings"></span></span>
-        <h1 data-i18n="settings.title"></h1>
-        <p data-i18n="settings.sub"></p>
+        <span class="eyebrow"><i data-lucide="settings" aria-hidden="true"></i><span data-i18n="nav.settings">Paramèt</span></span>
+        <h1 data-i18n="settings.title">Paramèt ak Design</h1>
+        <p data-i18n="settings.sub">Pèsonalize tèm ou, polis ekriti, lang, ekonomi done ak rapèl.</p>
       </div>
     </div>
 
@@ -39,47 +39,47 @@
       <section class="card card-accent" id="design-studio">
         <div class="card-head">
           <div>
-            <span class="eyebrow mb-1"><i data-lucide="palette" aria-hidden="true"></i><span data-i18n="nav.design_studio"></span></span>
-            <h2 class="card-title" data-i18n="settings.studio_title"></h2>
-            <p class="text-sm muted mb-0" data-i18n="settings.studio_sub"></p>
+            <span class="eyebrow mb-1"><i data-lucide="palette" aria-hidden="true"></i><span data-i18n="nav.design_studio">Design ak Tèm</span></span>
+            <h2 class="card-title" data-i18n="settings.studio_title">Estidyo Design Pèsonèl</h2>
+            <p class="text-sm muted mb-0" data-i18n="settings.studio_sub">Chwazi tèm ou, koulè pèsonèl ou, polis ekriti ak stil kat ki koresponn ak gou pa ou.</p>
           </div>
         </div>
 
         <!-- Presets visuels -->
         <div class="mt-4">
-          <label class="label mb-2" style="display:block;" data-i18n="settings.studio_presets"></label>
+          <label class="label mb-2" style="display:block;" data-i18n="settings.studio_presets">Palèt prepare pou ou</label>
           <div class="theme-preset-grid" id="studio-presets-grid"></div>
         </div>
 
         <!-- Couleurs sur mesure -->
         <div class="mt-6">
-          <label class="label mb-2" style="display:block;" data-i18n="settings.studio_colors"></label>
+          <label class="label mb-2" style="display:block;" data-i18n="settings.studio_colors">Koulè pèsonèl</label>
           <div class="color-picker-grid">
             <label class="color-picker-card">
               <input type="color" class="color-picker-input" id="col-bg" value="#FFFFFF">
               <div>
-                <div class="text-xs muted" data-i18n="settings.studio_color_bg"></div>
+                <div class="text-xs muted" data-i18n="settings.studio_color_bg">Fon paj</div>
                 <code id="hex-bg">#FFFFFF</code>
               </div>
             </label>
             <label class="color-picker-card">
               <input type="color" class="color-picker-input" id="col-card" value="#FFFFFF">
               <div>
-                <div class="text-xs muted" data-i18n="settings.studio_color_card"></div>
+                <div class="text-xs muted" data-i18n="settings.studio_color_card">Kat ak blòk</div>
                 <code id="hex-card">#FFFFFF</code>
               </div>
             </label>
             <label class="color-picker-card">
               <input type="color" class="color-picker-input" id="col-text" value="#1B2A4A">
               <div>
-                <div class="text-xs muted" data-i18n="settings.studio_color_text"></div>
+                <div class="text-xs muted" data-i18n="settings.studio_color_text">Tèks prensipal</div>
                 <code id="hex-text">#1B2A4A</code>
               </div>
             </label>
             <label class="color-picker-card">
               <input type="color" class="color-picker-input" id="col-accent" value="#F97316">
               <div>
-                <div class="text-xs muted" data-i18n="settings.studio_color_accent"></div>
+                <div class="text-xs muted" data-i18n="settings.studio_color_accent">Koulè aksan</div>
                 <code id="hex-accent">#F97316</code>
               </div>
             </label>
@@ -88,14 +88,14 @@
 
         <!-- Typographie -->
         <div class="mt-6">
-          <label class="label mb-2" style="display:block;" data-i18n="settings.studio_fonts"></label>
+          <label class="label mb-2" style="display:block;" data-i18n="settings.studio_fonts">Tipografi</label>
           <div class="form-row">
             <div class="field mb-0">
-              <label for="font-display-sel" data-i18n="settings.studio_display_font"></label>
+              <label for="font-display-sel" data-i18n="settings.studio_display_font">Polis tit yo</label>
               <select class="select" id="font-display-sel"></select>
             </div>
             <div class="field mb-0">
-              <label for="font-body-sel" data-i18n="settings.studio_body_font"></label>
+              <label for="font-body-sel" data-i18n="settings.studio_body_font">Polis tèks nòt yo</label>
               <select class="select" id="font-body-sel"></select>
             </div>
           </div>
@@ -105,26 +105,26 @@
         <div class="mt-6">
           <div class="form-row">
             <div>
-              <label class="label mb-2" style="display:block;" data-i18n="settings.studio_radius"></label>
+              <label class="label mb-2" style="display:block;" data-i18n="settings.studio_radius">Kwen kat yo</label>
               <div class="segmented" id="studio-radius-group">
-                <button type="button" data-radius="sharp" data-i18n="settings.studio_radius_sharp"></button>
-                <button type="button" data-radius="balanced" aria-pressed="true" data-i18n="settings.studio_radius_balanced"></button>
-                <button type="button" data-radius="soft" data-i18n="settings.studio_radius_soft"></button>
+                <button type="button" data-radius="sharp" data-i18n="settings.studio_radius_sharp">Dwat</button>
+                <button type="button" data-radius="balanced" aria-pressed="true" data-i18n="settings.studio_radius_balanced">Ekilibre</button>
+                <button type="button" data-radius="soft" data-i18n="settings.studio_radius_soft">Awondi</button>
               </div>
             </div>
             <div>
-              <label class="label mb-2" style="display:block;" data-i18n="settings.studio_card_style"></label>
+              <label class="label mb-2" style="display:block;" data-i18n="settings.studio_card_style">Fini kat yo</label>
               <div class="segmented" id="studio-card-group">
-                <button type="button" data-card-style="bordered" aria-pressed="true" data-i18n="settings.studio_card_bordered"></button>
-                <button type="button" data-card-style="elevated" data-i18n="settings.studio_card_elevated"></button>
-                <button type="button" data-card-style="tinted" data-i18n="settings.studio_card_tinted"></button>
+                <button type="button" data-card-style="bordered" aria-pressed="true" data-i18n="settings.studio_card_bordered">Bòdi fen</button>
+                <button type="button" data-card-style="elevated" data-i18n="settings.studio_card_elevated">Lonbraj dous</button>
+                <button type="button" data-card-style="tinted" data-i18n="settings.studio_card_tinted">Ton lejè</button>
               </div>
             </div>
           </div>
 
           <div class="mt-4">
             <div class="row-between mb-1">
-              <label class="label mb-0" for="studio-scale" data-i18n="settings.studio_text_size"></label>
+              <label class="label mb-0" for="studio-scale" data-i18n="settings.studio_text_size">Gwosè ekriti</label>
               <span class="badge badge-outline" id="studio-scale-val">100%</span>
             </div>
             <input type="range" class="studio-range" id="studio-scale" min="0.88" max="1.18" step="0.02" value="1">
@@ -133,7 +133,7 @@
 
         <!-- Aperçu en direct -->
         <div class="mt-6">
-          <label class="label mb-2" style="display:block;" data-i18n="settings.studio_preview"></label>
+          <label class="label mb-2" style="display:block;" data-i18n="settings.studio_preview">Apèsi an dirèk</label>
           <div class="studio-mini-preview">
             <article class="card card-sm">
               <div class="row-between mb-2">
@@ -153,11 +153,11 @@
         <div class="row-wrap mt-6">
           <button type="button" class="btn btn-primary" id="studio-save-btn">
             <i data-lucide="check" aria-hidden="true"></i>
-            <span data-i18n="settings.studio_save"></span>
+            <span data-i18n="settings.studio_save">Anrejistre design mwen</span>
           </button>
           <button type="button" class="btn btn-secondary" id="studio-reset-btn">
             <i data-lucide="rotate-ccw" aria-hidden="true"></i>
-            <span data-i18n="settings.studio_reset"></span>
+            <span data-i18n="settings.studio_reset">Retounen nan defo</span>
           </button>
         </div>
       </section>
@@ -165,7 +165,7 @@
       <!-- Langue & Données -->
       <section class="card">
         <div class="field">
-          <label for="set-lang" data-i18n="onboarding.language"></label>
+          <label for="set-lang" data-i18n="onboarding.language">Lang ou prefere pou eksplikasyon</label>
           <select class="select" id="set-lang">
             <option value="ht">Kreyòl ayisyen</option>
             <option value="fr">Français</option>
@@ -176,55 +176,55 @@
           <input type="checkbox" id="set-datasaver">
           <span class="switch-track"></span>
           <div>
-            <strong class="text-sm" data-i18n="settings.data_saver"></strong>
-            <div class="text-xs muted" data-i18n="settings.data_saver_sub"></div>
+            <strong class="text-sm" data-i18n="settings.data_saver">Mòd ekonomi done</strong>
+            <div class="text-xs muted" data-i18n="settings.data_saver_sub">Dezkative imaj lou yo, konprese tout bagay plis epi retade tretman IA lou yo.</div>
           </div>
         </label>
       </section>
 
       <!-- Notifications -->
       <section class="card">
-        <h2 class="card-title mb-3" data-i18n="settings.notifications"></h2>
+        <h2 class="card-title mb-3" data-i18n="settings.notifications">Rapèl, Son ak WhatsApp</h2>
         <div class="stack-sm">
           <label class="switch">
             <input type="checkbox" id="set-n-daily">
             <span class="switch-track"></span>
-            <span class="text-sm" data-i18n="settings.notify_daily"></span>
+            <span class="text-sm" data-i18n="settings.notify_daily">Plan jounen an ak seri chak jou (imèl)</span>
           </label>
           <label class="switch">
             <input type="checkbox" id="set-n-weekly">
             <span class="switch-track"></span>
-            <span class="text-sm" data-i18n="settings.notify_weekly"></span>
+            <span class="text-sm" data-i18n="settings.notify_weekly">Rapò chak semèn (imèl)</span>
           </label>
           <label class="switch">
             <input type="checkbox" id="set-n-deadlines">
             <span class="switch-track"></span>
-            <span class="text-sm" data-i18n="settings.notify_deadlines"></span>
+            <span class="text-sm" data-i18n="settings.notify_deadlines">Rapèl devwa J-7, J-3, J-1</span>
           </label>
           <label class="switch">
             <input type="checkbox" id="set-n-classes">
             <span class="switch-track"></span>
-            <span class="text-sm" data-i18n="settings.notify_classes"></span>
+            <span class="text-sm" data-i18n="settings.notify_classes">Notifikasyon lè yon kou pral kòmanse ak mòd Kou an dirèk</span>
           </label>
           <label class="switch">
             <input type="checkbox" id="set-n-sound">
             <span class="switch-track"></span>
-            <span class="text-sm" data-i18n="settings.notify_sound"></span>
+            <span class="text-sm" data-i18n="settings.notify_sound">Jwe yon son karilon ak vibrasyon pou alèt yo (mache san entènèt)</span>
           </label>
           <label class="switch">
             <input type="checkbox" id="set-n-whatsapp">
             <span class="switch-track"></span>
-            <span class="text-sm" data-i18n="settings.notify_whatsapp"></span>
+            <span class="text-sm" data-i18n="settings.notify_whatsapp">Rapèl sou WhatsApp pou kou k ap kòmanse, devwa ak inaktivite</span>
           </label>
         </div>
         <div class="row-wrap mt-4">
           <button type="button" class="btn btn-sm btn-secondary" id="test-sound-btn">
             <i data-lucide="volume-2" aria-hidden="true"></i>
-            <span data-i18n="notifications.test_btn"></span>
+            <span data-i18n="notifications.test_btn">Teste son ak notifikasyon</span>
           </button>
           <button type="button" class="btn btn-sm btn-secondary" id="test-wa-btn">
             <i data-lucide="message-circle" aria-hidden="true"></i>
-            <span data-i18n="settings.test_whatsapp_btn"></span>
+            <span data-i18n="settings.test_whatsapp_btn">Teste rapèl WhatsApp mwen</span>
           </button>
         </div>
       </section>
@@ -232,7 +232,7 @@
       <!-- Quota IA -->
       <section class="card">
         <div class="row-between mb-2">
-          <h2 class="card-title mb-0" data-i18n="settings.ai_quota"></h2>
+          <h2 class="card-title mb-0" data-i18n="settings.ai_quota">Itilizasyon IA jodi a</h2>
           <strong class="text-sm" id="quota-text">0 / 60</strong>
         </div>
         <div class="progress"><span id="quota-bar" style="width:0%"></span></div>
@@ -275,7 +275,7 @@
         <div class="row-wrap">
           <button type="button" class="btn btn-danger" id="logout-btn">
             <i data-lucide="log-out" aria-hidden="true"></i>
-            <span data-i18n="nav.logout"></span>
+            <span data-i18n="nav.logout">Dekonekte</span>
           </button>
         </div>
       </section>

@@ -33,31 +33,45 @@ Deno.serve(async (req) => {
     }
 
     const langDirective = mode === 'harmonize_ht'
-      ? 'Harmonise et traduis proprement tout le texte en créole haïtien clair (garde les termes techniques entre parenthèses).'
+      ? 'Langue principale demandée : KREYÒL AYISYEN klè, natirèl, akademik e pedagojik (mete tèm teknik franse yo ant parantèz).'
       : mode === 'harmonize_fr'
-        ? 'Harmonise et traduis proprement tout le texte en français universitaire clair.'
-        : `Produis la fiche propre principalement en ${language === 'fr' ? 'français' : 'créole haïtien'}, en corrigeant l'orthographe, les lapsus et les erreurs de transcription tout en respectant scrupuleusement la logique du professeur.`;
+        ? 'Langue principale demandée : Français universitaire soigné, clair et pédagogique.'
+        : `Langue de synthèse : ${language === 'fr' ? 'Français académique soigné' : 'Kreyòl ayisyen natirèl e klè'}.`;
 
     const prompt = `${langDirective}
 
-RÈGLES IMPORTANTES :
-1. FILTRAGE DU BRUIT & NON-SENS : La retranscription brute peut contenir des bruits de classe, des murmures, des phrases incomplètes, des hallucinations audio ou des propos sans rapport. Élimine impitoyablement ces passages parasites. Concentre-toi EXCLUSIVEMENT sur ce que le professeur a réellement enseigné, expliqué et dicté avec rigueur et clarté.
-2. FIDÉLITÉ LOGIQUE : Ne change jamais le raisonnement ou la pensée du professeur.
-3. CONSERVATION PRÉCIEUSE DU CRÉOLE HAÏTIEN : Lorsque le professeur illustre une idée, donne un exemple frappant ou prononce des phrases marquantes en créole haïtien, CONSERVE et METS EN VALEUR ces phrases en créole haïtien (par exemple avec un bloc de citation ou en gras avec leur traduction/explication bilingue) pour que l'étudiant puisse revoir exactement comment le professeur a expliqué le concept.
-4. CORRECTION INTELLIGENTE : Si un mot a été mal capté par la transcription audio, rétablis le vrai terme universitaire exact et liste la correction dans "corrections".
-5. DÉTECTION DES DEVOIRS : Si le professeur a mentionné un devoir, exercice à rendre ou travail pratique, ajoute-le dans "homework".
-6. RECHERCHES & LIVRES : Propose les thèmes ou livres clés à consulter dans "research_topics".
-7. BILINGUISME HARMONISÉ : Conserve l'équilibre créole haïtien et français universitaire.
+MISSION CRUCIALE D'EXTRACTION & DE PURIFICATION PÉDAGOGIQUE :
+Tu es l'analyste académique d'élite de Pran Nòt. Le texte brut ci-dessous est issu d'une prise de notes ou d'une transcription audio en direct de la classe d'un professeur d'université.
+Ce texte brut contient des bruits parasites, des interruptions, des phrases inachevées, des digressions inutiles, ou des hallucinations de transcription vocale.
+
+TES OBLIGATIONS STRICTES DE STRUCTURATION :
+1. PURIFICATION RADICALE DU BRUIT & SÉPARATION INTELLIGENTE :
+   - Écarte TOTALEMENT les bruits parasites, les bavardages, les phrases sans queue ni tête et les hésitations.
+   - Si le professeur a parlé en kreyòl avec des expressions de tous les jours ou approximatives, ne les retranscris JAMAIS de manière brute ou informe ! Transforme-les en explications limpides, structurées et pédagogiques.
+2. SYNTHÈSE PUISSANTE & POINT PAR POINT ("content_html") :
+   - Ne produis JAMAIS un gros bloc de texte indigeste ou un simple paragraphe au kilomètre.
+   - Structure le contenu avec des sections titrées claires :
+     * <h2>Introduction & Notions Clés</h2>
+     * <h2>Développements & Explications Approfondies</h2> avec des sous-titres <h3>
+     * <h2>Points Essentiels à Retenir pour les Examens</h2> sous forme de listes à puces <ul><li><strong>Concept</strong> : explication...</li></ul>
+     * <h2>Exemples & Cas Concrets du Professeur</h2> (mets en valeur les exemples donnés en classe avec des <blockquote> ou <em>)
+3. POINTS CLÉS POUR EXAMEN ("takeaways") :
+   - Liste au moins 3 à 6 points cruciaux indispensables à retenir pour réussir l'examen sur ce cours.
+4. RÉSUMÉ EXÉCUTIF ("summary") :
+   - Rédige un résumé percutant, clair et complet en 4 à 6 phrases synthétisant exactement la thèse et les leçons principales de la séance.
+5. DEVOIRS & MOTS-CLÉS :
+   - Remplis rigoureusement "homework" si un travail a été annoncé.
+   - Isole les termes techniques exacts dans "keywords".
 
 Cours existants de l'étudiant : ${JSON.stringify(courses.map((c: { id: string; name: string }) => ({ id: c.id, name: c.name })))}
 
 Retourne STRICTEMENT ce JSON :
 {
-  "title": "Titre court et précis de la séance",
-  "summary": "Résumé clair et complet en 4 à 6 lignes",
-  "verbatim_raw": "Retranscription fidèle de tout ce qui a été dit dans l'extrait",
-  "content_html": "HTML propre utilisant uniquement <h2>, <h3>, <p>, <ul>, <ol>, <li>, <strong>, <em>, <code>, <blockquote> (plan structuré, définitions, explications détaillées, points clés, exemples)",
-  "takeaways": ["Point clé 1 pour examen", "Point clé 2", "Point clé 3"],
+  "title": "Titre court, précis et académique de la séance",
+  "summary": "Résumé clair, percutant et complet en 4 à 6 phrases",
+  "verbatim_raw": "Retranscription nettoyée des passages clés du professeur",
+  "content_html": "HTML propre avec <h2>, <h3>, <p>, <ul>, <ol>, <li>, <strong>, <em>, <blockquote> (organisé par grandes rubriques, définitions nettes, listes à puces aérées, points d'examen)",
+  "takeaways": ["Point clé 1 indispensable pour examen", "Point clé 2", "Point clé 3", "Point clé 4"],
   "keywords": ["mot-clé 1", "mot-clé 2", "mot-clé 3", "mot-clé 4"],
   "corrections": [
     { "original": "mot ou phrase approximative", "corrected": "formulation exacte et académique", "reason": "faute de transcription ou lapsus oral" }
@@ -65,12 +79,12 @@ Retourne STRICTEMENT ce JSON :
   "homework": [
     { "title": "Devoir ou travail mentionné", "due_hint": "Échéance ou date mentionnée", "description": "Consignes données" }
   ],
-  "research_topics": ["Thème ou ressource de droit/médecine/ingénierie à approfondir"],
+  "research_topics": ["Thème ou ressource de droit/médecine/ingénierie/lettres à approfondir"],
   "implied_points": ["Déduction ou idée implicite formulée sobrement"],
   "suggested_course_id": "uuid du cours le plus pertinent parmi les cours existants, ou null"
 }
 
-Note brute à traiter :
+Texte brut de cours à traiter :
 ${rawText.slice(0, 22000)}`;
 
     const out = await runAiTask(auth.admin, auth.user.id, auth.profile?.ai_daily_quota || 500, {
