@@ -544,6 +544,17 @@ async function startLiveAudio() {
       },
     });
 
+    // Gestion de débranchement inattendu de micro externe
+    rawStream.getAudioTracks().forEach((track) => {
+      track.onended = () => {
+        if (isRecording) {
+          console.warn('[live-class] Track ended unexpectedly. Stopping recording cleanly...');
+          toast('Mikwofòn nan dekonekte. Nòt la sove.', 'warning');
+          stopLiveAudio();
+        }
+      };
+    });
+
     const AC = window.AudioContext || window.webkitAudioContext;
     if (AC) {
       audioCtx = new AC();

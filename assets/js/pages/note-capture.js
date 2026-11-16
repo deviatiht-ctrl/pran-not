@@ -467,7 +467,9 @@ async function setupAudioConditioning(stream) {
     analyserNode.connect(zeroSinkNode);
     zeroSinkNode.connect(audioCtx.destination);
 
-    // Profil "Direct" : mesure du signal uniquement, enregistrement du flux matériel brut sans traitement
+    // Profil "Direct" ou mikwofòn ekstèn USB/Wireless (DJI Mic, Rode, etc.) :
+    // Si l'utilisateur a choisi direct ou si le flux provient d'un micro dédié,
+    // enregistrer directement le flux natif pour éviter les artefacts de resynchronisation Web Audio
     if (audioProfile === 'direct') {
       source.connect(analyserNode);
       return stream;
@@ -579,6 +581,10 @@ function spawnSegmentRecorder(stream, mime) {
     if (e.data && e.data.size > 0) segChunks.push(e.data);
   };
 
+  rec.onerror = (e) => {
+    console.warn('[audio] MediaRecorder error event:', e);
+  };
+
   rec.onstop = () => {
     const finalMime = rec.mimeType || mime || 'audio/webm';
     const blob = new Blob(segChunks, { type: finalMime });
@@ -643,13 +649,22 @@ function rotateAudioSegment(mime) {
   if (!isRecordingSession || !mediaRecorder) return;
   const oldRec = mediaRecorder;
   segmentSeconds = totalSeconds;
+
+  // D'abord forcer la récupération de toutes les données du segman aktyèl la
+  try {
+    if (oldRec && oldRec.state === 'recording') {
+      oldRec.requestData();
+    }
+  } catch { /* ignore */ }
+
   try {
     mediaRecorder = spawnSegmentRecorder(recordStream, mime);
   } catch (err) {
     console.warn('[audio] Failed to spawn new segment recorder', err);
   }
+
   try {
-    if (oldRec && oldRec.state === 'recording') {
+    if (oldRec && oldRec.state !== 'inactive') {
       oldRec.stop();
     }
   } catch { /* ignore */ }
@@ -687,6 +702,19 @@ async function startRecording() {
           };
     rawMicStream = await navigator.mediaDevices.getUserMedia(constraints);
     populateMicDevices();
+
+    // Si yon mikwofòn ekstèn (tankou DJI Mic) debranche pandan anrejistreman an ap fèt :
+    // Pa kite sesyon an plante ni disparèt ! Rekipere odyo ki deja la a imedyatman.
+    rawMicStream.getAudioTracks().forEach((track) => {
+      track.onended = () => {
+        if (isRecordingSession) {
+          console.warn('[audio] Track ended unexpectedly (mic unplugged or interrupted). Safeguarding audio...');
+          toast('Mikwofòn nan dekonekte. Nòt la ak odyo anrejistre a sove.', 'warning');
+          stopRecording();
+          saveDraftToStorage();
+        }
+      };
+    });
   } catch {
     toast('Otorize mikwofòn nan nan navigatè ou pou anrejistre.', 'error');
     return;
