@@ -51,10 +51,10 @@ function renderTestForm() {
                 </label>`).join('')}
             </div>` : q.type === 'true_false' ? `
             <div class="option-grid">
-              <label class="option"><input type="radio" name="q_${esc(q.id)}" value="true"><span>${esc(t('common.yes'))} / Vre</span></label>
-              <label class="option"><input type="radio" name="q_${esc(q.id)}" value="false"><span>${esc(t('common.no'))} / Fo</span></label>
+              <label class="option"><input type="radio" name="q_${esc(q.id)}" value="true"><span>${esc(t('common.yes'))}</span></label>
+              <label class="option"><input type="radio" name="q_${esc(q.id)}" value="false"><span>${esc(t('common.no'))}</span></label>
             </div>` : `
-            <textarea class="textarea" name="q_${esc(q.id)}" rows="4" placeholder="Ekri repons ou isit la..."></textarea>`}
+            <textarea class="textarea" name="q_${esc(q.id)}" rows="4" placeholder="${esc(t('tests.write_answer_ph'))}"></textarea>`}
         </section>`).join('')}
 
       <button type="submit" class="btn btn-primary btn-lg" id="submit-quiz-btn">
@@ -182,11 +182,11 @@ function renderResults(results, percent, weakKeywords) {
       ${results.map((r, i) => `
         <article class="card">
           <div class="row-between mb-2">
-            <strong>Kesyon ${i + 1}</strong>
+            <strong>${esc(t('tests.question_num', { num: i + 1 }))}</strong>
             <span class="badge ${r.correct ? 'badge-success' : 'badge-error'}">${r.earned} / ${r.max}</span>
           </div>
           <p class="mb-2">${esc(r.question.prompt)}</p>
-          <p class="text-sm muted mb-2"><strong>Repons ou :</strong> ${esc(r.given === null || r.given === '' ? '(vid)' : r.question.type === 'mcq' ? (r.question.options?.[r.given] ?? r.given) : String(r.given))}</p>
+          <p class="text-sm muted mb-2"><strong>${esc(t('tests.your_answer_label'))}</strong> ${esc(r.given === null || r.given === '' ? '(vid)' : r.question.type === 'mcq' ? (r.question.options?.[r.given] ?? r.given) : String(r.given))}</p>
           <div class="alert ${r.correct ? 'alert-success' : 'alert-info'} mb-3">
             ${icon(r.correct ? 'check-circle-2' : 'info')}
             <div class="flex-1 text-sm">${esc(r.feedback || r.question.explanation || String(r.question.answer))}</div>
@@ -206,7 +206,7 @@ function renderResults(results, percent, weakKeywords) {
         const res = await explainText({
           text: `Kesyon: ${r.question.prompt}\nRepons kòrèk: ${r.question.type === 'mcq' ? r.question.options?.[r.question.answer] : r.question.answer}\nEksplikasyon: ${r.feedback}`,
           mode: 'simple',
-          language: 'ht',
+          language: getLang(),
           faculty: profileRef?.faculty_id,
           level: profileRef?.level,
         });

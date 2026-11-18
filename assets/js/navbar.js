@@ -52,7 +52,7 @@ export async function initAppChrome({
   initOffline();
 
   const lang = getLang();
-  const displayName = profile?.full_name || user?.email || 'Etidyan';
+  const displayName = profile?.full_name || user?.email || t('common.student');
   const avatarText = initials(profile?.full_name, user?.email);
 
   const navItems = [
@@ -187,12 +187,12 @@ export async function initAppChrome({
 
   document.getElementById('mob-more-btn')?.addEventListener('click', () => {
     const moreItems = [
-      { href: 'pages/assignments.html', icon: 'clipboard-list', label: t('nav.assignments'), desc: 'Devwa, gid IA ak verifikasyon' },
-      { href: 'pages/tests.html', icon: 'check-circle-2', label: t('nav.tests'), desc: 'Egzamen blan ak simulation' },
-      { href: 'pages/planner.html', icon: 'calendar', label: t('nav.planner'), desc: 'Orè kou ak kalandriye' },
-      { href: 'pages/library.html', icon: 'library', label: t('nav.library_full'), desc: 'Liv, kòd lwa ak resous' },
-      { href: 'pages/progress.html', icon: 'bar-chart-2', label: t('nav.progress'), desc: 'Estatistik ak nivo XP' },
-      { href: 'pages/profile.html', icon: 'user', label: t('nav.profile'), desc: 'Kont ou ak enfòmasyon w' },
+      { href: 'pages/assignments.html', icon: 'clipboard-list', label: t('nav.assignments'), desc: t('nav.assignments_desc') },
+      { href: 'pages/tests.html', icon: 'check-circle-2', label: t('nav.tests'), desc: t('nav.tests_desc') },
+      { href: 'pages/planner.html', icon: 'calendar', label: t('nav.planner'), desc: t('nav.planner_desc') },
+      { href: 'pages/library.html', icon: 'library', label: t('nav.library_full'), desc: t('nav.library_desc') },
+      { href: 'pages/progress.html', icon: 'bar-chart-2', label: t('nav.progress'), desc: t('nav.progress_desc') },
+      { href: 'pages/profile.html', icon: 'user', label: t('nav.profile'), desc: t('nav.profile_desc') },
     ];
     const contentHtml = `
       <div class="mobile-more-grid">

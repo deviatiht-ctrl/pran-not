@@ -83,7 +83,7 @@ function openNewModal() {
   const m = openModal({
     title: t('assignments.new'),
     body: `
-      <div class="field"><label>Tit devwa a</label><input class="input" id="asg-title" required placeholder="Ex : Disètasyon sou obligasyon kontra"></div>
+      <div class="field"><label>${esc(t('assignments.title_field'))}</label><input class="input" id="asg-title" required placeholder="${esc(t('assignments.title_ph'))}"></div>
       <div class="form-row">
         <div class="field"><label>${esc(t('nav.courses'))}</label>
           <select class="select" id="asg-course">
@@ -96,7 +96,7 @@ function openNewModal() {
         </div>
       </div>
       <div class="field"><label>${esc(t('assignments.instructions'))}</label>
-        <textarea class="textarea" id="asg-inst" rows="4" placeholder="Kole sijè a oswa enstriksyon pwofesè a..."></textarea>
+        <textarea class="textarea" id="asg-inst" rows="4" placeholder="${esc(t('assignments.prompt_instructions_ph'))}"></textarea>
       </div>`,
     footer: `<button type="button" class="btn btn-secondary" data-close>${esc(t('common.cancel'))}</button>
              <button type="button" class="btn btn-primary" id="asg-save">${esc(t('common.save'))}</button>`,

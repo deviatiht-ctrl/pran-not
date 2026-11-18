@@ -72,7 +72,7 @@ export async function openSendTransferModal(noteData) {
   m.el.querySelector('#transfer-copy-code-btn')?.addEventListener('click', async () => {
     try {
       await navigator.clipboard.writeText(rawCode.replace('-', ''));
-      toast('Kòd kopye nan bipò!', 'success');
+      toast(t('transfer.code_copied'), 'success');
     } catch {
       toast(rawCode, 'info');
     }
@@ -94,7 +94,7 @@ export async function openSendTransferModal(noteData) {
     const { data, error } = await db.from('pran_not_live_transfers').insert({
       code: rawCode.replace('-', '').trim(),
       sender_id: user.id,
-      sender_name: profile?.full_name || 'Kanmarad',
+      sender_name: profile?.full_name || t('common.student'),
       note_id: noteData.id || null,
       note_title: title,
       note_payload: payload,
@@ -252,8 +252,8 @@ export async function openReceiveTransferModal(onReceivedCallback) {
         <div class="alert alert-success">
           ${icon('check-circle')}
           <div>
-            <strong>Nòt anrejistre !</strong>
-            <div class="text-xs mt-1">"${esc(noteTitle)}" pare nan koleksyon nòt ou yo.</div>
+            <strong>${esc(t('transfer.note_saved_title'))}</strong>
+            <div class="text-xs mt-1">${esc(t('transfer.note_saved_desc', { title: noteTitle }))}</div>
           </div>
         </div>
       `;
@@ -332,7 +332,7 @@ export async function openExamRevisionModal({ courseId = '', courses = [] } = {}
 
   const runQuery = async () => {
     setLoading(loadBtn, true);
-    resultsBox.innerHTML = '<p class="text-center text-sm muted py-4">Nap chaje nòt yo...</p>';
+    resultsBox.innerHTML = `<p class="text-center text-sm muted py-4">${esc(t('transfer.loading_notes'))}</p>`;
 
     try {
       const sDate = startInput.value || thirtyDaysAgo;
@@ -355,7 +355,7 @@ export async function openExamRevisionModal({ courseId = '', courses = [] } = {}
       if (!notes || !notes.length) {
         resultsBox.innerHTML = `
           <div class="alert alert-info text-center py-4">
-            Pa gen okenn nòt ki anrejistre ant ${formatDate(sDate)} ak ${formatDate(eDate)}.
+            ${esc(t('transfer.no_notes_period_fmt', { start: formatDate(sDate), end: formatDate(eDate) }))}
           </div>
         `;
         setLoading(loadBtn, false);
@@ -376,20 +376,20 @@ export async function openExamRevisionModal({ courseId = '', courses = [] } = {}
       resultsBox.innerHTML = `
         <div class="row-between card card-accent card-sm mb-3">
           <div>
-            <div class="text-xs muted">Total Nòt</div>
+            <div class="text-xs muted">${esc(t('notes.title'))}</div>
             <div class="text-lg font-bold">${totalNotes} nòt</div>
           </div>
           <div>
-            <div class="text-xs muted">Tan an Dirèk</div>
+            <div class="text-xs muted">${esc(t('live.title'))}</div>
             <div class="text-lg font-bold">${Math.round(totalLiveSec / 60)} min</div>
           </div>
           <div>
-            <div class="text-xs muted">Konsèp Kle</div>
+            <div class="text-xs muted">${esc(t('notes.keywords'))}</div>
             <div class="text-lg font-bold">${allKeywords.size}</div>
           </div>
         </div>
 
-        <h4 class="card-title text-sm mb-2">Lis Nòt Peryòd la (${formatDate(sDate)} - ${formatDate(eDate)})</h4>
+        <h4 class="card-title text-sm mb-2">${esc(t('transfer.period_notes_title', { start: formatDate(sDate), end: formatDate(eDate) }))}</h4>
         <ul class="list stack-sm">
           ${notes.map((n) => `
             <li class="list-item">

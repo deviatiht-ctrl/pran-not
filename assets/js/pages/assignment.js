@@ -71,7 +71,7 @@ async function copyTextToClipboard(text) {
     }
     toast(t('assignments.copied') || 'Kopye!', 'success');
   } catch {
-    toast('Echèk kopye', 'warning');
+    toast(t('assignments.copy_fail'), 'warning');
   }
 }
 
@@ -110,7 +110,7 @@ function renderAiPlan(plan, librarySources = []) {
   if (plan?.content_proposal) {
     contentHtml += `
       <div class="row-between mb-2" style="flex-wrap:wrap;gap:8px;">
-        <div class="ai-suggestion-label">${icon('sparkles')}<span>Pwopozisyon Redaksyon IA</span></div>
+        <div class="ai-suggestion-label">${icon('sparkles')}<span>${esc(t('assignments.proposal_title'))}</span></div>
         <div class="row-wrap" style="gap:6px;">
           <button type="button" class="btn btn-sm btn-primary" id="asg-insert-proposal-btn">${icon('plus')}<span>${esc(t('assignments.insert_in_draft'))}</span></button>
           <button type="button" class="btn btn-sm btn-warning" id="asg-replace-proposal-btn">${icon('check')}<span>${esc(t('assignments.replace_all'))}</span></button>
@@ -118,12 +118,12 @@ function renderAiPlan(plan, librarySources = []) {
         </div>
       </div>
       <div class="card card-sm mb-3" style="background:var(--c-surface);"><p class="text-sm mb-0" id="asg-proposal-text" style="white-space:pre-wrap;">${esc(plan.content_proposal)}</p></div>
-      ${plan.explanation ? `<div class="mb-2"><strong>Demach & Esplikasyon :</strong><p class="text-sm mb-0">${esc(plan.explanation)}</p></div>` : ''}
+      ${plan.explanation ? `<div class="mb-2"><strong>${esc(t('assignments.approach_explanation'))}</strong><p class="text-sm mb-0">${esc(plan.explanation)}</p></div>` : ''}
     `;
   } else if (plan?.detailed_breakdown || plan?.global_summary) {
     contentHtml += `
       <div class="ai-suggestion-label mb-2">${icon('book-open')}<span>${esc(t('assignments.explain_details_title'))}</span></div>
-      ${plan.global_summary ? `<div class="card card-sm mb-3" style="background:var(--c-surface);"><strong class="text-xs" style="text-transform:uppercase;">Rezime Jeneral :</strong><p class="text-sm mt-1 mb-0">${esc(plan.global_summary)}</p></div>` : ''}
+      ${plan.global_summary ? `<div class="card card-sm mb-3" style="background:var(--c-surface);"><strong class="text-xs" style="text-transform:uppercase;">${esc(t('assignments.global_summary'))}</strong><p class="text-sm mt-1 mb-0">${esc(plan.global_summary)}</p></div>` : ''}
       ${Array.isArray(plan.detailed_breakdown) ? `
         <div class="stack-sm mb-3">
           ${plan.detailed_breakdown.map((item) => `
@@ -134,21 +134,21 @@ function renderAiPlan(plan, librarySources = []) {
           `).join('')}
         </div>
       ` : ''}
-      ${Array.isArray(plan.key_learnings) && plan.key_learnings.length ? `<div class="mt-2"><strong>Konsèp kle pou metrize :</strong><ul class="text-sm mb-0" style="padding-left:1.3em;">${plan.key_learnings.map((k) => `<li>${esc(k)}</li>`).join('')}</ul></div>` : ''}
-      ${Array.isArray(plan.oral_defense_tips) && plan.oral_defense_tips.length ? `<div class="mt-2"><strong>Konsèy pou defann devwa a devan pwofesè a :</strong><ul class="text-sm mb-0" style="padding-left:1.3em;">${plan.oral_defense_tips.map((tip) => `<li>${esc(tip)}</li>`).join('')}</ul></div>` : ''}
+      ${Array.isArray(plan.key_learnings) && plan.key_learnings.length ? `<div class="mt-2"><strong>${esc(t('assignments.key_learnings'))}</strong><ul class="text-sm mb-0" style="padding-left:1.3em;">${plan.key_learnings.map((k) => `<li>${esc(k)}</li>`).join('')}</ul></div>` : ''}
+      ${Array.isArray(plan.oral_defense_tips) && plan.oral_defense_tips.length ? `<div class="mt-2"><strong>${esc(t('assignments.oral_defense_tips'))}</strong><ul class="text-sm mb-0" style="padding-left:1.3em;">${plan.oral_defense_tips.map((tip) => `<li>${esc(tip)}</li>`).join('')}</ul></div>` : ''}
     `;
   } else if (plan?.verdict || plan?.score_estimate) {
     contentHtml += `
       <div class="row-between mb-2">
-        <div class="ai-suggestion-label">${icon('award')}<span>Rezilta Verifikasyon Devoir</span></div>
+        <div class="ai-suggestion-label">${icon('award')}<span>${esc(t('assignments.verdict_title'))}</span></div>
         ${plan.score_estimate ? `<span class="badge badge-success font-bold text-sm">${esc(plan.score_estimate)}</span>` : ''}
       </div>
-      ${plan.verdict ? `<div class="mb-2"><strong>Konklizyon :</strong> <span class="badge">${esc(plan.verdict)}</span></div>` : ''}
+      ${plan.verdict ? `<div class="mb-2"><strong>${esc(t('common.conclusion'))} :</strong> <span class="badge">${esc(plan.verdict)}</span></div>` : ''}
     `;
   } else if (plan?.answer) {
     contentHtml += `
       <div class="row-between mb-2" style="flex-wrap:wrap;gap:8px;">
-        <div class="ai-suggestion-label">${icon('sparkles')}<span>Repons IA Dirèk</span></div>
+        <div class="ai-suggestion-label">${icon('sparkles')}<span>${esc(t('assignments.direct_answer'))}</span></div>
         <div class="row-wrap" style="gap:6px;">
           <button type="button" class="btn btn-sm btn-primary" id="asg-insert-answer-btn">${icon('plus')}<span>${esc(t('assignments.insert_in_draft'))}</span></button>
           <button type="button" class="btn btn-sm btn-warning" id="asg-replace-answer-btn">${icon('check')}<span>${esc(t('assignments.replace_all'))}</span></button>
@@ -158,11 +158,11 @@ function renderAiPlan(plan, librarySources = []) {
       <div class="card card-sm mb-2" style="background:var(--c-surface);"><p class="text-sm mb-0" id="asg-answer-text" style="white-space:pre-wrap;">${esc(plan.answer)}</p></div>
     `;
   } else {
-    contentHtml += `<div class="ai-suggestion-label">${icon('sparkles')}<span>Gid metodolojik IA</span></div>`;
+    contentHtml += `<div class="ai-suggestion-label">${icon('sparkles')}<span>${esc(t('assignments.methodological_guide'))}</span></div>`;
   }
 
-  if (synthesisNotes.length) contentHtml += `<div class="mt-2"><strong>Sentèz dokimantè (Bibliyotèk san plajya) :</strong><ul class="text-sm mb-0" style="padding-left:1.3em;">${synthesisNotes.map((s) => `<li>${esc(s)}</li>`).join('')}</ul></div>`;
-  if (legalCitations.length) contentHtml += `<div class="mt-2"><strong>Referans lwa ak atik egzak :</strong><ul class="text-sm mb-0" style="padding-left:1.3em;">${legalCitations.map((s) => `<li>${esc(s)}</li>`).join('')}</ul></div>`;
+  if (synthesisNotes.length) contentHtml += `<div class="mt-2"><strong>${esc(t('assignments.doc_synthesis'))}</strong><ul class="text-sm mb-0" style="padding-left:1.3em;">${synthesisNotes.map((s) => `<li>${esc(s)}</li>`).join('')}</ul></div>`;
+  if (legalCitations.length) contentHtml += `<div class="mt-2"><strong>${esc(t('assignments.legal_citations'))}</strong><ul class="text-sm mb-0" style="padding-left:1.3em;">${legalCitations.map((s) => `<li>${esc(s)}</li>`).join('')}</ul></div>`;
   if (outline.length) {
     contentHtml += `<div class="mt-2">${outline.map((sec) => `
       <div class="mb-2">
@@ -170,13 +170,13 @@ function renderAiPlan(plan, librarySources = []) {
         <ul class="text-sm mb-0" style="padding-left:1.3em;">${(sec.points || []).map((p) => `<li>${esc(p)}</li>`).join('')}</ul>
       </div>`).join('')}</div>`;
   }
-  if (leads.length) contentHtml += `<div class="mt-2"><strong>Pis rechèch :</strong><ul class="text-sm mb-0" style="padding-left:1.3em;">${leads.map((l) => `<li>${esc(l)}</li>`).join('')}</ul></div>`;
-  if (sources.length) contentHtml += `<div class="mt-2"><strong>Sous pou chèche :</strong><ul class="text-sm mb-0" style="padding-left:1.3em;">${sources.map((s) => `<li>${esc(s)}</li>`).join('')}</ul></div>`;
-  if (strengths.length) contentHtml += `<div class="mt-2"><strong>Pwen fò ki byen fèt :</strong><ul class="text-sm mb-0" style="padding-left:1.3em;">${strengths.map((s) => `<li>${esc(s)}</li>`).join('')}</ul></div>`;
-  if (issues.length) contentHtml += `<div class="mt-2"><strong>Pwen pou amelyore oswa erè :</strong><ul class="text-sm mb-0" style="padding-left:1.3em;">${issues.map((i) => `<li>${esc(i)}</li>`).join('')}</ul></div>`;
-  if (corrections.length) contentHtml += `<div class="mt-2"><strong>Koreksyon egzakt :</strong><ul class="text-sm mb-0" style="padding-left:1.3em;">${corrections.map((c) => `<li>${esc(c)}</li>`).join('')}</ul></div>`;
-  if (plan?.suggestion) contentHtml += `<div class="mt-2"><strong>Pwopozisyon refòmilasyon :</strong><p class="text-sm mb-0">${esc(plan.suggestion)}</p></div>`;
-  if (tips.length) contentHtml += `<div class="mt-2"><strong>Konsèy :</strong><ul class="text-sm mb-0" style="padding-left:1.3em;">${tips.map((tp) => `<li>${esc(tp)}</li>`).join('')}</ul></div>`;
+  if (leads.length) contentHtml += `<div class="mt-2"><strong>${esc(t('assignments.research_leads'))}</strong><ul class="text-sm mb-0" style="padding-left:1.3em;">${leads.map((l) => `<li>${esc(l)}</li>`).join('')}</ul></div>`;
+  if (sources.length) contentHtml += `<div class="mt-2"><strong>${esc(t('assignments.sources_to_find'))}</strong><ul class="text-sm mb-0" style="padding-left:1.3em;">${sources.map((s) => `<li>${esc(s)}</li>`).join('')}</ul></div>`;
+  if (strengths.length) contentHtml += `<div class="mt-2"><strong>${esc(t('assignments.strengths'))}</strong><ul class="text-sm mb-0" style="padding-left:1.3em;">${strengths.map((s) => `<li>${esc(s)}</li>`).join('')}</ul></div>`;
+  if (issues.length) contentHtml += `<div class="mt-2"><strong>${esc(t('assignments.issues'))}</strong><ul class="text-sm mb-0" style="padding-left:1.3em;">${issues.map((i) => `<li>${esc(i)}</li>`).join('')}</ul></div>`;
+  if (corrections.length) contentHtml += `<div class="mt-2"><strong>${esc(t('assignments.corrections'))}</strong><ul class="text-sm mb-0" style="padding-left:1.3em;">${corrections.map((c) => `<li>${esc(c)}</li>`).join('')}</ul></div>`;
+  if (plan?.suggestion) contentHtml += `<div class="mt-2"><strong>${esc(t('assignments.rephrase_proposal'))}</strong><p class="text-sm mb-0">${esc(plan.suggestion)}</p></div>`;
+  if (tips.length) contentHtml += `<div class="mt-2"><strong>${esc(t('assignments.tips'))}</strong><ul class="text-sm mb-0" style="padding-left:1.3em;">${tips.map((tp) => `<li>${esc(tp)}</li>`).join('')}</ul></div>`;
 
   if (librarySources.length) {
     contentHtml += `
@@ -278,7 +278,7 @@ function openAiWriterModal({ initialQuestion = '', initialAction = 'solve', auto
         <label class="switch">
           <input type="checkbox" id="modal-use-draft" ${quill?.getText()?.trim()?.length > 10 ? 'checked' : ''}>
           <span class="switch-track"></span>
-          <span class="text-sm">Mete kòmansman tèks devwa a kòm referans</span>
+          <span class="text-sm">${esc(t('assignments.include_draft_ref'))}</span>
         </label>
         <button type="button" class="btn btn-primary" id="modal-run-btn" style="min-width:170px;">
           ${icon('sparkles')}<span>${esc(t('assignments.run_generation'))}</span>
@@ -345,7 +345,7 @@ function openAiWriterModal({ initialQuestion = '', initialAction = 'solve', auto
     resultBox.innerHTML = `
       <div class="card card-sm text-center p-4">
         <div class="spinner mb-2" style="margin:0 auto;"></div>
-        <p class="text-sm muted mb-0">IA ap trete devwa a nan mòd <strong>${modalScope === 'global' ? esc(t('assignments.domain_general')) : esc(facName)}</strong>... Tanpri tann kèk segond.</p>
+        <p class="text-sm muted mb-0">${esc(t('assignments.generating_in_mode', { mode: modalScope === 'global' ? t('assignments.domain_general') : facName }))}</p>
       </div>
     `;
 
@@ -378,7 +378,7 @@ function openAiWriterModal({ initialQuestion = '', initialAction = 'solve', auto
       resultBox.innerHTML = `
         <div class="card card-sm" style="background:var(--c-surface);border:1.5px solid var(--c-primary-soft, #cbd5e1);">
           <div class="row-between mb-2" style="flex-wrap:wrap;gap:8px;">
-            <div class="ai-suggestion-label">${icon('sparkles')}<span>Rezilta Redaksyon IA</span></div>
+            <div class="ai-suggestion-label">${icon('sparkles')}<span>${esc(t('assignments.generation_result'))}</span></div>
             <div class="row-wrap" style="gap:6px;">
               <button type="button" class="btn btn-sm btn-primary" id="modal-asg-insert-btn">${icon('plus')}<span>${esc(t('assignments.insert_in_draft'))}</span></button>
               <button type="button" class="btn btn-sm btn-warning" id="modal-asg-replace-btn">${icon('check')}<span>${esc(t('assignments.replace_all'))}</span></button>
@@ -386,7 +386,7 @@ function openAiWriterModal({ initialQuestion = '', initialAction = 'solve', auto
             </div>
           </div>
           <div class="prose text-sm" style="white-space:pre-wrap;max-height:360px;overflow-y:auto;padding:10px;background:var(--c-surface-soft);border-radius:var(--r-card);">${esc(generatedText || 'Pa gen tèks jenere.')}</div>
-          ${plan.explanation ? `<div class="mt-2 text-xs muted"><strong>Demach & Esplikasyon :</strong> ${esc(plan.explanation)}</div>` : ''}
+          ${plan.explanation ? `<div class="mt-2 text-xs muted"><strong>${esc(t('assignments.approach_explanation'))}</strong> ${esc(plan.explanation)}</div>` : ''}
         </div>
       `;
       icons(resultBox);
@@ -521,7 +521,7 @@ async function renderPage() {
           <div class="ai-suggestion mb-4" id="asg-ai-output" ${assignment.plan ? '' : 'hidden'}></div>
 
           <div class="field mb-0">
-            <label>Redaksyon devwa a</label>
+            <label>${esc(t('assignments.editor_writing'))}</label>
             <div id="asg-quill"></div>
           </div>
         </section>
@@ -538,7 +538,7 @@ async function renderPage() {
             </div>
           </div>
           <div class="mb-4 p-3" style="background:var(--c-surface-soft);border-radius:var(--r-card);">
-            <strong>Enstriksyon :</strong>
+            <strong>${esc(t('assignments.instructions'))} :</strong>
             <p class="text-sm mb-0 mt-1" id="preview-inst">${esc(assignment.instructions || 'Pa gen enstriksyon.')}</p>
           </div>
           <div id="preview-body" class="prose" style="min-height:240px;line-height:1.6;"></div>
@@ -555,7 +555,7 @@ async function renderPage() {
 
           <div class="field mt-3">
             <label for="asg-critique-text">${esc(t('assignments.critique_paste_label'))}</label>
-            <textarea class="textarea" id="asg-critique-text" rows="8" placeholder="Kole tèks devwa a isit la pou IA a analize tout repons yo ak estrikti a..."></textarea>
+            <textarea class="textarea" id="asg-critique-text" rows="8" placeholder="${esc(t('assignments.critique_paste_label'))}"></textarea>
           </div>
 
           <div class="row-wrap mb-4">
@@ -574,9 +574,9 @@ async function renderPage() {
 
       <aside class="stack">
         <section class="card">
-          <h2 class="card-title mb-3">Estati ak fichye</h2>
+          <h2 class="card-title mb-3">${esc(t('assignments.status_and_files'))}</h2>
           <div class="field">
-            <label for="asg-status">Estati</label>
+            <label for="asg-status">${esc(t('common.status'))}</label>
             <select class="select" id="asg-status">
               <option value="todo" ${assignment.status === 'todo' ? 'selected' : ''}>${esc(t('assignments.status_todo'))}</option>
               <option value="in_progress" ${assignment.status === 'in_progress' ? 'selected' : ''}>${esc(t('assignments.status_in_progress'))}</option>
@@ -585,7 +585,7 @@ async function renderPage() {
             </select>
           </div>
           <div class="field mb-2">
-            <label for="asg-file-up">Atache fichye (PDF, imaj)</label>
+            <label for="asg-file-up">${esc(t('assignments.attach_files'))}</label>
             <input class="input" id="asg-file-up" type="file" style="padding-top:9px;">
           </div>
           <div id="asg-files-list" class="stack-sm"></div>
@@ -596,19 +596,19 @@ async function renderPage() {
           <div class="field">
             <label for="cov-tpl">${esc(t('assignments.cover_template'))}</label>
             <select class="select" id="cov-tpl">
-              <option value="classic" ${cov.template === 'classic' ? 'selected' : ''}>Klasik ankadre (Inivèsitè)</option>
-              <option value="modern" ${cov.template === 'modern' ? 'selected' : ''}>Modèn ak liy oranj</option>
-              <option value="minimal" ${cov.template === 'minimal' ? 'selected' : ''}>Senp ak pwòp</option>
+              <option value="classic" ${cov.template === 'classic' ? 'selected' : ''}>${esc(t('assignments.cover_classic'))}</option>
+              <option value="modern" ${cov.template === 'modern' ? 'selected' : ''}>${esc(t('assignments.cover_modern'))}</option>
+              <option value="minimal" ${cov.template === 'minimal' ? 'selected' : ''}>${esc(t('assignments.cover_minimal'))}</option>
             </select>
           </div>
-          <div class="field"><label>Inivèsite</label><input class="input" id="cov-uni" value="${esc(cov.university || profileRef?.university || '')}"></div>
-          <div class="field"><label>Fakilte</label><input class="input" id="cov-fac" value="${esc(cov.faculty || profileRef?.faculty?.name_fr || '')}"></div>
-          <div class="field"><label>Kou</label><input class="input" id="cov-course" value="${esc(cov.course || course?.name || '')}"></div>
-          <div class="field"><label>Pwofesè</label><input class="input" id="cov-prof" value="${esc(cov.professor || course?.professor || '')}"></div>
-          <div class="field"><label>Etidyan</label><input class="input" id="cov-student" value="${esc(cov.student || profileRef?.full_name || '')}"></div>
+          <div class="field"><label>${esc(t('common.university'))}</label><input class="input" id="cov-uni" value="${esc(cov.university || profileRef?.university || '')}"></div>
+          <div class="field"><label>${esc(t('common.faculty'))}</label><input class="input" id="cov-fac" value="${esc(cov.faculty || profileRef?.faculty?.name_fr || '')}"></div>
+          <div class="field"><label>${esc(t('common.course'))}</label><input class="input" id="cov-course" value="${esc(cov.course || course?.name || '')}"></div>
+          <div class="field"><label>${esc(t('common.professor'))}</label><input class="input" id="cov-prof" value="${esc(cov.professor || course?.professor || '')}"></div>
+          <div class="field"><label>${esc(t('common.student'))}</label><input class="input" id="cov-student" value="${esc(cov.student || profileRef?.full_name || '')}"></div>
           <div class="form-row">
-            <div class="field"><label>Nivo</label><input class="input" id="cov-level" value="${esc(cov.level || profileRef?.level || '')}"></div>
-            <div class="field"><label>Dat</label><input class="input" id="cov-date" value="${esc(cov.date || formatDate(new Date()))}"></div>
+            <div class="field"><label>${esc(t('common.level'))}</label><input class="input" id="cov-level" value="${esc(cov.level || profileRef?.level || '')}"></div>
+            <div class="field"><label>${esc(t('common.date'))}</label><input class="input" id="cov-date" value="${esc(cov.date || formatDate(new Date()))}"></div>
           </div>
         </section>
       </aside>
@@ -621,7 +621,7 @@ async function renderPage() {
     await loadScript(CDN.quillJs);
     quill = new window.Quill('#asg-quill', {
       theme: 'snow',
-      placeholder: 'Kòmanse ekri travay ou a... Itilize tit H1/H2 pou jenere tab matyè a otomatikman nan PDF/Word.',
+      placeholder: t('assignments.editor_placeholder'),
       modules: {
         toolbar: [
           [{ header: [1, 2, 3, false] }],
@@ -640,7 +640,7 @@ async function renderPage() {
       const tmp = document.createElement('div');
       tmp.innerHTML = sanitizeHtml(assignment.content_html || '');
       const plain = tmp.innerText || tmp.textContent || '';
-      host.innerHTML = `<textarea class="textarea" id="asg-quill-fallback" rows="12" placeholder="Kòmanse ekri travay ou a...">${esc(plain)}</textarea>`;
+      host.innerHTML = `<textarea class="textarea" id="asg-quill-fallback" rows="12" placeholder="${esc(t('assignments.editor_placeholder'))}">${esc(plain)}</textarea>`;
       const getTa = () => host.querySelector('#asg-quill-fallback');
       quill = {
         getText: () => getTa()?.value || '',
@@ -713,7 +713,7 @@ async function renderPage() {
       if (previewInst) previewInst.textContent = document.getElementById('asg-inst-ed')?.value || 'Pa gen enstriksyon.';
       if (previewBody) {
         const html = sanitizeHtml(quill?.root?.innerHTML || '');
-        previewBody.innerHTML = html || '<p class="muted">Devwa a poko gen tèks redaksyon.</p>';
+        previewBody.innerHTML = html || `<p class="muted">${esc(t('assignments.draft_empty'))}</p>`;
       }
     }
   }
@@ -810,9 +810,9 @@ async function renderPage() {
       if (critiqueText) critiqueText.value = txt;
       toast(t('common.saved'), 'success');
     } else {
-      toast('Fichye tèks chaje', 'info');
+      toast(t('assignments.text_file_loaded'), 'info');
       if (critiqueText && !critiqueText.value.trim()) {
-        critiqueText.value = `[Fichye : ${file.name}]`;
+        critiqueText.value = `[${t('assignments.file_label')}${file.name}]`;
       }
     }
   });
@@ -845,14 +845,14 @@ async function renderPage() {
 
         critiqueOut.innerHTML = `
           <div class="row-between mb-2">
-            <div class="ai-suggestion-label">${icon('award')}<span>Rezilta Analiz & Verifikasyon</span></div>
+            <div class="ai-suggestion-label">${icon('award')}<span>${esc(t('assignments.critique_result_title'))}</span></div>
             ${plan.score_estimate ? `<span class="badge badge-success font-bold">${esc(plan.score_estimate)}</span>` : ''}
           </div>
-          ${plan.verdict ? `<div class="mb-2"><strong>Konklizyon :</strong> <span class="badge">${esc(plan.verdict)}</span></div>` : ''}
-          ${strengths.length ? `<div class="mt-2"><strong>Pwen ki kòrèk :</strong><ul class="text-sm mb-0" style="padding-left:1.3em;">${strengths.map((s) => `<li>${esc(s)}</li>`).join('')}</ul></div>` : ''}
-          ${issues.length ? `<div class="mt-2"><strong>Erè oswa pwen ki manke :</strong><ul class="text-sm mb-0" style="padding-left:1.3em;">${issues.map((i) => `<li>${esc(i)}</li>`).join('')}</ul></div>` : ''}
-          ${corrections.length ? `<div class="mt-2"><strong>Koreksyon egzat pou aplike :</strong><ul class="text-sm mb-0" style="padding-left:1.3em;">${corrections.map((c) => `<li>${esc(c)}</li>`).join('')}</ul></div>` : ''}
-          ${tips.length ? `<div class="mt-2"><strong>Konsèy :</strong><ul class="text-sm mb-0" style="padding-left:1.3em;">${tips.map((tp) => `<li>${esc(tp)}</li>`).join('')}</ul></div>` : ''}
+          ${plan.verdict ? `<div class="mb-2"><strong>${esc(t('common.conclusion'))} :</strong> <span class="badge">${esc(plan.verdict)}</span></div>` : ''}
+          ${strengths.length ? `<div class="mt-2"><strong>${esc(t('assignments.correct_points'))}</strong><ul class="text-sm mb-0" style="padding-left:1.3em;">${strengths.map((s) => `<li>${esc(s)}</li>`).join('')}</ul></div>` : ''}
+          ${issues.length ? `<div class="mt-2"><strong>${esc(t('assignments.missing_points'))}</strong><ul class="text-sm mb-0" style="padding-left:1.3em;">${issues.map((i) => `<li>${esc(i)}</li>`).join('')}</ul></div>` : ''}
+          ${corrections.length ? `<div class="mt-2"><strong>${esc(t('assignments.exact_corrections_apply'))}</strong><ul class="text-sm mb-0" style="padding-left:1.3em;">${corrections.map((c) => `<li>${esc(c)}</li>`).join('')}</ul></div>` : ''}
+          ${tips.length ? `<div class="mt-2"><strong>${esc(t('assignments.tips'))}</strong><ul class="text-sm mb-0" style="padding-left:1.3em;">${tips.map((tp) => `<li>${esc(tp)}</li>`).join('')}</ul></div>` : ''}
         `;
         icons(critiqueOut);
       }

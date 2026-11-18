@@ -31,7 +31,7 @@
   </style>
 </head>
 <body>
-  <a class="skip-link" href="#main">Ale nan kontni prensipal</a>
+  <a class="skip-link" href="#main" data-i18n="common.skip_content">Ale nan kontni prensipal</a>
 
   <main id="main" class="app-main">
     <div class="page-head">
@@ -42,7 +42,7 @@
       <div class="page-head-actions">
         <button type="button" class="btn btn-primary" id="new-conv-btn">
           <i data-lucide="plus" aria-hidden="true"></i>
-          <span>Nouvo konvèsasyon</span>
+          <span data-i18n="common.create">Nouvo konvèsasyon</span>
         </button>
       </div>
     </div>
@@ -55,7 +55,7 @@
             <option value="" data-i18n="common.all">Tout</option>
           </select>
         </div>
-        <h2 class="text-sm font-display mb-2">Istwa konvèsasyon</h2>
+        <h2 class="text-sm font-display mb-2" data-i18n="tutor.conv_history">Istwa konvèsasyon</h2>
         <ul class="list" id="conv-list"></ul>
       </aside>
 
@@ -64,8 +64,8 @@
           <div class="row" style="gap:10px;flex-wrap:wrap;align-items:center;">
             <strong class="font-display" id="active-conv-title" data-i18n="tutor.context_general">Konvèsasyon jeneral</strong>
             <div class="segmented segmented-xs" id="full-tutor-scope">
-              <button type="button" class="btn btn-xs btn-primary" data-scope="global" title="Reponn sou tout matyè san limite sou fakilte">Jeneral</button>
-              <button type="button" class="btn btn-xs btn-ghost" data-scope="faculty" title="Konsantre sou espesyalite fakilte w la">Fakilte</button>
+              <button type="button" class="btn btn-xs btn-primary" data-scope="global" data-i18n-title="tutor.scope_global_title" data-i18n="tutor.scope_global">Jeneral</button>
+              <button type="button" class="btn btn-xs btn-ghost" data-scope="faculty" data-i18n-title="tutor.scope_faculty_title" data-i18n="tutor.scope_faculty">Fakilte</button>
             </div>
           </div>
           <div class="tutor-modes" id="full-tutor-modes" style="padding:0;">

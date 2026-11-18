@@ -134,7 +134,7 @@ async function startFreshNote(skipConfirm = false) {
   if (!skipConfirm && hasContent) {
     const ok = await confirmDialog({
       title: t('notes.new_fresh'),
-      message: 'Èske ou vle kòmanse yon nouvo nòt nèf a zewo? Sa ap efase sa ki ekri kounye a.',
+      message: t('notes.discard_fresh_confirm'),
       danger: true,
     });
     if (!ok) return;
@@ -287,7 +287,7 @@ async function initQuill() {
     await loadScript(CDN.quillJs);
     quill = new window.Quill('#quill-editor', {
       theme: 'snow',
-      placeholder: 'Ekri oswa kole nòt ou a isit la...',
+      placeholder: t('capture.mode_text_sub'),
       modules: {
         toolbar: [
           [{ header: [1, 2, 3, false] }],
@@ -302,7 +302,7 @@ async function initQuill() {
     // Repli hors-ligne si Quill CDN n'était pas encore en cache
     const host = document.getElementById('quill-editor');
     if (host && !host.querySelector('textarea')) {
-      host.innerHTML = `<textarea class="textarea" id="quill-fallback-ta" rows="10" placeholder="Ekri oswa kole nòt ou a isit la..."></textarea>`;
+      host.innerHTML = `<textarea class="textarea" id="quill-fallback-ta" rows="10" placeholder="${esc(t('capture.mode_text_sub'))}"></textarea>`;
       host.querySelector('#quill-fallback-ta')?.addEventListener('input', debounce(saveDraftToStorage, 1500));
       const getText = () => host.querySelector('#quill-fallback-ta')?.value || '';
       quill = {
@@ -370,10 +370,10 @@ function switchMode(mode) {
 
   const hint = document.getElementById('audio-live-hint');
   if (currentMode === 'flash') {
-    hint.textContent = 'Nòt eklè : peze Kòmanse, pale lide ou a vit, epi peze Fini pou transkri touswit.';
+    hint.textContent = t('capture.hint_flash');
     if (!isRecordingSession) setAudioProfile('close');
   } else if (currentMode === 'audio') {
-    hint.textContent = 'Mòd sal kou : filt vwa pwofesè (85 Hz - 2.6 kHz) + konpresè + segman 45 s pou presizyon maksimòm.';
+    hint.textContent = t('capture.hint_classroom');
     if (!isRecordingSession) setAudioProfile('classroom');
   }
   if (currentMode === 'audio' || currentMode === 'flash') {
@@ -780,7 +780,7 @@ function rotateAudioSegment(mime) {
 
 async function startRecording() {
   if (!navigator.mediaDevices?.getUserMedia) {
-    toast('Navigatè sa a pa sipòte anrejistreman mikwofòn.', 'error');
+    toast(t('notes.mic_unsupported'), 'error');
     return;
   }
   const selectedDeviceId = document.getElementById('mic-device-select')?.value || '';
@@ -817,7 +817,7 @@ async function startRecording() {
       track.onended = () => {
         if (isRecordingSession) {
           console.warn('[audio] Track ended unexpectedly (mic unplugged or interrupted). Safeguarding audio...');
-          toast('Mikwofòn nan dekonekte. Nòt la ak odyo anrejistre a sove.', 'warning');
+          toast(t('notes.mic_disconnected_saved'), 'warning');
           stopRecording();
           saveDraftToStorage();
         }

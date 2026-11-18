@@ -63,7 +63,7 @@ function renderAnalysis(analysis) {
   const sel = document.getElementById('syl-course');
   const { data: cData } = await db.from('pran_not_courses').select('id, name').eq('archived', false).order('name');
   if (!cData?.length) {
-    sel.innerHTML = `<option value="">Kreye yon kou anvan nan Kou</option>`;
+    sel.innerHTML = `<option value="">${esc(t('syllabus.create_course_first'))}</option>`;
   } else {
     sel.innerHTML = cData.map((c) => `<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('');
     const pre = getParam('course');
@@ -90,7 +90,7 @@ function renderAnalysis(analysis) {
       if (!checkFileSize(file, 'image')) return;
       const blob = await compressImage(file, { maxSize: 1600, quality: 0.8, enhance: true });
       pendingImageB64 = await blobToBase64(blob);
-      toast('Foto silabis la pare pou analiz.', 'info');
+      toast(t('syllabus.photo_ready'), 'info');
     } else {
       document.getElementById('syl-text').value = await file.text();
     }

@@ -75,14 +75,14 @@ function renderList(append = false) {
         </div>
         <div class="row" style="gap:4px;">
           ${n.is_local_draft ? `
-            <a href="${esc(n.draft_target || './note-capture.html')}" class="btn-icon" aria-label="${esc(t('common.edit'))}" title="Kontinye ekri bwouyon sa a">
+            <a href="${esc(n.draft_target || './note-capture.html')}" class="btn-icon" aria-label="${esc(t('common.edit'))}" title="${esc(t('common.edit'))}">
               ${icon('edit-3')}
             </a>
-            <button type="button" class="btn-icon text-error" data-del-draft="${esc(n.id)}" aria-label="${esc(t('common.delete'))}" title="Efase bwouyon sa a">
+            <button type="button" class="btn-icon text-error" data-del-draft="${esc(n.id)}" aria-label="${esc(t('common.delete'))}" title="${esc(t('notes.delete_draft_tooltip'))}">
               ${icon('trash-2')}
             </button>
           ` : n.is_local_pending ? `
-            <button type="button" class="btn-icon text-error" data-del-pending="${esc(n.id)}" aria-label="${esc(t('common.delete'))}" title="Efase nòt lokal sa a">
+            <button type="button" class="btn-icon text-error" data-del-pending="${esc(n.id)}" aria-label="${esc(t('common.delete'))}" title="${esc(t('notes.delete_pending_tooltip'))}">
               ${icon('trash-2')}
             </button>
           ` : `
@@ -121,7 +121,7 @@ function renderList(append = false) {
       const id = btn.dataset.delDraft;
       const ok = await confirmDialog({
         title: t('common.delete'),
-        message: t('notes.discard_draft_confirm') || 'Èske ou vle efase bwouyon sa a nèt?',
+        message: t('notes.discard_draft_confirm'),
         danger: true,
       });
       if (!ok) return;
@@ -151,7 +151,7 @@ function renderList(append = false) {
       const id = btn.dataset.delPending;
       const ok = await confirmDialog({
         title: t('common.delete'),
-        message: t('notes.delete_pending_confirm') || 'Èske ou vle efase nòt sa a ki nan memwa aparèy la?',
+        message: t('notes.delete_pending_confirm'),
         danger: true,
       });
       if (!ok) return;
@@ -299,7 +299,7 @@ function getLocalStorageDrafts() {
     if (firstLine && firstLine.length > 2 && firstLine.length < 90) {
       return `${firstLine} (Bwouyon)`;
     }
-    return t('notes.status_draft') || 'Bwouyon nòt ki poko fini';
+    return t('notes.status_draft_unfinished');
   };
 
   try {
@@ -315,7 +315,7 @@ function getLocalStorageDrafts() {
         drafts.push({
           id: 'draft:capture',
           title,
-          summary: cleanRaw ? cleanRaw.slice(0, 200) : (strippedHtml ? strippedHtml.slice(0, 200) : 'Bwouyon nòt an kou nan editè a'),
+          summary: cleanRaw ? cleanRaw.slice(0, 200) : (strippedHtml ? strippedHtml.slice(0, 200) : t('notes.local_draft_item')),
           content_text: cleanRaw || strippedHtml || '',
           course_id: d.courseId || null,
           capture_mode: d.currentMode || 'text',

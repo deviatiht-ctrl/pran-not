@@ -12,7 +12,7 @@
    - importFromWord       : ekstrè tèks nan fichye .docx (mammoth UMD)
    ===================================================================== */
 import { CDN, loadScript, downloadBlob, safeFilename, htmlToText } from './utils.js';
-import { formatDate } from './i18n.js';
+import { formatDate, getLang, t } from './i18n.js';
 
 /** Convertit du HTML simple en blocs structurés { kind, text, level }. */
 function parseHtmlBlocks(html) {
@@ -90,7 +90,7 @@ export function exportNoteMarkdown(note, courseName = '') {
     lines.push(`**Mo kle / Mots-clés :** ${st.keywords.join(', ')}`, '');
   }
   if (Array.isArray(st.implied_points) && st.implied_points.length) {
-    lines.push('## Sijesyon IA (sa pwofesè a souzantann)');
+    lines.push(getLang() === 'fr' ? '## Suggestions IA (sous-entendus du professeur)' : '## Sijesyon IA (sa pwofesè a souzantann)');
     st.implied_points.forEach((item) => lines.push(`- ${item}`));
     lines.push('');
   }
@@ -291,14 +291,15 @@ export async function exportNoteDocx(note, profile = null, courseName = '') {
 
 function buildCoverMeta(assignment, profile, course) {
   const c = assignment.cover || {};
+  const isFr = getLang() === 'fr';
   return {
     template: c.template || 'classic',
-    university: c.university || profile?.university || 'Inivèsite / Université',
-    faculty: c.faculty || profile?.faculty?.name_fr || profile?.faculty?.name_ht || 'Fakilte / Faculté',
-    course: c.course || course?.name || 'Kou / Cours',
+    university: c.university || profile?.university || (isFr ? 'Université' : 'Inivèsite'),
+    faculty: c.faculty || (isFr ? (profile?.faculty?.name_fr || 'Faculté') : (profile?.faculty?.name_ht || profile?.faculty?.name_fr || 'Fakilte')),
+    course: c.course || course?.name || (isFr ? 'Cours' : 'Kou'),
     professor: c.professor || course?.professor || '',
-    title: assignment.title || 'Devwa / Travail académique',
-    student: c.student || profile?.full_name || 'Etidyan / Étudiant',
+    title: assignment.title || (isFr ? 'Travail académique' : 'Devwa'),
+    student: c.student || profile?.full_name || (isFr ? 'Étudiant' : 'Etidyan'),
     level: c.level || profile?.level || '',
     date: c.date || formatDate(new Date()),
   };
@@ -353,7 +354,7 @@ export async function exportAssignmentPdf(assignment, profile = null, course = n
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(10.5);
     doc.setTextColor(91, 102, 128);
-    doc.text(`Pwofesè / Professeur : ${meta.professor}`, xAnchor, 86, alignOpt);
+    doc.text(`${getLang() === 'fr' ? 'Professeur' : 'Pwofesè'} : ${meta.professor}`, xAnchor, 86, alignOpt);
   }
 
   // Titre du devoir
@@ -371,13 +372,13 @@ export async function exportAssignmentPdf(assignment, profile = null, course = n
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(11);
   doc.setTextColor(27, 42, 74);
-  doc.text(`Etidyan / Étudiant : ${meta.student}`, xAnchor, infoY, alignOpt);
+  doc.text(`${getLang() === 'fr' ? 'Étudiant' : 'Etidyan'} : ${meta.student}`, xAnchor, infoY, alignOpt);
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(10.5);
   doc.setTextColor(91, 102, 128);
-  if (meta.level) doc.text(`Nivo / Niveau : ${meta.level}`, xAnchor, infoY + 8, alignOpt);
-  doc.text(`Dat / Date : ${meta.date}`, xAnchor, infoY + 16, alignOpt);
+  if (meta.level) doc.text(`${getLang() === 'fr' ? 'Niveau' : 'Nivo'} : ${meta.level}`, xAnchor, infoY + 8, alignOpt);
+  doc.text(`${getLang() === 'fr' ? 'Date' : 'Dat'} : ${meta.date}`, xAnchor, infoY + 16, alignOpt);
 
   // ---- CONTENU ET TABLE DES MATIÈRES ----
   const blocks = parseHtmlBlocks(assignment.content_html || '');
@@ -389,7 +390,7 @@ export async function exportAssignmentPdf(assignment, profile = null, course = n
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(15);
     doc.setTextColor(27, 42, 74);
-    doc.text('Tab matyè / Table des matières', margin, ty);
+    doc.text(getLang() === 'fr' ? 'Table des matières' : 'Tab matyè', margin, ty);
     ty += 10;
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(10.5);
@@ -489,7 +490,7 @@ export async function exportAssignmentDocx(assignment, profile = null, course = 
     ...(meta.professor
       ? [new Paragraph({
           alignment: align,
-          children: [new TextRun({ text: `Pwofesè / Professeur : ${meta.professor}`, size: 22, color: '5B6680' })],
+          children: [new TextRun({ text: `${getLang() === 'fr' ? 'Professeur' : 'Pwofesè'} : ${meta.professor}`, size: 22, color: '5B6680' })],
           spacing: { after: 1200 },
         })]
       : [new Paragraph({ text: '', spacing: { after: 1200 } })]),
@@ -500,15 +501,15 @@ export async function exportAssignmentDocx(assignment, profile = null, course = 
     }),
     new Paragraph({
       alignment: align,
-      children: [new TextRun({ text: `Etidyan / Étudiant : ${meta.student}`, bold: true, size: 24, color: '1B2A4A' })],
+      children: [new TextRun({ text: `${getLang() === 'fr' ? 'Étudiant' : 'Etidyan'} : ${meta.student}`, bold: true, size: 24, color: '1B2A4A' })],
       spacing: { after: 100 },
     }),
     ...(meta.level
-      ? [new Paragraph({ alignment: align, children: [new TextRun({ text: `Nivo / Niveau : ${meta.level}`, size: 22, color: '5B6680' })], spacing: { after: 100 } })]
+      ? [new Paragraph({ alignment: align, children: [new TextRun({ text: `${getLang() === 'fr' ? 'Niveau' : 'Nivo'} : ${meta.level}`, size: 22, color: '5B6680' })], spacing: { after: 100 } })]
       : []),
     new Paragraph({
       alignment: align,
-      children: [new TextRun({ text: `Dat / Date : ${meta.date}`, size: 22, color: '5B6680' })],
+      children: [new TextRun({ text: `${getLang() === 'fr' ? 'Date' : 'Dat'} : ${meta.date}`, size: 22, color: '5B6680' })],
     }),
     new Paragraph({ children: [new PageBreak()] }),
   ];
@@ -518,7 +519,7 @@ export async function exportAssignmentDocx(assignment, profile = null, course = 
   const bodyChildren = [];
 
   if (headings.length) {
-    bodyChildren.push(new Paragraph({ text: 'Tab matyè / Table des matières', heading: HeadingLevel.HEADING_1, spacing: { after: 160 } }));
+    bodyChildren.push(new Paragraph({ text: getLang() === 'fr' ? 'Table des matières' : 'Tab matyè', heading: HeadingLevel.HEADING_1, spacing: { after: 160 } }));
     headings.forEach((h, i) => {
       bodyChildren.push(new Paragraph({ text: `${i + 1}. ${h.text}`, spacing: { after: 80 }, indent: { left: (h.level - 1) * 300 } }));
     });
@@ -878,7 +879,7 @@ export async function exportNoteAsWord(note, courseName) {
 
   if (note.homework && String(note.homework).trim()) {
     children.push(new Paragraph({ text: '' }));
-    children.push(new Paragraph({ text: 'Devwa', heading: HeadingLevel.HEADING_2 }));
+    children.push(new Paragraph({ text: getLang() === 'fr' ? 'Devoirs' : 'Devwa', heading: HeadingLevel.HEADING_2 }));
     for (const item of String(note.homework).split(/\n/).filter(Boolean)) {
       children.push(
         new Paragraph({ children: [new TextRun({ text: item.trim() })], bullet: { level: 0 } }),
@@ -888,13 +889,13 @@ export async function exportNoteAsWord(note, courseName) {
 
   if (note.corrections && String(note.corrections).trim()) {
     children.push(new Paragraph({ text: '' }));
-    children.push(new Paragraph({ text: 'Koreksyon IA', heading: HeadingLevel.HEADING_2 }));
+    children.push(new Paragraph({ text: getLang() === 'fr' ? 'Corrections IA' : 'Koreksyon IA', heading: HeadingLevel.HEADING_2 }));
     children.push(new Paragraph({ text: String(note.corrections).trim() }));
   }
 
   if (note.research_topics && String(note.research_topics).trim()) {
     children.push(new Paragraph({ text: '' }));
-    children.push(new Paragraph({ text: 'Sijè pou rechèche', heading: HeadingLevel.HEADING_2 }));
+    children.push(new Paragraph({ text: getLang() === 'fr' ? 'Sujets de recherche' : 'Sijè pou rechèche', heading: HeadingLevel.HEADING_2 }));
     for (const topic of String(note.research_topics).split(/\n/).filter(Boolean)) {
       children.push(
         new Paragraph({ children: [new TextRun({ text: topic.trim() })], bullet: { level: 0 } }),
@@ -941,7 +942,7 @@ export async function exportNotesAsWord(notes, title) {
 
     if (note.homework && String(note.homework).trim()) {
       children.push(new Paragraph({ text: '' }));
-      children.push(new Paragraph({ text: 'Devwa', heading: HeadingLevel.HEADING_2 }));
+      children.push(new Paragraph({ text: getLang() === 'fr' ? 'Devoirs' : 'Devwa', heading: HeadingLevel.HEADING_2 }));
       for (const item of String(note.homework).split(/\n/).filter(Boolean)) {
         children.push(new Paragraph({ children: [new TextRun({ text: item.trim() })], bullet: { level: 0 } }));
       }
@@ -949,13 +950,13 @@ export async function exportNotesAsWord(notes, title) {
 
     if (note.corrections && String(note.corrections).trim()) {
       children.push(new Paragraph({ text: '' }));
-      children.push(new Paragraph({ text: 'Koreksyon IA', heading: HeadingLevel.HEADING_2 }));
+      children.push(new Paragraph({ text: getLang() === 'fr' ? 'Corrections IA' : 'Koreksyon IA', heading: HeadingLevel.HEADING_2 }));
       children.push(new Paragraph({ text: String(note.corrections).trim() }));
     }
 
     if (note.research_topics && String(note.research_topics).trim()) {
       children.push(new Paragraph({ text: '' }));
-      children.push(new Paragraph({ text: 'Sijè pou rechèche', heading: HeadingLevel.HEADING_2 }));
+      children.push(new Paragraph({ text: getLang() === 'fr' ? 'Sujets de recherche' : 'Sijè pou rechèche', heading: HeadingLevel.HEADING_2 }));
       for (const topic of String(note.research_topics).split(/\n/).filter(Boolean)) {
         children.push(new Paragraph({ children: [new TextRun({ text: topic.trim() })], bullet: { level: 0 } }));
       }
@@ -1026,7 +1027,7 @@ export function exportNoteAsPDF(note, courseName) {
   if (note.homework && String(note.homework).trim()) {
     const items = String(note.homework).split(/\n/).filter(Boolean)
       .map((i) => `<li>${_esc(i.trim())}</li>`).join('');
-    extrasHtml += `<h2>Devwa</h2><ul>${items}</ul>`;
+    extrasHtml += `<h2>${getLang() === 'fr' ? 'Devoirs' : 'Devwa'}</h2><ul>${items}</ul>`;
   }
   if (note.corrections && String(note.corrections).trim()) {
     extrasHtml += `<h2>Koreksyon IA</h2><p>${_esc(String(note.corrections).trim())}</p>`;
@@ -1034,7 +1035,7 @@ export function exportNoteAsPDF(note, courseName) {
   if (note.research_topics && String(note.research_topics).trim()) {
     const topics = String(note.research_topics).split(/\n/).filter(Boolean)
       .map((t) => `<li>${_esc(t.trim())}</li>`).join('');
-    extrasHtml += `<h2>Sijè pou rechèche</h2><ul>${topics}</ul>`;
+    extrasHtml += `<h2>${getLang() === 'fr' ? 'Sujets de recherche' : 'Sijè pou rechèche'}</h2><ul>${topics}</ul>`;
   }
 
   const html = `<!DOCTYPE html>

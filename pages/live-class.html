@@ -23,7 +23,7 @@
   <link rel="stylesheet" href="../assets/css/components.css">
 </head>
 <body>
-  <a class="skip-link" href="#main">Ale nan kontni prensipal</a>
+  <a class="skip-link" href="#main" data-i18n="common.skip_content">Ale nan kontni prensipal</a>
 
   <main id="main" class="app-main">
     <!-- En-tête Kou an dirèk -->
@@ -38,7 +38,7 @@
           <span class="badge" id="live-schedule-badge" hidden></span>
           <span class="badge badge-success text-xs" id="live-autosave-badge">
             <i data-lucide="check" style="width:12px;height:12px;" aria-hidden="true"></i>
-            <span id="live-autosave-text">Sove</span>
+            <span id="live-autosave-text" data-i18n="common.saved">Sove</span>
           </span>
         </div>
         <h1 id="live-heading" data-i18n="live.title">Kou an dirèk</h1>
@@ -55,19 +55,19 @@
         </div>
       </div>
       <div class="page-head-actions">
-        <button type="button" class="btn btn-sm btn-secondary" id="live-transfer-btn" title="Pataje nòt sa dirèkteman sou sit la">
+        <button type="button" class="btn btn-sm btn-secondary" id="live-transfer-btn" data-i18n-title="live.transfer_btn_title" title="Pataje nòt sa dirèkteman sou sit la">
           <i data-lucide="share-2" aria-hidden="true"></i>
           <span data-i18n="live.transfer_btn">Pataje sou sit la</span>
         </button>
-        <button type="button" class="btn btn-sm btn-secondary" id="live-receive-btn" title="Resevwa yon nòt avèk yon kòd">
+        <button type="button" class="btn btn-sm btn-secondary" id="live-receive-btn" data-i18n-title="live.receive_btn_title" title="Resevwa yon nòt avèk yon kòd">
           <i data-lucide="download" aria-hidden="true"></i>
           <span data-i18n="live.receive_btn">Resevwa nòt</span>
         </button>
-        <button type="button" class="btn btn-sm btn-outline" id="live-exam-history-btn" title="Gade tout sesyon ak nòt pou revizyon egzamen pa dat">
+        <button type="button" class="btn btn-sm btn-outline" id="live-exam-history-btn" data-i18n-title="live.exam_history_btn_title" title="Gade tout sesyon ak nòt pou revizyon egzamen pa dat">
           <i data-lucide="calendar" aria-hidden="true"></i>
           <span data-i18n="live.exam_history_btn">Revizyon Egzamen</span>
         </button>
-        <button type="button" class="btn btn-sm btn-outline" id="live-new-session-btn" title="Kòmanse yon nouvo kou nèf">
+        <button type="button" class="btn btn-sm btn-outline" id="live-new-session-btn" data-i18n-title="live.new_session_btn_title" title="Kòmanse yon nouvo kou nèf">
           <i data-lucide="plus-circle" aria-hidden="true"></i>
           <span data-i18n="notes.new_fresh">Nouvo sesyon</span>
         </button>

@@ -35,17 +35,61 @@
     "saved": "Anrejistre avèk siksè",
     "deleted": "Efase avèk siksè",
     "no_course": "San kou",
-    "uncertain_note": "Tèks ki souliye a pa klè, klike pou korije l"
+    "uncertain_note": "Tèks ki souliye a pa klè, klike pou korije l",
+    "student": "Etidyan",
+    "skip_content": "Ale nan kontni prensipal",
+    "status": "Estati",
+    "files": "Fichye",
+    "university": "Inivèsite",
+    "faculty": "Fakilte",
+    "course": "Kou",
+    "professor": "Pwofesè",
+    "level": "Nivo",
+    "date": "Dat",
+    "conclusion": "Konklizyon",
+    "tips": "Konsèy",
+    "loading_wait": "Tanpri tann yon ti moman..."
   },
   "dates": {
-    "months_short": ["jan.", "fev.", "mas", "avr.", "me", "jen", "jiy.", "out", "sept.", "okt.", "nov.", "des."],
+    "months_short": [
+      "jan.",
+      "fev.",
+      "mas",
+      "avr.",
+      "me",
+      "jen",
+      "jiy.",
+      "out",
+      "sept.",
+      "okt.",
+      "nov.",
+      "des."
+    ],
     "now": "Kounye a",
-    "in_minutes": { "one": "nan {count} min", "other": "nan {count} min" },
-    "in_hours": { "one": "nan {count} èdtan", "other": "nan {count} èdtan" },
-    "in_days": { "one": "nan {count} jou", "other": "nan {count} jou" },
-    "ago_minutes": { "one": "sa gen {count} min", "other": "sa gen {count} min" },
-    "ago_hours": { "one": "sa gen {count} èdtan", "other": "sa gen {count} èdtan" },
-    "ago_days": { "one": "sa gen {count} jou", "other": "sa gen {count} jou" }
+    "in_minutes": {
+      "one": "nan {count} min",
+      "other": "nan {count} min"
+    },
+    "in_hours": {
+      "one": "nan {count} èdtan",
+      "other": "nan {count} èdtan"
+    },
+    "in_days": {
+      "one": "nan {count} jou",
+      "other": "nan {count} jou"
+    },
+    "ago_minutes": {
+      "one": "sa gen {count} min",
+      "other": "sa gen {count} min"
+    },
+    "ago_hours": {
+      "one": "sa gen {count} èdtan",
+      "other": "sa gen {count} èdtan"
+    },
+    "ago_days": {
+      "one": "sa gen {count} jou",
+      "other": "sa gen {count} jou"
+    }
   },
   "errors": {
     "generic": "Gen yon erè ki rive. Tanpri eseye ankò.",
@@ -64,7 +108,10 @@
     "banner_offline": "Mòd san entènèt aktif — {count} eleman ap tann pou senkronize.",
     "banner_syncing": "Ap senkronize {count} eleman...",
     "back_online": "Koneksyon an retounen. Senkronizasyon an kòmanse.",
-    "synced": { "one": "{count} eleman senkronize.", "other": "{count} eleman senkronize." },
+    "synced": {
+      "one": "{count} eleman senkronize.",
+      "other": "{count} eleman senkronize."
+    },
     "saved_locally": "Sove san entènèt. Li pral senkronize lè koneksyon an retounen."
   },
   "nav": {
@@ -90,7 +137,13 @@
     "profile_menu": "Meni kont",
     "logout": "Dekonekte",
     "more": "Plis",
-    "more_title": "Plis seksyon ak zouti"
+    "more_title": "Plis seksyon ak zouti",
+    "assignments_desc": "Devwa, gid IA ak verifikasyon",
+    "tests_desc": "Egzamen blan ak simulation",
+    "planner_desc": "Orè kou ak kalandriye",
+    "library_desc": "Liv, kòd lwa ak resous",
+    "progress_desc": "Estatistik ak nivo XP",
+    "profile_desc": "Kont ou ak enfòmasyon w"
   },
   "footer": {
     "tagline": "Konpayon etid entèlijan pou etidyan ayisyen."
@@ -296,7 +349,9 @@
     "audio_segment_auto": "Chak 45 segonn yon nouvo segman transkri otomatikman pou vwa a rete presi.",
     "audio_retry_btn": "Retranskri",
     "audio_transcribing": "Ap analize vwa pwofesè a...",
-    "import_word_loaded": "Dokiman Word enpòte avèk siksè !"
+    "import_word_loaded": "Dokiman Word enpòte avèk siksè !",
+    "hint_flash": "Nòt eklè : peze Kòmanse, pale lide ou a vit, epi peze Fini pou transkri touswit.",
+    "hint_classroom": "Mòd sal kou : filt vwa pwofesè (85 Hz - 2.6 kHz) + konpresè + segman 45 s pou pran tout kou a."
   },
   "notes": {
     "title": "Nòt mwen yo",
@@ -349,7 +404,28 @@
     "change_course": "Chanje kou",
     "assign_course_title": "Klasifye nòt sa a nan yon kou",
     "unit_optional": "Chapit silabis (si ou vle)",
-    "course_assigned": "Nòt la klase nan kou a."
+    "course_assigned": "Nòt la klase nan kou a.",
+    "discard_fresh_confirm": "Èske ou vle kòmanse yon nouvo nòt nèf a zewo? Sa ap efase sa ki ekri kounye a.",
+    "mic_unsupported": "Navigatè sa a pa sipòte anrejistreman mikwofòn.",
+    "mic_disconnected_saved": "Mikwofòn nan dekonekte. Nòt la ak odyo anrejistre a sove.",
+    "delete_draft_tooltip": "Efase bwouyon sa a",
+    "delete_pending_tooltip": "Efase nòt sa a ki nan memwa aparèy la",
+    "status_draft_unfinished": "Bwouyon nòt ki poko fini",
+    "local_draft_item": "Bwouyon nòt lokal",
+    "draft_banner_text": "Nòt sa a nan memwa aparèy la kòm bwouyon. Ou ka modifye l oswa finalize li nan editè a.",
+    "report_ai_error": "Siyale yon erè IA",
+    "report_ai_explain": "Eksplike sa ki pa egzak",
+    "explain_modal_sub": "Chwazi nan ki lang ou vle IA a eksplike nòt sa a yon fason ki senp epi klè.",
+    "explain_lang_label": "Lang pou eksplikasyon an",
+    "explain_opt_haiti": "Ak egzanp konkrè sou reyalite Ayiti",
+    "explain_opt_child": "Koumanse depi nan baz (Trè senp)",
+    "insert_in_note": "Mete nan nòt la",
+    "translated_toast": "Nòt la tradui an {lang}!",
+    "homework_saved_list": "Devwa anrejistre nan lis devwa ou yo!",
+    "exam_questions_suggest": "Sijesyon kesyon egzamen",
+    "quick_summary_review": "Rezime rapid pou revize",
+    "attached_files": "Fichye tache",
+    "proposed_flashcards": "Flashcards ki pwopoze"
   },
   "courses": {
     "title": "Kou ak silabis",
@@ -391,7 +467,10 @@
     "analyze": "Analize ak IA",
     "save_units": "Anrejistre chapit sa yo nan kou a",
     "eval_weights": "Pwa evalyasyon yo",
-    "objectives": "Objektif kou a"
+    "objectives": "Objektif kou a",
+    "create_course_first": "Kreye yon kou anvan nan Kou",
+    "photo_ready": "Foto silabis la pare pou analiz.",
+    "paste_ph": "Kole plan kou a, chapit yo, dat egzamen ak evalyasyon yo isit la..."
   },
   "review": {
     "title": "Sesyon revizyon",
@@ -443,7 +522,16 @@
     "weak_points": "Pwen fèb detekte",
     "readiness": "Preparasyon egzamen",
     "empty_title": "Okenn tès poko fèt",
-    "empty_text": "Jenere premye tès ou nan yon kou oswa nan yon nòt."
+    "empty_text": "Jenere premye tès ou nan yon kou oswa nan yon nòt.",
+    "history_title": "Istwa rezilta yo",
+    "write_answer_ph": "Ekri repons ou isit la...",
+    "your_answer_label": "Repons ou :",
+    "correct_answer_label": "Repons kòrèk :",
+    "no_critical_weak_points": "Okenn pwen fèb kritik detekte.",
+    "no_weak_points_remedial": "Okenn pwen fèb pou ratrape kounye a.",
+    "add_note_or_course_first": "Ajoute yon nòt oswa yon kou anvan pou jenere yon tès.",
+    "available_tests": "Tès ki disponib",
+    "question_num": "Kesyon {num}"
   },
   "assignments": {
     "title": "Devwa ak travay",
@@ -510,7 +598,46 @@
     "export_pdf": "Ekspòte PDF",
     "export_docx": "Ekspòte Word (.docx)",
     "empty_title": "Okenn devwa anrejistre",
-    "empty_text": "Anrejistre pwochen devwa ou pou w resevwa rapèl J-7, J-3 ak J-1 epi prepare plan an."
+    "empty_text": "Anrejistre pwochen devwa ou pou w resevwa rapèl J-7, J-3 ak J-1 epi prepare plan an.",
+    "title_page": "Devwa — Pran Nòt",
+    "proposal_title": "Pwopozisyon Redaksyon IA",
+    "approach_explanation": "Demach & Esplikasyon :",
+    "global_summary": "Rezime Jeneral :",
+    "key_learnings": "Konsèp kle pou metrize :",
+    "oral_defense_tips": "Konsèy pou defann devwa a devan pwofesè a :",
+    "verdict_title": "Rezilta Verifikasyon Devoir",
+    "direct_answer": "Repons IA Dirèk",
+    "methodological_guide": "Gid metodolojik IA",
+    "doc_synthesis": "Sentèz dokimantè (Bibliyotèk san plajya) :",
+    "legal_citations": "Referans lwa ak atik egzak :",
+    "research_leads": "Pis rechèch :",
+    "sources_to_find": "Sous pou chèche :",
+    "strengths": "Pwen fò ki byen fèt :",
+    "issues": "Pwen pou amelyore oswa erè :",
+    "corrections": "Koreksyon egzakt :",
+    "rephrase_proposal": "Pwopozisyon refòmilasyon :",
+    "tips": "Konsèy :",
+    "status_and_files": "Estati ak fichye",
+    "attach_files": "Atache fichye (PDF, imaj)",
+    "cover_classic": "Klasik ankadre (Inivèsitè)",
+    "cover_modern": "Modèn ak liy oranj",
+    "cover_minimal": "Senp ak pwòp",
+    "editor_writing": "Redaksyon devwa a",
+    "editor_placeholder": "Kòmanse ekri travay ou a... Itilize tit H1/H2 pou jenere tab matyè a otomatikman nan PDF/Word.",
+    "draft_empty": "Devwa a poko gen tèks redaksyon.",
+    "include_draft_ref": "Mete kòmansman tèks devwa a kòm referans",
+    "generating_in_mode": "IA ap trete devwa a nan mòd {mode}... Tanpri tann kèk segond.",
+    "generation_result": "Rezilta Redaksyon IA",
+    "critique_result_title": "Rezilta Analiz & Verifikasyon",
+    "correct_points": "Pwen ki kòrèk :",
+    "missing_points": "Erè oswa pwen ki manke :",
+    "exact_corrections_apply": "Koreksyon egzat pou aplike :",
+    "advice": "Konsèy :",
+    "text_file_loaded": "Fichye tèks chaje",
+    "file_label": "Fichye : ",
+    "copy_fail": "Echèk kopye",
+    "title_field": "Tit devwa a",
+    "title_ph": "Egzanp: Disètasyon sou obligasyon kontra"
   },
   "tutor": {
     "btn_label": "Titè IA",
@@ -546,7 +673,8 @@
     "quick_haiti": "Ban m yon egzanp konkrè ki soti nan lavi an Ayiti pou m konprann sa.",
     "quick_compare": "Konpare de nosyon prensipal ki nan kontèks sa a nan yon ti tablo.",
     "quick_mnemonic": "Ban m yon astis mnemoteknik pou m pa janm bliye pwen sa yo.",
-    "quick_quiz": "Poze m yon kesyon pou teste si m byen konprann."
+    "quick_quiz": "Poze m yon kesyon pou teste si m byen konprann.",
+    "conv_history": "Istwa konvèsasyon"
   },
   "progress": {
     "title": "Pwogrè ak estatistik",
@@ -635,7 +763,8 @@
     "delete_confirm1": "Èske ou sèten ou vle efase kont ou ak tout nòt, kou, ak devwa ou yo nèt ? Aksyon sa a pa ka anile.",
     "delete_confirm2": "Pou konfime, tanpri tape 'EFASE' an majiskil :",
     "delete_cancelled": "Sipresyon anile.",
-    "delete_success": "Kont ou efase avèk siksè. Orevwa !"
+    "delete_success": "Kont ou efase avèk siksè. Orevwa !",
+    "studio_preview_sub": "Egzanp tèks nòt ou yo ak koulè, polis ekriti ak stil kat ou chwazi kounye a."
   },
   "search": {
     "title": "Rechèch global",
@@ -920,7 +1049,21 @@
     "hw_title_ph": "Tit devwa a (ex: Egzèsis 4 paj 45)",
     "hw_desc_ph": "Detay, enstriksyon pwofesè a bay oswa konsiy...",
     "add_hw": "Ajoute",
-    "translate_btn": "Tradui nòt la (Kreyòl / Français)"
+    "translate_btn": "Tradui nòt la (Kreyòl / Français)",
+    "transfer_btn_title": "Pataje nòt sa dirèkteman sou sit la",
+    "receive_btn_title": "Resevwa yon nòt avèk yon kòd",
+    "exam_history_btn_title": "Gade tout sesyon ak nòt pou revizyon egzamen pa dat",
+    "new_session_btn_title": "Kòmanse yon nouvo kou nèf",
+    "discard_live_confirm": "Èske ou vle efase bwouyon kou sa a pou kòmanse yon nouvo sesyon tou nèf a zewo?",
+    "mic_disconnected_saved": "Mikwofòn nan dekonekte. Nòt la sove.",
+    "save_secure_local": "Nòt ou anrejistre an sekirite nan memwa telefòn nan.",
+    "hw_saved_course": "Devwa anrejistre pou kou a!",
+    "session_extended": "Ajoute {minutes} min sou sesyon an!",
+    "course_postponed": "Kòmansman kou a repòte.",
+    "course_finished_preparing": "Kou a fini ({duration}). Nap prepare nòt la...",
+    "note_translated_success": "Nòt la tradui ak siksè!",
+    "thoughts_section_title": "Ide & Panse Rapid",
+    "hw_section_title": "Devwa & Travay pou Fè"
   },
   "history": {
     "title": "Istorik Kou",
@@ -958,6 +1101,12 @@
     "all_courses": "Tout kou yo",
     "select_course": "Chwazi yon kou",
     "show_notes": "Afiche nòt pou revize",
-    "no_notes_period": "Okenn nòt pa jwenn pou peryòd sa a."
+    "no_notes_period": "Okenn nòt pa jwenn pou peryòd sa a.",
+    "code_copied": "Kòd kopye nan bipò!",
+    "note_saved_title": "Nòt anrejistre !",
+    "note_saved_desc": "\"{title}\" pare nan koleksyon nòt ou yo.",
+    "loading_notes": "Nap chaje nòt yo...",
+    "no_notes_period_fmt": "Pa gen okenn nòt ki anrejistre ant {start} ak {end}.",
+    "period_notes_title": "Lis Nòt Peryòd la ({start} - {end})"
   }
 }

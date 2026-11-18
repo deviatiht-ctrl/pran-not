@@ -135,7 +135,7 @@ async function discardLiveDraft(skipConfirm = false) {
   if (!skipConfirm) {
     const ok = await confirmDialog({
       title: t('notes.new_fresh'),
-      message: 'Èske ou vle efase bwouyon kou sa a pou kòmanse yon nouvo sesyon tou nèf a zewo?',
+      message: t('live.discard_live_confirm'),
       danger: true,
     });
     if (!ok) return;
@@ -612,7 +612,7 @@ async function startLiveAudio() {
       track.onended = () => {
         if (isRecording) {
           console.warn('[live-class] Track ended unexpectedly. Stopping recording cleanly...');
-          toast('Mikwofòn nan dekonekte. Nòt la sove.', 'warning');
+          toast(t('live.mic_disconnected_saved'), 'warning');
           stopLiveAudio();
         }
       };
@@ -907,9 +907,9 @@ function buildCompiledContent() {
 
   const scratch = document.getElementById('live-notes-area')?.value.trim() || '';
   const thoughts = document.getElementById('live-thoughts-area')?.value.trim() || '';
-  const thoughtsSection = thoughts ? `\n\n## Ide & Panse Rapid\n${thoughts}` : '';
+  const thoughtsSection = thoughts ? `\n\n## ${t('live.thoughts_section_title')}\n${thoughts}` : '';
   const hwSection = homeworkList.length
-    ? `\n\n## Devwa & Travay pou Fè\n` + homeworkList.map((h) => `- ${h.title}${h.due ? ` (Dat: ${h.due})` : ''}${h.description ? ` : ${h.description}` : ''}`).join('\n')
+    ? `\n\n## ${t('live.hw_section_title')}\n` + homeworkList.map((h) => `- ${h.title}${h.due ? ` (Dat: ${h.due})` : ''}${h.description ? ` : ${h.description}` : ''}`).join('\n')
     : '';
   const kwSection = keywordsLog.length
     ? `\n\n## ${t('live.keywords_title')}\n` + keywordsLog.map((k) => `- ${k.stamp} [${k.tag.toUpperCase()}] ${k.term}`).join('\n')
@@ -971,7 +971,7 @@ async function finishLiveClass({ withAi = true } = {}) {
     } catch (localErr) {
       console.warn('[live-class] saveOfflineQueue error:', localErr);
       // Même si IndexedDB a un souci, le draft localStorage existe déjà
-      toast('Nòt ou anrejistre an sekirite nan memwa telefòn nan.', 'success');
+      toast(t('live.save_secure_local'), 'success');
     }
   };
 
@@ -1076,7 +1076,7 @@ async function finishLiveClass({ withAi = true } = {}) {
   } catch (err) {
     console.warn('[live-class] Erreur en ligne, bascule automatique en sauvegarde locale sécurisée:', err);
     // Tout échec (erreur réseau, timeout, table ou RLS) bascule immédiatement en sauvegarde locale infaillible
-    await saveOfflineQueue('Nòt ou anrejistre an sekirite lokalman sou telefòn ou !');
+    await saveOfflineQueue(t('live.save_secure_local'));
   } finally {
     setLoading(btn, false);
   }
@@ -1241,7 +1241,7 @@ async function finishLiveClass({ withAi = true } = {}) {
     insertIntoNotes(`\n[DEVWA] ${title}${due ? ` (Dat limit : ${due})` : ''}${desc ? ` : ${desc}` : ''}\n`);
     saveDraft();
     playNotificationSound('success');
-    toast('Devwa anrejistre pou kou a!', 'success');
+    toast(t('live.hw_saved_course'), 'success');
 
     if (navigator.onLine && userRef) {
       try {
@@ -1265,7 +1265,7 @@ async function finishLiveClass({ withAi = true } = {}) {
   const extendClassTime = async (minutes) => {
     const c = courses.find((x) => x.id === selectedCourseId);
     if (!c) {
-      toast(`Ajoute ${minutes} min sou sesyon an!`, 'info');
+      toast(t('live.session_extended', { minutes }), 'info');
       return;
     }
     const endStr = c.schedule_end_time || '';
@@ -1297,13 +1297,13 @@ async function finishLiveClass({ withAi = true } = {}) {
     classElapsedSec = 0;
     const clock = document.getElementById('live-clock-badge');
     if (clock) clock.textContent = '00:00';
-    toast('Kòmansman kou a repòte.', 'info');
+    toast(t('live.course_postponed'), 'info');
   });
 
   document.getElementById('live-mark-finished-btn')?.addEventListener('click', async () => {
     if (isRecording) stopLiveAudio();
     playNotificationSound('chime');
-    toast(`Kou a fini (${formatDuration(classElapsedSec)}). Nap prepare nòt la...`, 'info');
+    toast(t('live.course_finished_preparing', { duration: formatDuration(classElapsedSec) }), 'info');
     await finishLiveClass({ withAi: true });
   });
 
@@ -1358,7 +1358,7 @@ async function finishLiveClass({ withAi = true } = {}) {
         area.value = res.content_text;
         saveDraft();
         playNotificationSound('success');
-        toast('Nòt la tradui ak siksè!', 'success');
+        toast(t('live.note_translated_success'), 'success');
       } else {
         toast('Tradiksyon an pa t ka konplete', 'warning');
       }

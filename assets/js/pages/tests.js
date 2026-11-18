@@ -48,7 +48,7 @@ async function createAndOpenTest({ courseId = null, unitId = null, difficulty = 
       || weakList.join(', ');
 
     if (!content) {
-      toast('Ajoute yon nòt oswa yon kou anvan pou jenere yon tès.', 'warning');
+      toast(t('tests.add_note_or_course_first'), 'warning');
       setLoading(btn, false);
       return;
     }
@@ -205,7 +205,7 @@ function renderLists() {
   const wBox = document.getElementById('weak-keywords-box');
   wBox.innerHTML = weakKeywords.length
     ? `<div class="row-wrap">${weakKeywords.map((k) => `<span class="badge badge-error">${esc(k.term)} (${Math.round(k.weakness)}%)</span>`).join('')}</div>`
-    : `<p class="text-sm muted mb-0">Okenn pwen fèb kritik detekte.</p>`;
+    : `<p class="text-sm muted mb-0">${esc(t('tests.no_critical_weak_points'))}</p>`;
 
   const rBox = document.getElementById('readiness-box');
   rBox.innerHTML = courses.length
@@ -277,7 +277,7 @@ function renderLists() {
   document.getElementById('new-test-btn').addEventListener('click', openGenerateModal);
   document.getElementById('remedial-btn').addEventListener('click', (e) => {
     const kws = weakKeywords.map((k) => k.term);
-    if (!kws.length) { toast('Okenn pwen fèb pou ratrape kounye a.', 'info'); return; }
+    if (!kws.length) { toast(t('tests.no_weak_points_remedial'), 'info'); return; }
     createAndOpenTest({
       courseId: getParam('course') || weakKeywords[0]?.course_id || null,
       difficulty: 'medium',

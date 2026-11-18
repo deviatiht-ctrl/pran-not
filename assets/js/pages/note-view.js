@@ -77,7 +77,7 @@ async function renderNote() {
           ${icon('file-edit')}
           <div>
             <strong>${esc(t('notes.local_draft') || 'Bwouyon lokal')}</strong>
-            <p class="text-sm mb-0">Nòt sa a nan memwa aparèy la kòm bwouyon. Ou ka modifye l oswa finalize li nan editè a.</p>
+            <p class="text-sm mb-0">${esc(t('notes.draft_banner_text'))}</p>
           </div>
         </div>
         <a href="${esc(note.draft_target || './note-capture.html')}" class="btn btn-sm btn-primary">
@@ -236,7 +236,7 @@ async function renderNote() {
 
         <section class="card card-sm card-muted">
           <button type="button" class="btn btn-ghost btn-sm" id="btn-report-note">
-            ${icon('flag')}<span>Siyale yon erè IA</span>
+            ${icon('flag')}<span>${esc(t('notes.report_ai_error'))}</span>
           </button>
         </section>
       </aside>
@@ -539,9 +539,9 @@ function bindActions() {
       title: t('notes.btn_simpler') || 'Eksplikasyon Senp',
       body: `
         <div class="stack py-2">
-          <p class="text-sm muted mb-3">Chwazi nan ki lang ou vle IA a eksplike nòt sa a yon fason ki senp epi klè :</p>
+          <p class="text-sm muted mb-3">${esc(t('notes.explain_modal_sub'))}</p>
           <div class="field mb-3">
-            <label for="explain-lang-select">Lang pou eksplikasyon an</label>
+            <label for="explain-lang-select">${esc(t('notes.explain_lang_label'))}</label>
             <select class="select" id="explain-lang-select">
               <option value="ht" ${curLang === 'ht' ? 'selected' : ''}>Kreyòl Ayisyen</option>
               <option value="fr" ${curLang === 'fr' ? 'selected' : ''}>Français</option>
@@ -551,8 +551,8 @@ function bindActions() {
             <label for="explain-style-select">Fòma eksplikasyon</label>
             <select class="select" id="explain-style-select">
               <option value="simple">Senp, etap pa etap (San jagon)</option>
-              <option value="haiti">Ak egzanp konkrè sou reyalite Ayiti</option>
-              <option value="child">Koumanse depi nan baz (Trè senp)</option>
+              <option value="haiti">${esc(t('notes.explain_opt_haiti'))}</option>
+              <option value="child">${esc(t('notes.explain_opt_child'))}</option>
             </select>
           </div>
           <button type="button" class="btn btn-primary btn-block" id="btn-run-explanation">
@@ -590,7 +590,7 @@ function bindActions() {
             <div class="card card-sm card-accent">
               <div class="row-between" style="flex-wrap:wrap;gap:8px;">
                 <div>
-                  <strong>Mete nan nòt la</strong>
+                  <strong>${esc(t('notes.insert_in_note'))}</strong>
                   <div class="text-xs muted">Ou ka sove eksplikasyon sa a dirèkteman nan espas nòt la pou tout tan.</div>
                 </div>
                 <button type="button" class="btn btn-sm btn-primary" id="btn-insert-explanation-to-note">
@@ -993,7 +993,7 @@ function bindActions() {
         if (res.summary) note.summary = res.summary;
         await renderNote();
         playNotificationSound('success');
-        toast(`Nòt la tradui an ${targetLang === 'ht' ? 'Kreyòl' : 'Français'}!`, 'success');
+        toast(t('notes.translated_toast', { lang: targetLang === 'ht' ? 'Kreyòl' : 'Français' }), 'success');
 
         // Sove nan DB si posib
         if (navigator.onLine && !note.is_local_pending && isUuid(note.id)) {
@@ -1029,9 +1029,9 @@ function bindActions() {
           status: 'todo',
         });
         playNotificationSound('success');
-        toast('Devwa anrejistre nan lis devwa ou yo!', 'success');
+        toast(t('notes.homework_saved_list'), 'success');
         e.currentTarget.disabled = true;
-        e.currentTarget.innerHTML = `${icon('check')}<span>Ajoute</span>`;
+        e.currentTarget.innerHTML = `${icon('check')}<span>${esc(t('common.add'))}</span>`;
         icons(e.currentTarget);
       } catch (err) {
         handleError(err);
@@ -1079,7 +1079,7 @@ function bindActions() {
   });
 
   document.getElementById('btn-report-note')?.addEventListener('click', async () => {
-    const reason = await promptDialog({ title: 'Siyale yon erè IA', label: 'Eksplike sa ki pa egzak', multiline: true });
+    const reason = await promptDialog({ title: t('notes.report_ai_error'), label: t('notes.report_ai_explain'), multiline: true });
     if (!reason) return;
     const { error } = await db.from('pran_not_content_reports').insert({
       reporter_id: userRef.id, item_type: 'ai_output', item_id: note.id, reason,

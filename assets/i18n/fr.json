@@ -35,17 +35,61 @@
     "saved": "Enregistré avec succès",
     "deleted": "Supprimé avec succès",
     "no_course": "Sans cours",
-    "uncertain_note": "Passage incertain : cliquez pour corriger"
+    "uncertain_note": "Passage incertain : cliquez pour corriger",
+    "student": "Étudiant",
+    "skip_content": "Aller au contenu principal",
+    "status": "Statut",
+    "files": "Fichiers",
+    "university": "Université",
+    "faculty": "Faculté",
+    "course": "Cours",
+    "professor": "Professeur",
+    "level": "Niveau",
+    "date": "Date",
+    "conclusion": "Conclusion",
+    "tips": "Conseils",
+    "loading_wait": "Veuillez patienter un instant..."
   },
   "dates": {
-    "months_short": ["janv.", "févr.", "mars", "avr.", "mai", "juin", "juil.", "août", "sept.", "oct.", "nov.", "déc."],
+    "months_short": [
+      "janv.",
+      "févr.",
+      "mars",
+      "avr.",
+      "mai",
+      "juin",
+      "juil.",
+      "août",
+      "sept.",
+      "oct.",
+      "nov.",
+      "déc."
+    ],
     "now": "À l'instant",
-    "in_minutes": { "one": "dans {count} min", "other": "dans {count} min" },
-    "in_hours": { "one": "dans {count} h", "other": "dans {count} h" },
-    "in_days": { "one": "dans {count} j", "other": "dans {count} j" },
-    "ago_minutes": { "one": "il y a {count} min", "other": "il y a {count} min" },
-    "ago_hours": { "one": "il y a {count} h", "other": "il y a {count} h" },
-    "ago_days": { "one": "il y a {count} j", "other": "il y a {count} j" }
+    "in_minutes": {
+      "one": "dans {count} min",
+      "other": "dans {count} min"
+    },
+    "in_hours": {
+      "one": "dans {count} h",
+      "other": "dans {count} h"
+    },
+    "in_days": {
+      "one": "dans {count} j",
+      "other": "dans {count} j"
+    },
+    "ago_minutes": {
+      "one": "il y a {count} min",
+      "other": "il y a {count} min"
+    },
+    "ago_hours": {
+      "one": "il y a {count} h",
+      "other": "il y a {count} h"
+    },
+    "ago_days": {
+      "one": "il y a {count} j",
+      "other": "il y a {count} j"
+    }
   },
   "errors": {
     "generic": "Une erreur est survenue. Veuillez réessayer.",
@@ -64,7 +108,10 @@
     "banner_offline": "Mode hors-ligne actif — {count} élément(s) en attente de synchronisation.",
     "banner_syncing": "Synchronisation de {count} élément(s)...",
     "back_online": "Connexion rétablie. Synchronisation en cours.",
-    "synced": { "one": "{count} élément synchronisé.", "other": "{count} éléments synchronisés." },
+    "synced": {
+      "one": "{count} élément synchronisé.",
+      "other": "{count} éléments synchronisés."
+    },
     "saved_locally": "Enregistré hors-ligne. La synchronisation reprendra automatiquement."
   },
   "nav": {
@@ -90,7 +137,13 @@
     "profile_menu": "Menu du compte",
     "logout": "Déconnexion",
     "more": "Plus",
-    "more_title": "Plus de sections et outils"
+    "more_title": "Plus de sections et outils",
+    "assignments_desc": "Devoirs, guide IA et vérification",
+    "tests_desc": "Examens blancs et simulations",
+    "planner_desc": "Emploi du temps et calendrier",
+    "library_desc": "Livres, codes de loi et ressources",
+    "progress_desc": "Statistiques et niveau XP",
+    "profile_desc": "Votre compte et vos informations"
   },
   "footer": {
     "tagline": "Compagnon d'étude intelligent pour les étudiants haïtiens."
@@ -296,7 +349,9 @@
     "audio_segment_auto": "Un nouveau segment est transcrit automatiquement toutes les 45 s pour garder une haute précision.",
     "audio_retry_btn": "Retranscrire",
     "audio_transcribing": "Analyse de la voix du professeur...",
-    "import_word_loaded": "Document Word importé avec succès !"
+    "import_word_loaded": "Document Word importé avec succès !",
+    "hint_flash": "Note éclair : appuyez sur Démarrer, dictez rapidement vos idées et terminez pour transcrire.",
+    "hint_classroom": "Mode salle de cours : filtre vocal enseignant (85 Hz - 2.6 kHz) + compresseur + segments de 45 s."
   },
   "notes": {
     "title": "Mes notes",
@@ -349,7 +404,28 @@
     "change_course": "Changer de cours",
     "assign_course_title": "Classer cette note dans un cours",
     "unit_optional": "Chapitre du syllabus (facultatif)",
-    "course_assigned": "Note assignée au cours."
+    "course_assigned": "Note assignée au cours.",
+    "discard_fresh_confirm": "Voulez-vous commencer une nouvelle note à zéro ? Cela effacera ce qui est écrit actuellement.",
+    "mic_unsupported": "Ce navigateur ne prend pas en charge l'enregistrement par microphone.",
+    "mic_disconnected_saved": "Microphone déconnecté. La note et l'audio enregistré sont sauvegardés.",
+    "delete_draft_tooltip": "Supprimer ce brouillon",
+    "delete_pending_tooltip": "Supprimer cette note stockée sur l'appareil",
+    "status_draft_unfinished": "Brouillon de note inachevé",
+    "local_draft_item": "Brouillon de note local",
+    "draft_banner_text": "Cette note est stockée sur l'appareil comme brouillon. Vous pouvez la modifier ou la finaliser dans l'éditeur.",
+    "report_ai_error": "Signaler une erreur IA",
+    "report_ai_explain": "Expliquez ce qui est inexact",
+    "explain_modal_sub": "Choisissez la langue dans laquelle l'IA doit expliquer cette note simplement et clairement.",
+    "explain_lang_label": "Langue de l'explication",
+    "explain_opt_haiti": "Avec des exemples concrets sur la réalité haïtienne",
+    "explain_opt_child": "Depuis les bases (Très simple)",
+    "insert_in_note": "Insérer dans la note",
+    "translated_toast": "Note traduite en {lang} !",
+    "homework_saved_list": "Devoir enregistré dans votre liste de devoirs !",
+    "exam_questions_suggest": "Suggestions de questions d'examen",
+    "quick_summary_review": "Résumé rapide pour réviser",
+    "attached_files": "Fichiers attachés",
+    "proposed_flashcards": "Flashcards proposées"
   },
   "courses": {
     "title": "Cours et syllabus",
@@ -391,7 +467,10 @@
     "analyze": "Analyser avec l'IA",
     "save_units": "Enregistrer ces chapitres dans le cours",
     "eval_weights": "Poids des évaluations",
-    "objectives": "Objectifs du cours"
+    "objectives": "Objectifs du cours",
+    "create_course_first": "Créez d'abord un cours dans la section Cours",
+    "photo_ready": "Photo du syllabus prête pour l'analyse.",
+    "paste_ph": "Collez le plan de cours, les chapitres, les dates d'examens et évaluations ici..."
   },
   "review": {
     "title": "Séance de révision",
@@ -443,7 +522,16 @@
     "weak_points": "Points faibles détectés",
     "readiness": "Préparation à l'examen",
     "empty_title": "Aucun test disponible",
-    "empty_text": "Générez votre premier test à partir d'un cours ou d'une note."
+    "empty_text": "Générez votre premier test à partir d'un cours ou d'une note.",
+    "history_title": "Historique des résultats",
+    "write_answer_ph": "Écrivez votre réponse ici...",
+    "your_answer_label": "Votre réponse :",
+    "correct_answer_label": "Réponse correcte :",
+    "no_critical_weak_points": "Aucun point faible critique détecté.",
+    "no_weak_points_remedial": "Aucun point faible à rattraper pour l'instant.",
+    "add_note_or_course_first": "Ajoutez d'abord une note ou un cours pour générer un test.",
+    "available_tests": "Tests disponibles",
+    "question_num": "Question {num}"
   },
   "assignments": {
     "title": "Devoirs et travaux",
@@ -510,7 +598,46 @@
     "export_pdf": "Exporter en PDF",
     "export_docx": "Exporter en Word (.docx)",
     "empty_title": "Aucun devoir enregistré",
-    "empty_text": "Ajoutez un devoir pour recevoir des rappels J-7, J-3, J-1 et préparer votre plan."
+    "empty_text": "Ajoutez un devoir pour recevoir des rappels J-7, J-3, J-1 et préparer votre plan.",
+    "title_page": "Devoirs — Pran Nòt",
+    "proposal_title": "Proposition de rédaction IA",
+    "approach_explanation": "Démarche & Explications :",
+    "global_summary": "Résumé général :",
+    "key_learnings": "Concepts clés à maîtriser :",
+    "oral_defense_tips": "Conseils pour défendre le devoir devant le professeur :",
+    "verdict_title": "Résultat de vérification du devoir",
+    "direct_answer": "Réponse IA directe",
+    "methodological_guide": "Guide méthodologique IA",
+    "doc_synthesis": "Synthèse documentaire (Bibliothèque sans plagiat) :",
+    "legal_citations": "Références de loi et articles exacts :",
+    "research_leads": "Pistes de recherche :",
+    "sources_to_find": "Sources à rechercher :",
+    "strengths": "Points forts bien traités :",
+    "issues": "Points à améliorer ou erreurs :",
+    "corrections": "Corrections exactes :",
+    "rephrase_proposal": "Proposition de reformulation :",
+    "tips": "Conseils :",
+    "status_and_files": "Statut et fichiers",
+    "attach_files": "Attacher des fichiers (PDF, image)",
+    "cover_classic": "Classique encadré (Universitaire)",
+    "cover_modern": "Moderne avec ligne orange",
+    "cover_minimal": "Simple et épuré",
+    "editor_writing": "Rédaction du devoir",
+    "editor_placeholder": "Commencez à rédiger votre travail... Utilisez les titres H1/H2 pour générer automatiquement la table des matières en PDF/Word.",
+    "draft_empty": "Le devoir n'a pas encore de texte rédigé.",
+    "include_draft_ref": "Inclure le début du devoir comme référence",
+    "generating_in_mode": "L'IA traite le devoir en mode {mode}... Veuillez patienter quelques secondes.",
+    "generation_result": "Résultat de la rédaction IA",
+    "critique_result_title": "Résultat de l'analyse & vérification",
+    "correct_points": "Points corrects :",
+    "missing_points": "Erreurs ou points manquants :",
+    "exact_corrections_apply": "Corrections exactes à appliquer :",
+    "advice": "Conseils :",
+    "text_file_loaded": "Fichier texte chargé",
+    "file_label": "Fichier : ",
+    "copy_fail": "Échec de copie",
+    "title_field": "Titre du devoir",
+    "title_ph": "Ex. : Dissertation sur les obligations"
   },
   "tutor": {
     "btn_label": "Tuteur IA",
@@ -546,7 +673,8 @@
     "quick_haiti": "Donne-moi un exemple concret issu du quotidien en Haïti.",
     "quick_compare": "Compare les deux notions principales de ce contexte.",
     "quick_mnemonic": "Propose un moyen mnémotechnique facile à retenir.",
-    "quick_quiz": "Pose-moi une question pour vérifier si j'ai compris."
+    "quick_quiz": "Pose-moi une question pour vérifier si j'ai compris.",
+    "conv_history": "Historique des conversations"
   },
   "progress": {
     "title": "Progrès et statistiques",
@@ -635,7 +763,8 @@
     "delete_confirm1": "Êtes-vous sûr de vouloir supprimer définitivement votre compte, cours, notes et devoirs ? Cette action est irréversible.",
     "delete_confirm2": "Pour confirmer, tapez 'EFASE' en majuscules :",
     "delete_cancelled": "Suppression annulée.",
-    "delete_success": "Votre compte a été supprimé. Au revoir !"
+    "delete_success": "Votre compte a été supprimé. Au revoir !",
+    "studio_preview_sub": "Exemple de texte de vos notes avec les couleurs, police et style de carte choisis."
   },
   "search": {
     "title": "Recherche globale",
@@ -920,7 +1049,21 @@
     "hw_title_ph": "Titre du devoir (ex : Exercice 4 page 45)",
     "hw_desc_ph": "Consignes, détails donnés par le professeur...",
     "add_hw": "Ajouter",
-    "translate_btn": "Traduire la note (Créole / Français)"
+    "translate_btn": "Traduire la note (Créole / Français)",
+    "transfer_btn_title": "Partager cette note directement sur le site",
+    "receive_btn_title": "Recevoir une note avec un code",
+    "exam_history_btn_title": "Voir les sessions et notes pour révision d'examen par date",
+    "new_session_btn_title": "Démarrer un nouveau cours à zéro",
+    "discard_live_confirm": "Voulez-vous effacer le brouillon de ce cours pour commencer une nouvelle session à zéro ?",
+    "mic_disconnected_saved": "Microphone déconnecté. La note est sauvegardée.",
+    "save_secure_local": "Votre note est enregistrée en sécurité dans la mémoire de l'appareil.",
+    "hw_saved_course": "Devoir enregistré pour le cours !",
+    "session_extended": "{minutes} min ajoutées à la session !",
+    "course_postponed": "Le début du cours est reporté.",
+    "course_finished_preparing": "Cours terminé ({duration}). Préparation de la note...",
+    "note_translated_success": "Note traduite avec succès !",
+    "thoughts_section_title": "Idées & Pensées Rapides",
+    "hw_section_title": "Devoirs & Travaux à faire"
   },
   "history": {
     "title": "Historique des cours",
@@ -958,6 +1101,12 @@
     "all_courses": "Tous les cours",
     "select_course": "Sélectionner un cours",
     "show_notes": "Afficher les notes à réviser",
-    "no_notes_period": "Aucune note trouvée pour cette période."
+    "no_notes_period": "Aucune note trouvée pour cette période.",
+    "code_copied": "Code copié dans le presse-papiers !",
+    "note_saved_title": "Note enregistrée !",
+    "note_saved_desc": "\"{title}\" est prête dans votre collection de notes.",
+    "loading_notes": "Chargement des notes...",
+    "no_notes_period_fmt": "Aucune note enregistrée entre le {start} et le {end}.",
+    "period_notes_title": "Liste des notes de la période ({start} - {end})"
   }
 }
