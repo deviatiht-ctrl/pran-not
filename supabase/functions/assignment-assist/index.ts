@@ -299,13 +299,14 @@ ${effectiveContent.slice(0, 6000)}`;
 
     const needsLongOutput = action === 'solve' || action === 'draft_full' || action === 'qa' || action === 'instruct';
     const out = await runAiTask(auth.admin, auth.user.id, auth.profile?.ai_daily_quota || 500, {
-      task: 'assignment_assist',
+      task: needsLongOutput ? 'tutor' : 'assignment_assist',
       faculty: effectiveFaculty,
       level,
       language: isGrammarOrLanguage ? 'fr' : language,
       maxTokens: needsLongOutput ? 6144 : 4096,
       prompt,
       expectJson: true,
+      useCache: !needsLongOutput,
       cacheKeyPayload: { action, title, instructions, content: effectiveContent.slice(0, 6000), question, language, scope: isGlobal ? 'global' : 'faculty', faculty: effectiveFaculty, useLibrary, bookIds },
     });
 

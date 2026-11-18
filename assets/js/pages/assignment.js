@@ -13,7 +13,7 @@ import {
   loadScript, loadStyle, CDN, sanitizeHtml, pageEnter, checkFileSize,
   openModal,
 } from '../utils.js';
-import { assistAssignment } from '../ai.js';
+import { assistAssignment, askTutor } from '../ai.js';
 import { exportAssignmentPdf, exportAssignmentDocx } from '../export.js';
 import { cacheSet, cacheGet, enqueue, isNetworkError } from '../offline.js';
 
@@ -260,6 +260,109 @@ function renderAiPlan(plan, librarySources = []) {
   icons(box);
 }
 
+async function resolveAssignmentWork({
+  action = 'solve',
+  workType = 'solve',
+  question = '',
+  instructions = '',
+  content = '',
+  scope = 'global',
+  useLibrary = false,
+  faculty = 'general',
+  level = 'L1',
+  language = 'ht',
+}) {
+  const isRedactionOrSolve = action === 'solve' || action === 'instruct' || action === 'qa' ||
+    ['solve', 'exercise', 'conjugation', 'develop', 'qa'].includes(workType);
+
+  const combined = `${question} ${instructions} ${content.slice(0, 300)}`.toLowerCase();
+  const isGrammarOrConjugation = /verbe|conjug|grammai|orthograph|participe|subjonctif|imparfait|passé simple|passé composé|futur|conditionnel|contraindre|contreindre/i.test(combined);
+
+  const effectiveLang = isGrammarOrConjugation ? 'fr' : language;
+  const effectiveFac = (scope === 'global' || isGrammarOrConjugation) ? 'general' : faculty;
+
+  let res = null;
+  let plan = {};
+
+  try {
+    res = await assistAssignment({
+      action,
+      title: assignment?.title || '',
+      instructions: instructions || question,
+      content,
+      question: question || instructions,
+      scope,
+      useLibrary: isGrammarOrConjugation ? false : useLibrary,
+      language: effectiveLang,
+      faculty: effectiveFac,
+      level,
+    });
+    plan = res?.data || {};
+  } catch (err) {
+    if (!isRedactionOrSolve) throw err;
+    console.warn('[assignment] assistAssignment failed, falling back to direct tutor solver:', err);
+  }
+
+  // Vérifier si le texte retourné est une vraie rédaction complète ou seulement une consigne/plan tronqué
+  let text = plan.content_proposal || plan.answer || plan.suggestion || '';
+  const isOutlineOnly = !text ||
+    (text.length < 130 && /présenter|donner|établir|faire|plan|introduire|détailler|conjugaison du verbe/i.test(text)) ||
+    (!plan.content_proposal && !plan.answer && Array.isArray(plan.outline) && plan.outline.length > 0);
+
+  if (isRedactionOrSolve && isOutlineOnly) {
+    let solvePrompt = '';
+    if (isGrammarOrConjugation || workType === 'conjugation') {
+      solvePrompt = `Tu es l'assistant de langue française et de conjugaison d'excellence.
+Donne TOUTE la conjugaison complète du verbe sans aucune omission, sans abréviation et sans renvoyer l'étudiant à chercher lui-même :
+Consigne exacte : ${question || instructions}.
+
+RÈGLES CAPITALES :
+1. Fournis TOUS les modes et TOUS les temps sans exception :
+- INDICATIF : Présent, Imparfait, Passé simple, Futur simple, Passé composé, Plus-que-parfait, Passé antérieur, Futur antérieur.
+- SUBJONCTIF : Présent, Imparfait, Passé, Plus-que-parfait.
+- CONDITIONNEL : Présent, Passé (1ère et 2ème forme).
+- IMPÉRATIF : Présent, Passé.
+- PARTICIPE : Présent, Passé composé.
+- INFINITIF : Présent, Passé.
+- GÉRONDIF : Présent, Passé.
+2. Pour chaque temps, donne les 6 personnes (je, tu, il/elle/on, nous, vous, ils/elles) au complet avec chaque pronom.
+3. Rédige en français parfait, clair et bien structuré avec des titres pour chaque mode.
+4. Aucun emoji.`;
+    } else {
+      solvePrompt = `Tu es l'assistant de rédaction et de résolution intégrale de devoirs universitaires.
+L'étudiant te demande de rédiger ou résoudre complètement :
+"${question || instructions}".
+
+RÈGLES CAPITALES :
+1. RÉDIGE LA SOLUTION OU LE DEVOIR COMPLET : Ne donne JAMAIS un simple plan ni de consignes abstraites. Rédige l'intégralité du travail réutilisable immédiatement (démonstration, rédaction, calculs, argumentation détaillée).
+2. Fournis un contenu universitaire, soigné, structuré et rigoureux.
+3. Si la demande est en français, réponds en français impeccable.
+4. Aucun emoji.`;
+    }
+
+    const tutorRes = await askTutor({
+      message: solvePrompt,
+      scope: scope || 'global',
+      contextType: 'assignment',
+      contextId: assignment?.id,
+      contextText: `Titre : ${assignment?.title || ''}\nConsigne : ${instructions || question}\n${content ? `Brouillon actuel :\n${content}` : ''}`,
+      faculty: effectiveFac,
+      level,
+      language: effectiveLang,
+    });
+
+    if (tutorRes?.reply) {
+      plan.content_proposal = tutorRes.reply;
+      plan.answer = tutorRes.reply;
+    }
+  }
+
+  return {
+    data: plan,
+    library_sources: res?.library_sources || [],
+  };
+}
+
 function openAiWriterModal({ initialQuestion = '', initialAction = 'solve', autoRun = false } = {}) {
   const facName = profileRef?.faculty?.name_fr || profileRef?.faculty_id || t('assignments.domain_faculty');
   const existingInst = document.getElementById('asg-inst-ed')?.value?.trim() || assignment?.instructions || '';
@@ -382,12 +485,12 @@ function openAiWriterModal({ initialQuestion = '', initialAction = 'solve', auto
       const useLibrary = modalScope === 'faculty';
       const effectiveDraft = draftContent || q;
 
-      const res = await assistAssignment({
+      const res = await resolveAssignmentWork({
         action,
-        title: assignment.title,
+        workType: selectedType,
+        question: q,
         instructions: q,
         content: effectiveDraft,
-        question: q,
         scope: modalScope,
         useLibrary,
         language: getLang(),
@@ -829,12 +932,12 @@ async function renderPage() {
 
       try {
         const useLibrary = currentScope === 'faculty' && document.getElementById('asg-use-library')?.checked !== false;
-        const res = await assistAssignment({
+        const res = await resolveAssignmentWork({
           action,
-          title: assignment.title,
+          workType: action === 'solve' ? 'solve' : action,
+          question: instVal,
           instructions: instVal,
           content: effectiveContent,
-          question: instVal,
           scope: currentScope,
           useLibrary,
           language: getLang(),
