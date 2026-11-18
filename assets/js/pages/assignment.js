@@ -175,7 +175,19 @@ function renderAiPlan(plan, librarySources = []) {
   if (strengths.length) contentHtml += `<div class="mt-2"><strong>${esc(t('assignments.strengths'))}</strong><ul class="text-sm mb-0" style="padding-left:1.3em;">${strengths.map((s) => `<li>${esc(s)}</li>`).join('')}</ul></div>`;
   if (issues.length) contentHtml += `<div class="mt-2"><strong>${esc(t('assignments.issues'))}</strong><ul class="text-sm mb-0" style="padding-left:1.3em;">${issues.map((i) => `<li>${esc(i)}</li>`).join('')}</ul></div>`;
   if (corrections.length) contentHtml += `<div class="mt-2"><strong>${esc(t('assignments.corrections'))}</strong><ul class="text-sm mb-0" style="padding-left:1.3em;">${corrections.map((c) => `<li>${esc(c)}</li>`).join('')}</ul></div>`;
-  if (plan?.suggestion) contentHtml += `<div class="mt-2"><strong>${esc(t('assignments.rephrase_proposal'))}</strong><p class="text-sm mb-0">${esc(plan.suggestion)}</p></div>`;
+  if (plan?.suggestion) {
+    contentHtml += `
+      <div class="row-between mt-3 mb-2" style="flex-wrap:wrap;gap:8px;">
+        <div class="ai-suggestion-label">${icon('sparkles')}<span>${esc(t('assignments.rephrase_proposal'))}</span></div>
+        <div class="row-wrap" style="gap:6px;">
+          <button type="button" class="btn btn-sm btn-primary" id="asg-insert-suggestion-btn">${icon('plus')}<span>${esc(t('assignments.insert_in_draft'))}</span></button>
+          <button type="button" class="btn btn-sm btn-warning" id="asg-replace-suggestion-btn">${icon('check')}<span>${esc(t('assignments.replace_all'))}</span></button>
+          <button type="button" class="btn btn-sm btn-secondary" id="asg-copy-suggestion-btn">${icon('copy')}<span>${esc(t('assignments.copy') || 'Kopye')}</span></button>
+        </div>
+      </div>
+      <div class="card card-sm mb-2" style="background:var(--c-surface);"><p class="text-sm mb-0" id="asg-suggestion-text" style="white-space:pre-wrap;">${esc(plan.suggestion)}</p></div>
+    `;
+  }
   if (tips.length) contentHtml += `<div class="mt-2"><strong>${esc(t('assignments.tips'))}</strong><ul class="text-sm mb-0" style="padding-left:1.3em;">${tips.map((tp) => `<li>${esc(tp)}</li>`).join('')}</ul></div>`;
 
   if (librarySources.length) {
@@ -223,6 +235,16 @@ function renderAiPlan(plan, librarySources = []) {
   });
   box.querySelector('#asg-copy-answer-btn')?.addEventListener('click', () => {
     copyTextToClipboard(plan?.answer);
+  });
+
+  box.querySelector('#asg-insert-suggestion-btn')?.addEventListener('click', () => {
+    insertTextInEditor(plan?.suggestion);
+  });
+  box.querySelector('#asg-replace-suggestion-btn')?.addEventListener('click', () => {
+    replaceTextInEditor(plan?.suggestion);
+  });
+  box.querySelector('#asg-copy-suggestion-btn')?.addEventListener('click', () => {
+    copyTextToClipboard(plan?.suggestion);
   });
 
   box.querySelectorAll('[data-insert-src]').forEach((btn) => {
@@ -358,12 +380,13 @@ function openAiWriterModal({ initialQuestion = '', initialAction = 'solve', auto
 
       const draftContent = useDraftCb?.checked ? (quill?.getText()?.trim() || '') : '';
       const useLibrary = modalScope === 'faculty';
+      const effectiveDraft = draftContent || q;
 
       const res = await assistAssignment({
         action,
         title: assignment.title,
         instructions: q,
-        content: draftContent,
+        content: effectiveDraft,
         question: q,
         scope: modalScope,
         useLibrary,
@@ -741,6 +764,12 @@ async function renderPage() {
     toast(t('tutor.scope_switched_faculty'), 'info');
   });
 
+  // Synchronisation dynamique du champ consigne
+  const instEd = document.getElementById('asg-inst-ed');
+  instEd?.addEventListener('input', () => {
+    assignment.instructions = instEd.value;
+  });
+
   // Hero AI Writer Button
   document.getElementById('btn-open-ai-writer')?.addEventListener('click', () => {
     openAiWriterModal({ initialAction: 'solve' });
@@ -750,8 +779,13 @@ async function renderPage() {
   const quickAiInput = document.getElementById('asg-quick-ai-input');
   const quickAiBtn = document.getElementById('asg-quick-ai-btn');
   const handleQuickAi = () => {
-    const q = quickAiInput?.value?.trim();
-    openAiWriterModal({ initialQuestion: q, initialAction: 'solve', autoRun: !!q });
+    const q = quickAiInput?.value?.trim() || document.getElementById('asg-inst-ed')?.value?.trim();
+    if (!q) {
+      toast(t('errors.required'), 'warning');
+      quickAiInput?.focus();
+      return;
+    }
+    openAiWriterModal({ initialQuestion: q, initialAction: 'solve', autoRun: true });
   };
   quickAiBtn?.addEventListener('click', handleQuickAi);
   quickAiInput?.addEventListener('keydown', (e) => {
@@ -765,31 +799,62 @@ async function renderPage() {
   root.querySelectorAll('[data-assist]').forEach((btn) => {
     btn.addEventListener('click', async () => {
       const action = btn.dataset.assist;
-      if (action === 'solve') {
-        openAiWriterModal({ initialAction: 'solve' });
+      const instVal = document.getElementById('asg-inst-ed')?.value?.trim() || assignment.instructions || '';
+      const draftVal = quill?.getText()?.trim() || '';
+      const effectiveContent = draftVal || instVal;
+
+      if (!instVal && !draftVal) {
+        if (action === 'solve') {
+          openAiWriterModal({ initialAction: 'solve' });
+        } else {
+          toast(t('errors.required'), 'warning');
+          document.getElementById('asg-inst-ed')?.focus();
+        }
         return;
       }
+
+      assignment.instructions = instVal;
+
       setLoading(btn, true);
+      const outputBox = document.getElementById('asg-ai-output');
+      if (outputBox) {
+        outputBox.hidden = false;
+        outputBox.innerHTML = `
+          <div class="card card-sm text-center p-4">
+            <div class="spinner mb-2" style="margin:0 auto;"></div>
+            <p class="text-sm muted mb-0">${esc(t('assignments.generating_in_mode', { mode: currentScope === 'global' ? t('assignments.domain_general') : facName }))}</p>
+          </div>
+        `;
+      }
+
       try {
         const useLibrary = currentScope === 'faculty' && document.getElementById('asg-use-library')?.checked !== false;
         const res = await assistAssignment({
           action,
           title: assignment.title,
-          instructions: document.getElementById('asg-inst-ed')?.value?.trim() || '',
-          content: quill?.getText()?.trim() || '',
+          instructions: instVal,
+          content: effectiveContent,
+          question: instVal,
           scope: currentScope,
           useLibrary,
           language: getLang(),
           faculty: currentScope === 'global' ? 'general' : profileRef?.faculty_id,
           level: profileRef?.level,
         });
+
+        assignment.plan = res.data;
         renderAiPlan(res.data, res.library_sources || []);
-        if (action === 'plan') {
-          assignment.plan = res.data;
-          await db.from('pran_not_assignments').update({ plan: res.data }).eq('id', assignment.id);
+
+        if (action === 'plan' || action === 'solve') {
+          await db.from('pran_not_assignments').update({ plan: res.data, instructions: instVal }).eq('id', assignment.id);
         }
+
+        outputBox?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       } catch (err) {
         handleError(err);
+        if (outputBox) {
+          outputBox.innerHTML = `<div class="alert alert-error text-sm">${esc(err.message || 'Erè pandan jenerasyon an')}</div>`;
+        }
       } finally {
         setLoading(btn, false);
       }

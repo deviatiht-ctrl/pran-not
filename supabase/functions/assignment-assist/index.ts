@@ -22,9 +22,14 @@ Deno.serve(async (req) => {
     const useLibrary = body.useLibrary !== false;
     const bookIds = Array.isArray(body.bookIds) ? body.bookIds.filter(Boolean).slice(0, 5) : [];
 
-    if (!title && !instructions && !content) {
+    if (!title && !instructions && !content && !question) {
       return errorResponse('invalid_input', 'Sujet ou contenu du devoir manquant.', 400);
     }
+
+    // Déterminer le texte effectif et la consigne pour ne JAMAIS avoir de texte vide
+    const effectiveContent = content || instructions || question || title;
+    const effectiveInstructions = instructions || question || title || content;
+    const effectiveTarget = question || instructions || title || content;
 
     const isGlobal = body.scope === 'global' || body.faculty === 'general' || body.faculty === 'global';
     const faculty = isGlobal ? 'general' : (body.faculty || auth.profile?.faculty_id || 'general');
@@ -33,7 +38,8 @@ Deno.serve(async (req) => {
 
     // Détecter si la consigne concerne la grammaire, la conjugaison ou la langue française
     const combinedQuery = `${title} ${instructions} ${question} ${content.slice(0, 300)}`.toLowerCase();
-    const isGrammarOrLanguage = /verbe|conjug|grammai|orthograph|participe|subjonctif|imparfait|passé simple|passé composé|futur|conditionnel|accord |temps de l|temps du verbe/i.test(combinedQuery);
+    const isGrammarOrLanguage = /verbe|conjug|grammai|orthograph|participe|subjonctif|imparfait|passé simple|passé composé|futur|conditionnel|accord |temps de l|temps du verbe|contraindre|contreindre/i.test(combinedQuery);
+    const effectiveFaculty = isGlobal || isGrammarOrLanguage ? 'general' : faculty;
 
     // Recherche contextuelle dans les livres, manuels et codes juridiques de la Bibliothèque (sauf si purement linguistique ou mode global)
     let librarySources: Array<{
@@ -83,15 +89,24 @@ Deno.serve(async (req) => {
 
     let prompt = '';
     if (action === 'solve' || action === 'draft_full') {
-      prompt = `Tu es l'assistant de rédaction et de résolution académique de devoirs pour l'étudiant.
-L'étudiant te demande de résoudre complètement son exercice, son devoir ou sa consigne de manière exhaustive, rigoureuse et immédiatement prête à l'emploi.
+      prompt = `Tu es l'assistant d'excellence de rédaction et de résolution intégrale de devoirs universitaires et scolaires pour l'étudiant.
+L'étudiant te demande de résoudre complètement son exercice, son devoir ou sa consigne de manière exhaustive, rigoureuse, soignée et immédiatement prête à l'emploi.
 
-RÈGLES IMPORTANTES :
-1. Exécute TOTALEMENT et CONCRÈTEMENT ce qui est demandé. Ne renvoie JAMAIS l'étudiant à faire le travail seul, ne te contente pas de donner un plan si un devoir ou exercice complet est demandé.
-2. CONJUGAISON & GRAMMAIRE : Si la consigne porte sur une conjugaison (ex: verbe à tous les temps), fournis TOUS les modes (indicatif, subjonctif, conditionnel, impératif, participe, infinitif, gérondif) et TOUS les temps sans exception ni omission (présent, imparfait, passé simple, futur simple, passé composé, plus-que-parfait, passé antérieur, futur antérieur, etc.). Présente chaque temps clairement.
-3. EXERCICE & DISSERTATION : Fournis la résolution intégrale, étape par étape, détaillée, avec justification des résultats ou argumentation rédigée.
-4. LINGUISTIQUE : Si la demande porte sur la langue française (grammaire, conjugaison, dissertation, littérature française), le contenu rédigé DOIT être en français impeccable.
-5. ZÉRO EMOJI : Aucun emoji ni pictogramme décoratif dans la réponse.
+RÈGLES CAPITALES :
+1. RÉSOLUTION INTÉGRALE ET CONCRÈTE : Résous ou rédige TOUT le devoir demandé. Ne dis JAMAIS que le texte est introuvable ou vide. Ne renvoie JAMAIS l'étudiant à faire le travail seul, et ne te contente pas d'un simple plan quand une résolution ou rédaction complète est demandée.
+2. CONJUGAISON & GRAMMAIRE : Si la consigne porte sur une conjugaison (ex: un verbe à tous les temps, comme "contraindre"), fournis TOUS les modes (indicatif, subjonctif, conditionnel, impératif, participe, infinitif, gérondif) et TOUS les temps sans exception ni omission :
+- Indicatif : Présent, Imparfait, Passé simple, Futur simple, Passé composé, Plus-que-parfait, Passé antérieur, Futur antérieur.
+- Subjonctif : Présent, Imparfait, Passé, Plus-que-parfait.
+- Conditionnel : Présent, Passé 1ère forme, Passé 2ème forme.
+- Impératif : Présent, Passé.
+- Participe : Présent, Passé composé.
+- Infinitif : Présent, Passé.
+- Gérondif : Présent, Passé.
+Présente chaque mode et chaque temps clairement avec toutes les personnes (je/tu/il/nous/vous/ils).
+3. EXERCICE & PROBLÈMES : Fournis la résolution intégrale, étape par étape, détaillée, avec justification des résultats ou argumentation rédigée.
+4. DISSERTATION & DÉVELOPPEMENT : Rédige une introduction complète, un développement structuré avec titres clairs, et une conclusion.
+5. DOMAINE ACADÉMIQUE : Traite le sujet dans sa matière exacte (langue française, conjugaison, mathématiques, économie, droit, etc.) sans forcer de biais hors-sujet.
+6. AUCUN EMOJI : Absolument aucun emoji dans le texte.
 
 Retourne STRICTEMENT ce JSON :
 {
@@ -100,18 +115,20 @@ Retourne STRICTEMENT ce JSON :
   "tips": ["Conseil ou règle essentielle à retenir pour réussir ce type d'exercice"]
 }
 
-Titre du devoir : ${title}
-Consigne du devoir : ${instructions}
-${content ? `Brouillon actuel ou extrait du devoir :\n${content.slice(0, 4000)}\n` : ''}
-Demande ou consigne de l'étudiant : ${question || title || instructions}`;
+Titre du devoir : ${title || 'Devoir'}
+Consigne officielle ou exercice à résoudre :
+${effectiveTarget}
+${content ? `Brouillon actuel ou extrait du devoir déjà saisi par l'étudiant :\n${content.slice(0, 4000)}\n` : ''}
+${libraryContext ? `\nEXTRAITS PERTINENTS DE LA BIBLIOTHÈQUE :\n${libraryContext}\n` : ''}`;
     } else if (action === 'instruct') {
       prompt = `L'étudiant te donne une consigne ou des directives spécifiques sur son devoir. Tu es son assistant IA personnel de rédaction et d'étude.
 RÈGLES IMPORTANTES :
-1. Exécute EXACTEMENT ce que l'étudiant te demande (rédiger un passage, développer une argumentation, résoudre un exercice, conjuguer un verbe à tous les temps, faire une synthèse).
-2. Fournis un contenu directement réutilisable et complet dans son devoir, sans tronquer.
-3. Si la demande concerne la langue française (conjugaison, grammaire, orthographe), fournis la réponse complète en français impeccable.
-4. Reste clair, structuré, académique et sans remplissage inutile.
-5. Aucun emoji.
+1. Exécute EXACTEMENT et COMPLÈTEMENT ce que l'étudiant te demande (rédiger un passage, développer une argumentation, résoudre un exercice, conjuguer un verbe à tous les temps, faire une synthèse).
+2. Ne dis JAMAIS que le texte est introuvable ou vide.
+3. Fournis un contenu directement réutilisable et complet dans son devoir, sans tronquer.
+4. Si la demande concerne la langue française (conjugaison, grammaire, orthographe), fournis la réponse complète en français impeccable.
+5. Reste clair, structuré, académique et sans remplissage inutile.
+6. Aucun emoji.
 
 Retourne STRICTEMENT ce JSON :
 {
@@ -120,40 +137,41 @@ Retourne STRICTEMENT ce JSON :
   "tips": ["Conseil ou rappel clé"]
 }
 
-Titre du devoir : ${title}
-Consigne générale : ${instructions}
-${content ? `Brouillon actuel :\n${content.slice(0, 4000)}\n` : ''}
-Directive ou explication donnée par l'étudiant à l'IA : ${question || title || instructions}`;
+Titre du devoir : ${title || 'Devoir'}
+Consigne / Directive de l'étudiant :
+${effectiveTarget}
+${content ? `Brouillon actuel :\n${content.slice(0, 4000)}\n` : ''}`;
     } else if (action === 'explain_details') {
-      prompt = `L'étudiant demande une EXPLICATION DÉTAILLÉE de tout ce qui compose ce devoir fini ou en cours.
+      prompt = `L'étudiant demande une EXPLICATION DÉTAILLÉE et didactique de son devoir ou de sa consigne d'exercice.
 RÈGLES IMPORTANTES :
-1. Explique dans les moindres détails les concepts clés, le raisonnement utilisé, chaque étape de la démonstration ou de la rédaction.
-2. Pour chaque grande idée ou réponse, explique POURQUOI c'est ainsi, afin que l'étudiant maîtrise parfaitement son devoir s'il est interrogé par son professeur.
-3. Sois très didactique, complet et facile à comprendre.
-4. Aucun emoji.
+1. Si un devoir complet ou un brouillon est fourni, explique dans les moindres détails les concepts clés, le raisonnement utilisé, et chaque étape de la démonstration ou de la rédaction.
+2. Si le devoir n'est pas encore rédigé et que seule la consigne/l'exercice est fourni, explique en détail la consigne : ce que demande le professeur, les notions théoriques indispensables, la méthode étape par étape pour y répondre, et les pièges classiques à éviter.
+3. Ne dis JAMAIS qu'aucun devoir ou texte n'a été trouvé car le sujet ou brouillon est obligatoirement fourni ci-dessous.
+4. Sois très didactique, complet et facile à comprendre.
+5. Aucun emoji.
 
 Retourne STRICTEMENT ce JSON :
 {
-  "global_summary": "Vue d'ensemble du devoir et de son fil conducteur",
+  "global_summary": "Vue d'ensemble du devoir ou de la consigne et de son fil conducteur",
   "detailed_breakdown": [
-    { "part": "Nom de la section ou notion", "explanation": "Explication complète et détaillée de ce qui y est fait et pourquoi" }
+    { "part": "Nom de la section ou notion", "explanation": "Explication complète et détaillée de ce qui y est fait ou attendu" }
   ],
   "key_learnings": ["Notion clé 1 à retenir", "Notion clé 2"],
   "oral_defense_tips": ["Conseil pour présenter ce devoir devant le professeur"]
 }
 
-Titre du devoir : ${title}
-Consigne : ${instructions}
-Devoir complet :
-${content.slice(0, 14000)}`;
+Titre du devoir : ${title || 'Devoir'}
+Consigne du professeur : ${effectiveInstructions}
+${content ? `Devoir rédigé par l'étudiant :\n${content.slice(0, 14000)}` : `Sujet / Consigne à analyser et expliquer en détail :\n${effectiveContent.slice(0, 14000)}`}`;
     } else if (action === 'qa') {
       prompt = `Tu es le tuteur d'assistance pour le devoir de l'étudiant.
 RÈGLES IMPORTANTES :
 1. Sois direct, complet et précis. Ne refuse JAMAIS de répondre ou de conjuguer.
 2. Si la demande porte sur une question directe ou un exercice spécifique (ex: conjugaison d'un verbe à tous les temps, calcul, définition, règle juridique, analyse courte), donne directement TOUTE la réponse exacte sans rien omettre. Si tous les temps d'un verbe sont demandés, fournis TOUS les modes (indicatif, subjonctif, conditionnel, impératif, participe, infinitif, gérondif) et TOUS les temps en français complet sans tronquer.
-3. Si la question concerne la langue française ou une consigne en français, réponds en français correct et complet.
-4. Reste pédagogique mais sans surcharge inutile ni bavardage.
-5. Aucun emoji.
+3. Ne dis JAMAIS qu'aucun texte n'a été trouvé.
+4. Si la question concerne la langue française ou une consigne en français, réponds en français correct et complet.
+5. Reste pédagogique mais sans surcharge inutile ni bavardage.
+6. Aucun emoji.
 
 Retourne STRICTEMENT ce JSON :
 {
@@ -161,18 +179,19 @@ Retourne STRICTEMENT ce JSON :
   "tips": ["Point clé ou règle essentielle à retenir"]
 }
 
-Titre du devoir : ${title}
-Consigne du devoir : ${instructions}
-${content ? `Brouillon actuel ou extrait du devoir :\n${content.slice(0, 4000)}\n` : ''}
-Question de l'étudiant : ${question || title || instructions}`;
+Titre du devoir : ${title || 'Devoir'}
+Consigne / Question de l'étudiant :
+${effectiveTarget}
+${content ? `Brouillon actuel ou extrait du devoir :\n${content.slice(0, 4000)}\n` : ''}`;
     } else if (action === 'critique_submission') {
-      prompt = `L'étudiant a déjà rédigé ou généré ce devoir (peut-être via une autre IA ou par lui-même) et te le soumet pour évaluation critique, vérification rigoureuse et notation indicative.
+      prompt = `L'étudiant te soumet son travail pour évaluation critique, vérification rigoureuse et notation indicative.
 RÈGLES IMPORTANTES :
 1. Analyse si le devoir répond exactement à la consigne demandée.
 2. Vérifie la justesse des réponses, l'exactitude des notions/faits/règles, la clarté et l'absence d'erreurs (grammaire, logique, fausses affirmations).
-3. Sois direct, structuré et sans verbiage inutile.
-4. Donne une note indicative sur 20 et des corrections concrètes pour les erreurs détectées.
-5. Aucun emoji.
+3. Ne dis JAMAIS que le texte est introuvable car le texte soumis est fourni ci-dessous.
+4. Sois direct, structuré et sans verbiage inutile.
+5. Donne une note indicative sur 20 et des corrections concrètes pour les erreurs détectées.
+6. Aucun emoji.
 
 Retourne STRICTEMENT ce JSON :
 {
@@ -184,16 +203,17 @@ Retourne STRICTEMENT ce JSON :
   "tips": ["Recommandation prioritaire pour perfectionner le travail"]
 }
 
-Titre du devoir : ${title}
-Consigne officielle : ${instructions}
+Titre du devoir : ${title || 'Devoir'}
+Consigne officielle : ${effectiveInstructions}
 Travail soumis par l'étudiant à analyser :
-${content.slice(0, 14000)}`;
+${effectiveContent.slice(0, 14000)}`;
     } else if (action === 'library_research') {
-      prompt = `Appuie-toi sur les ouvrages et codes juridiques de la Bibliothèque ci-dessous pour préparer une fiche de recherche documentaire destinée au devoir de l'étudiant.
+      prompt = `Appuie-toi sur les ouvrages et codes de la Bibliothèque ci-dessous pour préparer une fiche de recherche documentaire destinée au devoir de l'étudiant.
 RÈGLES ANTI-PLAGIAT STRICTES :
 1. Rédige les analyses et pistes avec tes propres mots, sans recopier les sources.
-2. Pour les articles de loi / Constitution, cite les références exactes présentes dans les extraits fournis (ne fabrique jamais un numéro d'article absent).
+2. Pour les articles de loi / Constitution / ouvrages, cite les références exactes présentes dans les extraits fournis (ne fabrique jamais un numéro d'article absent).
 3. Ne rédige pas le devoir complet à la place de l'étudiant : donne-lui la matière sourcée pour construire sa propre argumentation.
+4. Aucun emoji.
 
 Retourne STRICTEMENT ce JSON :
 {
@@ -204,12 +224,15 @@ Retourne STRICTEMENT ce JSON :
   "tips": ["Conseil méthodologique et anti-plagiat"]
 }
 
-Titre du devoir : ${title}
-Consigne : ${instructions}
+Titre du devoir : ${title || 'Devoir'}
+Consigne : ${effectiveInstructions}
 ${libraryContext ? `\nEXTRAITS DE LA BIBLIOTHÈQUE DISPONIBLES :\n${libraryContext}` : ''}`;
     } else if (action === 'plan') {
-      prompt = `L'étudiant doit réaliser le devoir suivant. Ne rédige JAMAIS le devoir à sa place : guide-le avec un plan détaillé, des pistes de recherche, des mots-clés à chercher en bibliothèque/web et une structure académique.
+      prompt = `L'étudiant doit réaliser le devoir suivant. Guide-le avec un plan détaillé, des pistes de recherche, des mots-clés à chercher et une structure académique rigoureuse.
 ${libraryContext ? 'Intègre et référence explicitement les extraits de livres/codes disponibles ci-dessous dans les pistes et sources.' : ''}
+Ne dis JAMAIS qu'aucun texte n'a été trouvé.
+Aucun emoji.
+
 Retourne STRICTEMENT ce JSON :
 {
   "outline": [
@@ -221,55 +244,69 @@ Retourne STRICTEMENT ce JSON :
   "tips": ["Conseil méthodologique 1", "Conseil 2"]
 }
 
-Titre : ${title}
-Consigne : ${instructions}
+Titre : ${title || 'Devoir'}
+Consigne / Sujet du devoir :
+${effectiveTarget}
 ${libraryContext ? `\nEXTRAITS DE LA BIBLIOTHÈQUE :\n${libraryContext}` : ''}`;
     } else if (action === 'coherence') {
-      prompt = `Vérifie la cohérence, l'enchaînement logique et le respect de la consigne (et des textes de référence disponibles si pertinents) dans le brouillon de l'étudiant sans le réécrire entièrement.
+      prompt = `Analyse la cohérence logique, la clarté et la conformité du travail ou de la consigne fournie par l'étudiant.
+RÈGLES IMPORTANTES :
+1. Si un brouillon rédigé est fourni, vérifie sa cohérence avec la consigne et l'enchaînement logique des idées.
+2. Si le brouillon n'est pas encore rédigé et que seule la consigne est fournie, évalue la clarté du sujet, les points clés nécessaires pour y répondre et la cohérence de la démarche méthodologique.
+3. Ne dis JAMAIS qu'aucun texte n'a été trouvé.
+4. Aucun emoji.
+
 Retourne STRICTEMENT ce JSON :
 {
-  "strengths": ["Point fort 1", "Point fort 2"],
-  "issues": ["Manque ou incohérence 1", "Suggestion d'amélioration 2"],
-  "tips": ["Conseil prioritaire"]
+  "strengths": ["Point fort ou notion bien ciblée"],
+  "issues": ["Manque, imprécision ou point d'attention"],
+  "tips": ["Conseil prioritaire de cohérence"]
 }
 
-Consigne : ${instructions}
+Consigne : ${effectiveInstructions}
 ${libraryContext ? `\nTEXTES DE RÉFÉRENCE :\n${libraryContext}\n` : ''}
-Brouillon :
-${content.slice(0, 14000)}`;
+Texte à analyser pour cohérence :
+${effectiveContent.slice(0, 14000)}`;
     } else if (action === 'biblio') {
-      prompt = `Propose des conseils pour structurer la bibliographie (normes APA / juridiques) à partir des livres réellement trouvés dans la bibliothèque et des mots-clés académiques à vérifier (ne cite jamais une référence inventée).
+      prompt = `Propose des conseils pour structurer la bibliographie (normes APA / académiques / juridiques) à partir des livres réellement trouvés dans la bibliothèque et des mots-clés académiques à vérifier (ne cite jamais une référence inventée).
+Aucun emoji.
+
 Retourne STRICTEMENT ce JSON :
 {
   "sources_to_find": ["Mot-clé ou référence exacte issue des extraits ci-dessous", "Type de texte officiel à consulter"],
   "tips": ["Format APA / citation juridique", "Vérifie chaque citation directement dans l'ouvrage original."]
 }
 
-Titre : ${title}
-Consigne : ${instructions}
+Titre : ${title || 'Devoir'}
+Consigne : ${effectiveInstructions}
 ${libraryContext ? `\nOUVRAGES TROUVÉS EN BIBLIOTHÈQUE :\n${libraryContext}` : ''}`;
     } else {
-      prompt = `Aide l'étudiant à améliorer la clarté et le style universitaire de son passage sans plagiat, tout en expliquant les améliorations.
+      prompt = `Aide l'étudiant à reformuler, clarifier et améliorer le style académique du texte fourni ci-dessous (qu'il s'agisse d'une consigne, d'un sujet ou d'un passage de devoir).
+RÈGLES IMPORTANTES :
+1. Propose une version reformulée élégante, claire et universitaire.
+2. Ne dis JAMAIS qu'aucun texte n'a été fourni car le texte à traiter est obligatoirement fourni ci-dessous.
+3. Aucun emoji.
+
 Retourne STRICTEMENT ce JSON :
 {
-  "suggestion": "Proposition de reformulation claire et originale",
-  "tips": ["Explication de ce qui a été amélioré"]
+  "suggestion": "Proposition de reformulation claire, soignée et originale",
+  "tips": ["Explication des améliorations stylistiques apportées"]
 }
 
 Texte à reformuler :
-${content.slice(0, 6000)}`;
+${effectiveContent.slice(0, 6000)}`;
     }
 
     const needsLongOutput = action === 'solve' || action === 'draft_full' || action === 'qa' || action === 'instruct';
     const out = await runAiTask(auth.admin, auth.user.id, auth.profile?.ai_daily_quota || 500, {
       task: 'assignment_assist',
-      faculty,
+      faculty: effectiveFaculty,
       level,
       language: isGrammarOrLanguage ? 'fr' : language,
       maxTokens: needsLongOutput ? 6144 : 4096,
       prompt,
       expectJson: true,
-      cacheKeyPayload: { action, title, instructions, content: content.slice(0, 6000), question, language, scope: isGlobal ? 'global' : 'faculty', faculty, useLibrary, bookIds },
+      cacheKeyPayload: { action, title, instructions, content: effectiveContent.slice(0, 6000), question, language, scope: isGlobal ? 'global' : 'faculty', faculty: effectiveFaculty, useLibrary, bookIds },
     });
 
     return jsonResponse({
