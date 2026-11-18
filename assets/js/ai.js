@@ -182,6 +182,7 @@ export async function askTutor({
   conversationId,
   message,
   mode = 'standard',
+  scope = 'global',
   contextType = 'general',
   contextId = null,
   contextText = '',
@@ -196,6 +197,7 @@ export async function askTutor({
     conversationId,
     message,
     mode,
+    scope,
     contextType,
     contextId,
     contextText,
@@ -210,11 +212,12 @@ export async function askTutor({
 
 /** Assistance aux devoirs (plan, pistes, cohérence, reformulation, critique soumission, questions directes, bibliographie, recherche bibliothèque). */
 export async function assistAssignment({
-  action = 'plan',
+  action = 'solve',
   title,
   instructions,
   content = '',
   question = '',
+  scope = 'global',
   useLibrary = true,
   bookIds = [],
   language,
@@ -227,6 +230,7 @@ export async function assistAssignment({
     instructions,
     content,
     question,
+    scope,
     useLibrary,
     bookIds,
     language: language || getLang(),

@@ -61,7 +61,13 @@
 
       <section class="card tutor-chat-card">
         <div class="tutor-chat-head">
-          <strong class="font-display" id="active-conv-title" data-i18n="tutor.context_general">Konvèsasyon jeneral</strong>
+          <div class="row" style="gap:10px;flex-wrap:wrap;align-items:center;">
+            <strong class="font-display" id="active-conv-title" data-i18n="tutor.context_general">Konvèsasyon jeneral</strong>
+            <div class="segmented segmented-xs" id="full-tutor-scope">
+              <button type="button" class="btn btn-xs btn-primary" data-scope="global" title="Reponn sou tout matyè san limite sou fakilte">Jeneral</button>
+              <button type="button" class="btn btn-xs btn-ghost" data-scope="faculty" title="Konsantre sou espesyalite fakilte w la">Fakilte</button>
+            </div>
+          </div>
           <div class="tutor-modes" id="full-tutor-modes" style="padding:0;">
             <button type="button" class="chip" data-mode="simple" data-i18n="tutor.mode_simple">Eksplike senp</button>
             <button type="button" class="chip" data-mode="child" data-i18n="tutor.mode_child">Tankou yon timoun</button>

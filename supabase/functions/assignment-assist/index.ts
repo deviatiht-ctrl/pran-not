@@ -26,7 +26,8 @@ Deno.serve(async (req) => {
       return errorResponse('invalid_input', 'Sujet ou contenu du devoir manquant.', 400);
     }
 
-    const faculty = body.faculty || auth.profile?.faculty_id || 'autre';
+    const isGlobal = body.scope === 'global' || body.faculty === 'general' || body.faculty === 'global';
+    const faculty = isGlobal ? 'general' : (body.faculty || auth.profile?.faculty_id || 'general');
     const level = body.level || auth.profile?.level || 'L1';
     const language = body.language || auth.profile?.language || 'ht';
 
@@ -34,7 +35,7 @@ Deno.serve(async (req) => {
     const combinedQuery = `${title} ${instructions} ${question} ${content.slice(0, 300)}`.toLowerCase();
     const isGrammarOrLanguage = /verbe|conjug|grammai|orthograph|participe|subjonctif|imparfait|passé simple|passé composé|futur|conditionnel|accord |temps de l|temps du verbe/i.test(combinedQuery);
 
-    // Recherche contextuelle dans les livres, manuels et codes juridiques de la Bibliothèque (sauf si purement linguistique)
+    // Recherche contextuelle dans les livres, manuels et codes juridiques de la Bibliothèque (sauf si purement linguistique ou mode global)
     let librarySources: Array<{
       book_id: string;
       book_title: string;
@@ -46,7 +47,7 @@ Deno.serve(async (req) => {
     }> = [];
     let libraryContext = '';
 
-    if ((useLibrary || action === 'library_research') && !isGrammarOrLanguage) {
+    if (!isGlobal && (useLibrary || action === 'library_research') && !isGrammarOrLanguage) {
       const searchQuery = [title, instructions].filter(Boolean).join(' ').slice(0, 220) || content.slice(0, 220);
       try {
         const { data: libHits } = await auth.userClient.rpc('pran_not_search_library', {
@@ -268,7 +269,7 @@ ${content.slice(0, 6000)}`;
       maxTokens: needsLongOutput ? 6144 : 4096,
       prompt,
       expectJson: true,
-      cacheKeyPayload: { action, title, instructions, content: content.slice(0, 6000), question, language, useLibrary, bookIds },
+      cacheKeyPayload: { action, title, instructions, content: content.slice(0, 6000), question, language, scope: isGlobal ? 'global' : 'faculty', faculty, useLibrary, bookIds },
     });
 
     return jsonResponse({

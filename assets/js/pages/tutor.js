@@ -14,8 +14,10 @@ let profileRef = null;
 let conversations = [];
 let activeConvId = null;
 let messages = [];
+let tutorScope = localStorage.getItem('prannot.tutor_scope') || 'global';
 
 function needsVerify() {
+  if (tutorScope === 'global') return false;
   return ['medecine', 'sciences_infirmieres', 'pharmacie', 'odontologie', 'droit'].includes(profileRef?.faculty_id);
 }
 
@@ -92,13 +94,15 @@ async function sendMsg(text, mode = 'standard') {
   box.scrollTop = box.scrollHeight;
 
   try {
+    const isGlobal = tutorScope === 'global';
     const res = await askTutor({
       conversationId: activeConvId,
       message: text,
       mode,
+      scope: tutorScope,
       contextType: courseId ? 'course' : 'general',
       courseId,
-      faculty: profileRef?.faculty_id || 'autre',
+      faculty: isGlobal ? 'general' : (profileRef?.faculty_id || 'general'),
       level: profileRef?.level || 'L1',
       language: getLang(),
       history: messages.slice(-8),
@@ -135,6 +139,24 @@ async function sendMsg(text, mode = 'standard') {
   renderMessages();
 
   cSel.addEventListener('change', renderConvs);
+
+  const scopeBtns = document.querySelectorAll('#full-tutor-scope button');
+  const updateScopeUi = () => {
+    scopeBtns.forEach((b) => {
+      b.className = `btn btn-xs ${b.dataset.scope === tutorScope ? 'btn-primary' : 'btn-ghost'}`;
+    });
+  };
+  updateScopeUi();
+  scopeBtns.forEach((b) => {
+    b.addEventListener('click', () => {
+      tutorScope = b.dataset.scope;
+      localStorage.setItem('prannot.tutor_scope', tutorScope);
+      updateScopeUi();
+      toast(tutorScope === 'global' ? t('tutor.scope_switched_global') : t('tutor.scope_switched_faculty'), 'info');
+      renderMessages();
+    });
+  });
+
   document.getElementById('new-conv-btn').addEventListener('click', () => {
     activeConvId = null;
     messages = [];

@@ -25,6 +25,7 @@ let currentProfile = null;
 let tutorInitialized = false;
 let tutorHistory = [];
 let tutorConvId = null;
+let tutorScope = localStorage.getItem('prannot.tutor_scope') || 'global';
 
 function isCurrent(file) {
   const path = location.pathname.toLowerCase();
@@ -526,6 +527,17 @@ function ensureTutorButton() {
       <a class="btn-icon" href="${pageHref('pages/tutor.html')}" title="${esc(t('tutor.open_full'))}" aria-label="${esc(t('tutor.open_full'))}">${icon('maximize-2')}</a>
       <button type="button" class="btn-icon" id="tutor-close-btn" aria-label="${esc(t('common.close'))}">${icon('x')}</button>
     </div>
+    <div class="tutor-scope-bar row-between px-3 py-1" style="background:var(--c-surface-soft);border-bottom:1px solid var(--c-border);font-size:12px;padding:6px 12px;">
+      <span class="muted" style="display:inline-flex;align-items:center;gap:4px;">${icon('globe')}<span>${esc(t('tutor.scope_label'))}</span></span>
+      <div class="segmented segmented-xs" id="tutor-scope-group">
+        <button type="button" class="btn btn-xs ${tutorScope === 'global' ? 'btn-primary' : 'btn-ghost'}" data-scope="global" title="${esc(t('tutor.scope_global_title'))}">
+          ${esc(t('tutor.scope_global'))}
+        </button>
+        <button type="button" class="btn btn-xs ${tutorScope === 'faculty' ? 'btn-primary' : 'btn-ghost'}" data-scope="faculty" title="${esc(t('tutor.scope_faculty_title'))}">
+          ${esc(t('tutor.scope_faculty'))}
+        </button>
+      </div>
+    </div>
     <div class="tutor-panel-body" id="tutor-messages"></div>
     <div class="tutor-panel-foot">
       <div class="tutor-modes" id="tutor-mode-chips">
@@ -546,6 +558,19 @@ function ensureTutorButton() {
   icons(panel);
 
   document.getElementById('tutor-close-btn').addEventListener('click', () => toggleTutorDrawer(false));
+
+  const scopeBtns = panel.querySelectorAll('#tutor-scope-group button');
+  scopeBtns.forEach((b) => {
+    b.addEventListener('click', () => {
+      tutorScope = b.dataset.scope;
+      localStorage.setItem('prannot.tutor_scope', tutorScope);
+      scopeBtns.forEach((btn) => {
+        btn.className = `btn btn-xs ${btn.dataset.scope === tutorScope ? 'btn-primary' : 'btn-ghost'}`;
+      });
+      toast(tutorScope === 'global' ? t('tutor.scope_switched_global') : t('tutor.scope_switched_faculty'), 'info');
+      renderTutorWelcome();
+    });
+  });
 
   const chips = panel.querySelectorAll('#tutor-mode-chips .chip');
   chips.forEach((ch) => {
@@ -584,6 +609,7 @@ function ensureTutorButton() {
 }
 
 function needsVerificationNotice() {
+  if (tutorScope === 'global') return false;
   const f = currentProfile?.faculty_id;
   return ['medecine', 'sciences_infirmieres', 'pharmacie', 'odontologie', 'droit'].includes(f);
 }
@@ -641,15 +667,17 @@ async function sendTutorMessage(text, mode = 'standard') {
   box.scrollTop = box.scrollHeight;
 
   try {
+    const isGlobal = tutorScope === 'global';
     const res = await askTutor({
       conversationId: tutorConvId,
       message: text,
       mode,
+      scope: tutorScope,
       contextType: currentContext.contextType,
       contextId: currentContext.contextId,
       contextText: currentContext.contextText,
       courseId: currentContext.courseId,
-      faculty: currentProfile?.faculty_id || 'autre',
+      faculty: isGlobal ? 'general' : (currentProfile?.faculty_id || 'general'),
       level: currentProfile?.level || 'L1',
       language: getLang(),
       history: tutorHistory.slice(-8),

@@ -16,7 +16,8 @@ Deno.serve(async (req) => {
     const message = String(body.message || '').trim();
     if (!message) return errorResponse('invalid_input', 'Message vide.', 400);
 
-    const faculty = body.faculty || auth.profile?.faculty_id || 'autre';
+    const isGlobal = body.scope === 'global' || body.faculty === 'general' || body.faculty === 'global';
+    const faculty = isGlobal ? 'general' : (body.faculty || auth.profile?.faculty_id || 'general');
     const level = body.level || auth.profile?.level || 'L1';
     const language = body.language || auth.profile?.language || 'ht';
     const mode = String(body.mode || 'standard');
@@ -87,7 +88,7 @@ Deno.serve(async (req) => {
 
     // Recherche complémentaire dans la Bibliothèque & Codes officiels (RAG)
     let libraryCitations: Array<{ book_id: string; book_title: string; section_label: string; page_number: number | null }> = [];
-    if (body.useLibrary !== false && message.length >= 4) {
+    if (!isGlobal && body.useLibrary !== false && message.length >= 4) {
       try {
         const { data: libHits } = await auth.userClient.rpc('pran_not_search_library', {
           p_query: message.slice(0, 220),
@@ -123,7 +124,12 @@ Deno.serve(async (req) => {
       standard: 'Mode : réponse structurée, claire et pédagogique.',
     };
 
+    const globalDirective = isGlobal
+      ? "MODE GLOBAL/UNIVERSEL : Tu réponds sur n'importe quelle matière académique sans restriction de faculté. Ne biaise jamais vers le droit ou la médecine si la question n'en parle pas."
+      : "";
+
     const systemExtra = [
+      globalDirective,
       modeDirectives[mode] || modeDirectives.standard,
       contextSnippets.length ? `CONTEXTE DE L'ÉTUDIANT (à utiliser en priorité) :\n${contextSnippets.join('\n\n')}` : '',
     ].filter(Boolean).join('\n\n');

@@ -340,20 +340,32 @@ export async function runAiTask(
   }
 
   // 3. Charger le prompt système depuis pran_not_ai_prompts + persona faculté
+  const isGlobalFaculty = !faculty || faculty === 'general' || faculty === 'global' || faculty === 'autre';
+
   const { data: prompts } = await admin
     .from('pran_not_ai_prompts')
     .select('faculty_id, system_prompt')
     .eq('task', req.task)
     .eq('active', true)
-    .or(`faculty_id.eq.${faculty},faculty_id.is.null`);
+    .or(isGlobalFaculty ? 'faculty_id.is.null' : `faculty_id.eq.${faculty},faculty_id.is.null`);
 
-  const facultyPrompt = prompts?.find((p) => p.faculty_id === faculty)?.system_prompt;
+  const facultyPrompt = isGlobalFaculty ? null : prompts?.find((p) => p.faculty_id === faculty)?.system_prompt;
   const basePrompt = prompts?.find((p) => p.faculty_id === null)?.system_prompt || '';
-  const { data: facRow } = await admin
-    .from('pran_not_faculties')
-    .select('name_fr, persona')
-    .eq('id', faculty)
-    .maybeSingle();
+
+  let facPersona = '';
+  if (!isGlobalFaculty) {
+    const { data: facRow } = await admin
+      .from('pran_not_faculties')
+      .select('name_fr, persona')
+      .eq('id', faculty)
+      .maybeSingle();
+    if (facRow?.persona) {
+      facPersona = `Contexte académique principal (${facRow.name_fr}) : ${facRow.persona}\nATTENTION : N'applique ce prisme de spécialité que si la question de l'étudiant ou le contenu porte explicitement ou indirectement sur ce domaine. Si l'étudiant pose une question de culture générale, de méthodologie générale, de lecture, de logique, de langue ou d'un autre domaine, réponds avec précision et clarté universelle SANS forcer de jargon ou d'analogies hors-sujet avec cette faculté.`;
+    }
+  } else {
+    facPersona = `RÔLE ET PRISME ACADÉMIQUE GÉNÉRAL : Tu es un tuteur et assistant universitaire polyvalent et rigoureux couvrant TOUTES les disciplines (langue française, grammaire, conjugaison, littérature, mathématiques, logique, sciences, philosophie, méthodologie de travail, culture générale, histoire, économie, droit, etc.).
+RÈGLE STRICTE DE NON-BIAIS : N'oriente JAMAIS tes réponses vers le droit ou la médecine de manière injustifiée. Réponds toujours avec les concepts, la rigueur et les règles exactes de la matière concernée par la question de l'étudiant.`;
+  }
 
   const langRule = lang === 'ht'
     ? 'Langue de sortie : créole haïtien naturel, clair et respectueux (tolère les termes techniques français courants à l’université).'
@@ -363,7 +375,7 @@ export async function runAiTask(
 
   const systemPrompt = [
     facultyPrompt || basePrompt,
-    facRow?.persona ? `Contexte académique principal (${facRow.name_fr}) : ${facRow.persona}\nATTENTION : N'applique ce prisme de spécialité que si la question de l'étudiant ou le contenu porte explicitement ou indirectement sur ce domaine. Si l'étudiant pose une question de culture générale, de méthodologie générale, de lecture, de logique, ou d'un autre domaine, réponds avec précision et clarté universelle SANS forcer de jargon ou d'analogies hors-sujet avec cette faculté.` : '',
+    facPersona,
     `Niveau de l'étudiant : ${level}.`,
     langRule,
     'RÈGLE STRICTE : N’utilise JAMAIS aucun emoji ni symbole décoratif. Sois précis, pertinent, pédagogique et rigoureux. Ne réponds jamais à côté de la question. Si tu n’es pas certain d’un fait, d’un article de loi ou d’une donnée médicale, dis-le explicitement.',
