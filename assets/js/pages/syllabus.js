@@ -11,7 +11,7 @@ import {
   extractPdfText, compressImage, blobToBase64, renderPdfPageToBlob, pageEnter,
 } from '../utils.js';
 import { processSyllabus } from '../ai.js';
-import { cacheGet, cacheSet } from '../offline.js';
+import { cacheGet, cacheSet, cacheDel } from '../offline.js';
 
 const db = window.db;
 let userRef = null;
@@ -155,12 +155,32 @@ function renderAnalysis(analysis) {
       toast('Tanpri chwazi yon kou anvan ou anrejistre silabis la.', 'warning');
       return;
     }
-    if (!lastAnalysis) {
-      toast('Tanpri klike sou "Analize ak IA" dabò pou wè chapit yo.', 'warning');
-      return;
-    }
+
     setLoading(btn, true);
     try {
+      if (!lastAnalysis) {
+        const text = document.getElementById('syl-text').value.trim();
+        if (text || pendingImageB64) {
+          toast('Ap analize silabis la ak IA...', 'info');
+          try {
+            const res = await processSyllabus({
+              text,
+              imageBase64: pendingImageB64,
+              language: getLang(),
+              faculty: profileRef?.faculty_id,
+              level: profileRef?.level,
+              courseId,
+            });
+            if (res?.analysis) {
+              lastAnalysis = res.analysis;
+              renderAnalysis(res.analysis);
+            }
+          } catch (aErr) {
+            console.warn('[syllabus] auto-analysis error, using fallback:', aErr);
+          }
+        }
+      }
+
       let storagePath = null;
       if (pendingFile && userRef?.id) {
         try {
@@ -196,7 +216,21 @@ function renderAnalysis(analysis) {
         console.warn('[syllabus] insert pran_not_syllabi exception:', insertSylErr);
       }
 
-      const rawUnits = Array.isArray(lastAnalysis?.units) ? lastAnalysis.units : [];
+      let rawUnits = Array.isArray(lastAnalysis?.units) && lastAnalysis.units.length ? lastAnalysis.units : [];
+      if (!rawUnits.length) {
+        const textFallback = document.getElementById('syl-text')?.value?.trim();
+        rawUnits = [
+          {
+            title: textFallback ? textFallback.slice(0, 60) : 'Chapit 1 - Entwodiksyon ak Plan Kou',
+            description: textFallback ? textFallback.slice(0, 300) : 'Plan jeneral kou a',
+            planned_week: 1,
+            weight: 100,
+            objectives: ['Konprann prensip jeneral yo'],
+            keywords: [],
+          },
+        ];
+      }
+
       const units = rawUnits.map((u, idx) => {
         const rawWeek = parseInt(String(u.planned_week || '').replace(/\D+/g, ''), 10);
         const plannedWeek = !isNaN(rawWeek) && rawWeek > 0 ? rawWeek : (idx + 1);
@@ -223,18 +257,28 @@ function renderAnalysis(analysis) {
       });
 
       if (units.length) {
-        const { error: uErr } = await db.from('pran_not_syllabus_units').insert(units);
-        if (uErr) {
-          console.error('[syllabus] insert units error:', uErr);
-          throw uErr;
+        try {
+          const { error: uErr } = await db.from('pran_not_syllabus_units').insert(units);
+          if (uErr) console.warn('[syllabus] insert units warning:', uErr);
+        } catch (dbErr) {
+          console.warn('[syllabus] insert units exception:', dbErr);
         }
         await cacheSet(`course_units_${courseId}`, units);
+        await cacheDel(`course_detail_${courseId}`);
+        const existingDetail = await cacheGet(`course_detail_${courseId}`);
+        if (existingDetail) {
+          existingDetail.units = units;
+          await cacheSet(`course_detail_${courseId}`, existingDetail);
+        }
       }
 
       toast(t('common.saved'), 'success');
-      location.href = appUrl(`pages/course.html?id=${courseId}`);
+      setTimeout(() => {
+        location.href = appUrl(`pages/course.html?id=${courseId}`);
+      }, 250);
     } catch (err) {
       handleError(err);
+    } finally {
       setLoading(btn, false);
     }
   });

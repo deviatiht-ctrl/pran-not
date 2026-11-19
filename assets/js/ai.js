@@ -112,15 +112,102 @@ export async function transcribeAudio({
 
 /** Structuration complète d'une note brute + suggestion de cours. */
 export async function processNote({ rawText, language, faculty, level, courses = [], noteId, mode = 'standard' } = {}) {
-  return callEdge('process-note', {
-    rawText,
-    language: language || getLang(),
-    faculty,
-    level,
-    courses,
-    noteId,
-    mode,
-  });
+  const chosenLang = language || getLang();
+  try {
+    const res = await callEdge('process-note', {
+      rawText,
+      language: chosenLang,
+      faculty,
+      level,
+      courses,
+      noteId,
+      mode,
+    });
+    if (res && (res.content_html || res.title || res.summary)) {
+      return res;
+    }
+  } catch (err) {
+    console.warn('[ai] process-note edge function failed, activating deep academic fallback via askTutor:', err);
+  }
+
+  // Repli robuste vers l'IA tuteur en direct pour structuration pédagogique approfondie
+  try {
+    const langLabel = chosenLang === 'fr' ? 'Français académique soigné' : 'Kreyòl Ayisyen klè, akademik e natirèl';
+    const courseListHint = courses.length ? `Kou ki egziste deja : ${JSON.stringify(courses.map(c => ({ id: c.id, name: c.name })))}` : '';
+
+    const fallbackPrompt = `Tu es l'analyste académique d'élite de Pran Nòt pou etidyan inivèsitè an Ayiti.
+MISYON CRUCIALE :
+Analize tèks brit sa a ki soti nan yon kou an dirèk oswa yon dikte vokal. Tèks la ka gen bri, mo ki manke, fraz kreyòl oswa franse ki pa fin lojik oswa ki koupe.
+Ou dwe :
+1. Analize CHAK mo ak CHAK lide nan tèks la san w pa koupe l kout. Pa fè yon rezime twò kout !
+2. Si gen fraz ki pa lojik, refè lojik la pou l vin klè, inivèsitè, e byen eksplike.
+3. Rekonstwi yon kou konplè, rich, byen devlope avèk seksyon tit klè.
+
+LANGUE EXIGÉE : ${langLabel}.
+${courseListHint}
+
+ESTRIKTI OBLIGATWA POU "content_html" :
+- <h2>1. Entwodiksyon & Konsèp Kle</h2> (mete kontèks la ak gwo definisyon yo)
+- <h2>2. Devlopman & Eksplikasyon Detaye</h2> (itilize <h3> pou chak gwo lide, <p> byen ekri, definisyon konplè)
+- <h2>3. Pwen Esansyèl pou Egzamen</h2> (anba fòm lis <ul><li><strong>Mo/Pwen</strong> : Eksplikasyon detaye...</li></ul>)
+- <h2>4. Egzanp Konkrè Pwofesè a</h2> (itilize <blockquote> pou ilistrasyon oswa ka pratik)
+
+Retounen STRICTEMENT yon sèl objè JSON valide san okenn lòt tèks oswa kòd deyò a :
+{
+  "title": "Tit presi ak akademik pou kou a",
+  "summary": "Rezime konplè ak pècutan an 4 a 6 fraz sou tout sa k te di nan kou a",
+  "content_html": "HTML rich ak pwòp ki gen <h2>, <h3>, <p>, <ul>, <li>, <strong>, <blockquote>",
+  "content_text": "Tout tèks kou a devlope san baliz HTML",
+  "takeaways": ["Pwen kle 1 pou egzamen", "Pwen kle 2", "Pwen kle 3", "Pwen kle 4"],
+  "keywords": ["Tèm 1", "Tèm 2", "Tèm 3", "Tèm 4"],
+  "homework": [
+    { "title": "Travay oswa devwa", "description": "Detay sou devwa a si pwofesè a te bay li" }
+  ],
+  "suggested_course_id": null
+}
+
+Tèks brit kou a :
+${String(rawText || '').slice(0, 24000)}`;
+
+    const tutorRes = await askTutor({
+      message: fallbackPrompt,
+      mode: 'simple',
+      scope: 'global',
+      contextType: 'general',
+      faculty: faculty || 'autre',
+      level: level || 'L1',
+      language: chosenLang,
+    });
+
+    const reply = tutorRes?.reply || '';
+    const jsonMatch = reply.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      const parsed = JSON.parse(jsonMatch[0]);
+      if (parsed && (parsed.content_html || parsed.summary || parsed.title)) {
+        if (!parsed.content_text && parsed.content_html) {
+          parsed.content_text = parsed.content_html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+        }
+        return { ok: true, ...parsed, provider: tutorRes?.provider || 'gemini-fallback' };
+      }
+    }
+  } catch (fallbackErr) {
+    console.warn('[ai] askTutor note processing fallback failed:', fallbackErr);
+  }
+
+  // Dernier recours : structuration locale basique élégante
+  const safeText = String(rawText || '').trim();
+  const paragraphs = safeText.split(/\n\s*\n/).filter(Boolean).map((p) => `<p>${p.trim()}</p>`).join('');
+  return {
+    ok: true,
+    title: safeText.slice(0, 50) || 'Nòt Kou',
+    summary: safeText.slice(0, 240),
+    content_html: `<h2>Nòt Kou</h2>${paragraphs || `<p>${safeText}</p>`}`,
+    content_text: safeText,
+    takeaways: [],
+    keywords: [],
+    homework: [],
+    suggested_course_id: null,
+  };
 }
 
 /** Analyse d'un syllabus (texte ou image). */

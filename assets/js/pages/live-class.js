@@ -125,10 +125,10 @@ function saveDraft({ showBadge = true } = {}) {
   } catch { /* ignore */ }
 }
 
-function clearDraft() {
+function clearDraft(isCompleted = false) {
   try {
     const existing = localStorage.getItem(DRAFT_KEY);
-    if (existing) {
+    if (existing && !isCompleted) {
       try {
         const hist = JSON.parse(localStorage.getItem('prannot.draft_history') || '[]');
         const parsed = JSON.parse(existing);
@@ -136,6 +136,18 @@ function clearDraft() {
           hist.unshift({ ...parsed, archivedAt: Date.now(), source: 'live' });
           localStorage.setItem('prannot.draft_history', JSON.stringify(hist.slice(0, 15)));
         }
+      } catch {}
+    } else if (isCompleted) {
+      try {
+        const hist = JSON.parse(localStorage.getItem('prannot.draft_history') || '[]');
+        const currentTitle = document.getElementById('live-note-title')?.value?.trim();
+        const curCourse = selectedCourseId;
+        const filtered = hist.filter((h) => {
+          if (curCourse && h.courseId === curCourse) return false;
+          if (currentTitle && h.title === currentTitle) return false;
+          return true;
+        });
+        localStorage.setItem('prannot.draft_history', JSON.stringify(filtered));
       } catch {}
     }
     localStorage.removeItem(DRAFT_KEY);
@@ -316,8 +328,6 @@ function updateHeaderStatus() {
 
   if (c) {
     heading.textContent = c.name;
-    const stickyCourseName = document.getElementById('live-sticky-course-name');
-    if (stickyCourseName) stickyCourseName.textContent = c.name;
     const st = getCourseLiveStatus(c);
     const sched = formatCourseScheduleBadge(c);
     if (sched) {
@@ -1019,8 +1029,6 @@ async function finishLiveClass({ withAi = true } = {}) {
     document.getElementById('live-notes-finish-btn'),
     document.getElementById('live-notes-quick-save-btn'),
     document.getElementById('live-banner-finish-btn'),
-    document.getElementById('live-sticky-finish-btn'),
-    document.getElementById('live-sticky-quick-btn'),
     document.getElementById('live-mark-finished-btn'),
   ].filter(Boolean);
 
@@ -1052,7 +1060,7 @@ async function finishLiveClass({ withAi = true } = {}) {
         files: audioChunks.map((ch) => ({ kind: 'audio', blob: ch.blob, mime: ch.mime })),
       });
       isClassSaved = true;
-      clearDraft();
+      clearDraft(true);
       playNotificationSound('success');
       toast(customMsg || t('offline.saved_locally'), 'success');
       setTimeout(() => {
@@ -1061,7 +1069,7 @@ async function finishLiveClass({ withAi = true } = {}) {
       return item;
     } catch (localErr) {
       console.warn('[live-class] saveOfflineQueue error:', localErr);
-      // Même si IndexedDB a un souci, le draft localStorage existe déjà
+      // Menm si IndexedDB ta bay pwoblèm, draft la sove
       toast(t('live.save_secure_local'), 'success');
     }
   };
@@ -1098,6 +1106,15 @@ async function finishLiveClass({ withAi = true } = {}) {
       } catch (aiErr) {
         console.warn('[live-class] processNote fallback raw save:', aiErr);
       }
+    }
+
+    if (!finalStructured && rawText.trim()) {
+      const cleanPs = rawText.split(/\n\s*\n/).filter(Boolean).map((p) => `<p>${esc(p.trim())}</p>`).join('');
+      let fallbackHtml = `<h2>${esc(finalTitle || 'Nòt Kou')}</h2>${cleanPs}`;
+      if (thoughts.trim()) {
+        fallbackHtml += `<h3>Panse ak Kesyon pandan Kou a</h3><p>${esc(thoughts.trim())}</p>`;
+      }
+      finalHtml = fallbackHtml;
     }
 
     const { data: noteRow, error } = await db.from('pran_not_notes').upsert({
@@ -1159,7 +1176,7 @@ async function finishLiveClass({ withAi = true } = {}) {
 
     await cacheSet(`note_${noteRow.id}`, noteRow);
     isClassSaved = true;
-    clearDraft();
+    clearDraft(true);
     playNotificationSound('success');
     await Promise.all([recordActivity(), awardXp(15, 'live_class', noteRow.id)]);
     toast(t('live.saved_success'), 'success');
@@ -1506,12 +1523,10 @@ async function finishLiveClass({ withAi = true } = {}) {
   document.getElementById('live-header-finish-btn')?.addEventListener('click', finishAiAction);
   document.getElementById('live-notes-finish-btn')?.addEventListener('click', finishAiAction);
   document.getElementById('live-banner-finish-btn')?.addEventListener('click', finishAiAction);
-  document.getElementById('live-sticky-finish-btn')?.addEventListener('click', finishAiAction);
 
   document.getElementById('live-save-quick-btn')?.addEventListener('click', finishQuickAction);
   document.getElementById('live-header-quick-save-btn')?.addEventListener('click', finishQuickAction);
   document.getElementById('live-notes-quick-save-btn')?.addEventListener('click', finishQuickAction);
-  document.getElementById('live-sticky-quick-btn')?.addEventListener('click', finishQuickAction);
 
   // Klik sou grenn etap yo pou deplase dirèkteman
   document.querySelectorAll('.live-step-pill').forEach((pill) => {

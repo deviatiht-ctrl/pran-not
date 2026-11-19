@@ -464,20 +464,23 @@ async function getPendingNotes() {
   const qItems = await getQueueItems();
   return qItems
     .filter((x) => x.kind === 'note' && x.payload)
-    .map((x) => ({
-      id: `local:${x.id}`,
-      title: x.payload.title || t('notes.untitled'),
-      summary: (x.payload.content_text || '').slice(0, 200),
-      content_text: x.payload.content_text || '',
-      raw_text: x.payload.raw_text || '',
-      course_id: x.payload.course_id || null,
-      capture_mode: x.payload.capture_mode || 'text',
-      status: 'draft',
-      is_pinned: false,
-      is_local_pending: true,
-      created_at: new Date(x.createdAt).toISOString(),
-      updated_at: new Date(x.createdAt).toISOString(),
-    }))
+    .map((x) => {
+      const pStatus = x.payload.status || 'ready';
+      return {
+        id: `local:${x.id}`,
+        title: x.payload.title || t('notes.untitled'),
+        summary: (x.payload.content_text || '').slice(0, 200),
+        content_text: x.payload.content_text || '',
+        raw_text: x.payload.raw_text || '',
+        course_id: x.payload.course_id || null,
+        capture_mode: x.payload.capture_mode || 'text',
+        status: pStatus === 'draft' ? 'draft' : 'ready',
+        is_pinned: false,
+        is_local_pending: true,
+        created_at: new Date(x.createdAt).toISOString(),
+        updated_at: new Date(x.createdAt).toISOString(),
+      };
+    })
     .reverse();
 }
 

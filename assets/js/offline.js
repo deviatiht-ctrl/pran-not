@@ -195,7 +195,30 @@ function updateBanner(pending = 0) {
   if (offline) {
     banner.innerHTML = `${icon('wifi-off')}<span>${t('offline.banner_offline', { count: pending })}</span>`;
   } else if (pending > 0) {
-    banner.innerHTML = `${icon('refresh-cw')}<span>${t('offline.banner_syncing', { count: pending })}</span>`;
+    banner.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;width:100%;gap:10px;">
+        <div style="display:flex;align-items:center;gap:6px;">
+          ${icon('refresh-cw')}<span>${t('offline.banner_syncing', { count: pending })}</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:4px;">
+          <button type="button" id="btn-force-flush" class="btn btn-xs btn-ghost" style="padding:2px 6px;font-size:11px;color:inherit;text-decoration:underline;cursor:pointer;">Senkwonize</button>
+          <button type="button" id="btn-purge-queue" class="btn btn-xs btn-ghost" style="padding:2px 6px;font-size:11px;color:#fca5a5;border-left:1px solid rgba(255,255,255,0.25);cursor:pointer;">Eface</button>
+        </div>
+      </div>
+    `;
+    banner.querySelector('#btn-force-flush')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      flushQueue();
+    });
+    banner.querySelector('#btn-purge-queue')?.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      try {
+        const all = await getQueueItems();
+        for (const it of all) await removeQueueItem(it.id);
+        updateBanner(0);
+        toast('File senkwonizasyon an netwaye', 'info');
+      } catch {}
+    });
   }
   icons(banner);
 }
@@ -254,28 +277,34 @@ async function syncNoteItem(db, userId, payload) {
   for (let i = 0; i < files.length; i++) {
     const f = files[i];
     if (!f?.blob) continue;
-    const ext = f.ext || mimeToExt(f.mime) || (f.kind === 'audio' ? 'webm' : 'jpg');
-    const bucket = f.kind === 'audio' ? 'pran-not-note-audio' : f.kind === 'pdf' ? 'pran-not-syllabi' : 'pran-not-note-images';
-    const path = `${userId}/${savedNote.id}/${Date.now()}-${i}.${ext}`;
-    const rawMime = f.mime || (f.kind === 'audio' ? 'audio/webm' : 'image/jpeg');
-    const cleanMime = rawMime.split(';')[0].trim() || rawMime;
-    const uploadBlob = new Blob([f.blob], { type: cleanMime });
-    const { error: upErr } = await db.storage.from(bucket).upload(path, uploadBlob, {
-      contentType: cleanMime,
-      upsert: true,
-    });
-    if (upErr) throw upErr;
-
-    await db.from('pran_not_note_sources').insert({
-      user_id: userId,
-      note_id: savedNote.id,
-      kind: f.kind,
-      storage_path: path,
-      mime: cleanMime,
-      size_bytes: f.blob.size,
-      chunk_index: i,
-      status: 'uploaded',
-    });
+    try {
+      const ext = f.ext || mimeToExt(f.mime) || (f.kind === 'audio' ? 'webm' : 'jpg');
+      const bucket = f.kind === 'audio' ? 'pran-not-note-audio' : f.kind === 'pdf' ? 'pran-not-syllabi' : 'pran-not-note-images';
+      const path = `${userId}/${savedNote.id}/${Date.now()}-${i}.${ext}`;
+      const rawMime = f.mime || (f.kind === 'audio' ? 'audio/webm' : 'image/jpeg');
+      const cleanMime = rawMime.split(';')[0].trim() || rawMime;
+      const uploadBlob = new Blob([f.blob], { type: cleanMime });
+      const { error: upErr } = await db.storage.from(bucket).upload(path, uploadBlob, {
+        contentType: cleanMime,
+        upsert: true,
+      });
+      if (upErr) {
+        console.warn('[offline] binary upload warning:', upErr);
+      } else {
+        await db.from('pran_not_note_sources').insert({
+          user_id: userId,
+          note_id: savedNote.id,
+          kind: f.kind,
+          storage_path: path,
+          mime: cleanMime,
+          size_bytes: f.blob.size,
+          chunk_index: i,
+          status: 'uploaded',
+        });
+      }
+    } catch (uploadExc) {
+      console.warn('[offline] binary upload skipped:', uploadExc);
+    }
 
     // Traitement IA différé si demandé et hors mode économie de données
     if (payload.process_ai && token && !isDataSaver()) {
@@ -452,7 +481,7 @@ export async function flushQueue({ silent = false } = {}) {
         console.warn('[offline] Échec sync élément', item.id, err);
         item.attempts = (item.attempts || 0) + 1;
         item.lastError = err?.message || 'sync_error';
-        if (item.attempts >= 6) {
+        if (item.attempts >= 2) {
           // Éviter de bloquer indéfiniment la file si une erreur est permanente
           await removeQueueItem(item.id);
         } else {
@@ -473,7 +502,17 @@ export async function flushQueue({ silent = false } = {}) {
 
 /** Initialise l'écoute réseau et la synchronisation automatique. */
 export function initOffline() {
-  getQueueCount().then(updateBanner);
+  getQueueItems().then(async (items) => {
+    const now = Date.now();
+    for (const it of items) {
+      const age = now - (it.createdAt || now);
+      if ((it.attempts && it.attempts >= 2) || age > 12 * 3600 * 1000) {
+        await removeQueueItem(it.id);
+      }
+    }
+    const count = await getQueueCount();
+    updateBanner(count);
+  }).catch(() => {});
 
   window.addEventListener('online', () => {
     toast(t('offline.back_online'), 'info');

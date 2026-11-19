@@ -289,9 +289,15 @@ async function renderCourse() {
   }
 
   const cachedDetail = await cacheGet(`course_detail_${id}`);
-  const applyDetail = (d) => {
+  const applyDetail = async (d) => {
     course = d.course;
     units = d.units || [];
+    if (!units.length) {
+      const cachedUnits = await cacheGet(`course_units_${id}`);
+      if (Array.isArray(cachedUnits) && cachedUnits.length) {
+        units = cachedUnits;
+      }
+    }
     notes = d.notes || [];
     keywords = d.keywords || [];
     decks = d.decks || [];
@@ -301,7 +307,7 @@ async function renderCourse() {
   };
 
   if (cachedDetail?.course && !navigator.onLine) {
-    applyDetail(cachedDetail);
+    await applyDetail(cachedDetail);
   } else {
     try {
       const [cRes, uRes, nRes, kRes, dRes, fRes, aRes, asgRes] = await Promise.all([
@@ -315,9 +321,14 @@ async function renderCourse() {
         db.from('pran_not_assignments').select('id, title, status').eq('course_id', id),
       ]);
       if (cRes.error || !cRes.data) throw new Error('not_found');
+      let finalUnits = uRes.data || [];
+      if (!finalUnits.length) {
+        const cachedUnits = await cacheGet(`course_units_${id}`);
+        if (Array.isArray(cachedUnits) && cachedUnits.length) finalUnits = cachedUnits;
+      }
       const fresh = {
         course: cRes.data,
-        units: uRes.data || [],
+        units: finalUnits,
         notes: nRes.data || [],
         keywords: kRes.data || [],
         decks: dRes.data || [],
@@ -325,11 +336,11 @@ async function renderCourse() {
         attempts: aRes.data || [],
         assignments: asgRes.data || [],
       };
-      applyDetail(fresh);
+      await applyDetail(fresh);
       await cacheSet(`course_detail_${id}`, fresh);
     } catch (err) {
       if (cachedDetail?.course) {
-        applyDetail(cachedDetail);
+        await applyDetail(cachedDetail);
       } else {
         document.getElementById('course-root').innerHTML = `<div class="alert alert-error">${esc(t('errors.not_found'))}</div>`;
         return;
