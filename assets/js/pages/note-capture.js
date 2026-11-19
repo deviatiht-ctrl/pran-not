@@ -385,14 +385,14 @@ function switchMode(mode) {
 function updateRawWordCount() {
   const txt = document.getElementById('raw-text').value.trim();
   const words = txt ? txt.split(/\s+/).length : 0;
-  document.getElementById('raw-count').textContent = `${words} mo`;
+  document.getElementById('raw-count').textContent = t('capture.word_count', { count: words }) || `${words} ${currentLang() === 'fr' ? 'mots' : 'mo'}`;
 }
 
 function renderPhotoThumbs() {
   const grid = document.getElementById('photo-thumbs');
   grid.innerHTML = photoBlobs.map((p, idx) => `
     <div class="thumb">
-      <img src="${esc(p.url)}" alt="Foto ${idx + 1}" loading="lazy">
+      <img src="${esc(p.url)}" alt="${currentLang() === 'fr' ? 'Photo' : 'Foto'} ${idx + 1}" loading="lazy">
       <button type="button" class="btn-icon" data-rm-photo="${idx}" aria-label="${esc(t('common.delete'))}">${icon('x')}</button>
     </div>`).join('');
   grid.querySelectorAll('[data-rm-photo]').forEach((b) => {
@@ -732,7 +732,7 @@ function spawnSegmentRecorder(stream, mime) {
       liveSpeechBuffer = '';
       audioChunksBlobs.push(clip);
       const chunksBadge = document.getElementById('rec-chunks-badge');
-      if (chunksBadge) chunksBadge.textContent = `${audioChunksBlobs.length} segman`;
+      if (chunksBadge) chunksBadge.textContent = t('capture.segment_count', { count: audioChunksBlobs.length }) || `${audioChunksBlobs.length} ${currentLang() === 'fr' ? 'segments' : 'segman'}`;
       renderAudioClips();
       saveDraftToStorage();
 
@@ -1067,7 +1067,8 @@ async function handleAudioFileImport(fileList) {
       error: '',
     };
     audioChunksBlobs.push(clip);
-    document.getElementById('rec-chunks-badge').textContent = `${audioChunksBlobs.length} segman`;
+    const cBadge = document.getElementById('rec-chunks-badge');
+    if (cBadge) cBadge.textContent = t('capture.segment_count', { count: audioChunksBlobs.length }) || `${audioChunksBlobs.length} ${currentLang() === 'fr' ? 'segments' : 'segman'}`;
     renderAudioClips();
     if (navigator.onLine) {
       enqueueTranscription(clip);
@@ -1404,7 +1405,7 @@ function initQuickAiModule() {
     }
   };
 
-  const facName = profileRef?.faculty?.name_fr || profileRef?.faculty_id || t('assignments.domain_faculty');
+  const facName = profileRef?.faculty?.name_fr || profileRef?.faculty_id || t('capture.scope_faculty') || 'Fakilte';
   if (facNameSpan) facNameSpan.textContent = facName;
   updateScopeUI();
 
@@ -1479,7 +1480,7 @@ function initQuickAiModule() {
                 ${icon('file-text')}<span>${esc(t('capture.insert_in_raw'))}</span>
               </button>
               <button type="button" class="btn btn-xs btn-ghost" id="note-ai-copy-btn">
-                ${icon('copy')}<span>${esc(t('assignments.copy') || 'Kopye')}</span>
+                ${icon('copy')}<span>${esc(t('common.copy') || 'Kopye')}</span>
               </button>
               <button type="button" class="btn-icon" id="note-ai-close-btn" aria-label="${esc(t('common.close'))}">
                 ${icon('x')}

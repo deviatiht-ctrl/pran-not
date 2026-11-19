@@ -288,6 +288,8 @@ export async function signOut() {
     localStorage.removeItem('prannot.profile');
     localStorage.removeItem('prannot.last_user');
     localStorage.removeItem('prannot.offline_guest');
+    localStorage.removeItem('prannot_note_capture_draft');
+    localStorage.removeItem('prannot.liveClassDraft');
     location.replace(appUrl('login.html'));
   }
 }

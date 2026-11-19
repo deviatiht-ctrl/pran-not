@@ -67,7 +67,7 @@ async function renderNote() {
         <button type="button" class="btn btn-secondary btn-sm" id="btn-edit-note">${icon('edit-3')}<span>${esc(t('common.edit'))}</span></button>
         <button type="button" class="btn btn-secondary btn-sm" id="btn-share-note">${icon('users')}<span>${esc(t('notes.btn_share_group'))}</span></button>
         <button type="button" class="btn btn-secondary btn-sm" id="btn-export-note">${icon('download')}<span>${esc(t('notes.btn_export'))}</span></button>
-        <button type="button" class="btn btn-danger btn-sm" id="btn-delete-note">${icon('trash-2')}</button>
+        <button type="button" class="btn btn-danger btn-sm" id="btn-delete-note">${icon('trash-2')}<span>${esc(t('common.delete'))}</span></button>
       </div>
     </div>
 
@@ -115,10 +115,10 @@ async function renderNote() {
         </div>
         <div class="segmented" id="nv-ai-scope-segment" style="display:inline-flex;">
           <button type="button" class="btn btn-xs active" id="nv-ai-scope-global" title="Reponn selon konesans inivèsèl">
-            <span>${esc(t('assignments.domain_general'))}</span>
+            <span>${esc(t('capture.scope_general') || 'Jeneral')}</span>
           </button>
           <button type="button" class="btn btn-xs" id="nv-ai-scope-faculty" title="Reponn selon fakilte w la">
-            <span id="nv-ai-fac-name">${esc(profileRef?.faculty?.name_fr || profileRef?.faculty_id || t('assignments.domain_faculty'))}</span>
+            <span id="nv-ai-fac-name">${esc(profileRef?.faculty?.name_fr || profileRef?.faculty_id || t('capture.scope_faculty') || 'Fakilte')}</span>
           </button>
         </div>
       </div>
@@ -1235,7 +1235,7 @@ function bindActions() {
                   ${icon('plus')}<span>${esc(t('capture.insert_in_note'))}</span>
                 </button>
                 <button type="button" class="btn btn-xs btn-ghost" id="nv-ai-copy-btn">
-                  ${icon('copy')}<span>${esc(t('assignments.copy') || 'Kopye')}</span>
+                  ${icon('copy')}<span>${esc(t('common.copy') || 'Kopye')}</span>
                 </button>
                 <button type="button" class="btn-icon" id="nv-ai-close-btn" aria-label="${esc(t('common.close'))}">
                   ${icon('x')}

@@ -92,7 +92,7 @@
           <label class="drop-zone" for="photo-input" id="photo-drop">
             <span class="icon-chip accent"><i data-lucide="camera" aria-hidden="true"></i></span>
             <strong data-i18n="capture.take_photos">Pran foto oswa chwazi imaj</strong>
-            <span class="text-xs muted">JPEG / PNG / WEBP — konprese otomatikman anvan voye</span>
+            <span class="text-xs muted" data-i18n="capture.photo_drop_hint">JPEG / PNG / WEBP — konprese otomatikman anvan voye</span>
             <input id="photo-input" type="file" accept="image/*" capture="environment" multiple hidden>
           </label>
           <input id="photo-gallery-input" type="file" accept="image/*" multiple hidden>
@@ -217,7 +217,7 @@
           <label class="drop-zone" for="import-input">
             <span class="icon-chip accent"><i data-lucide="upload" aria-hidden="true"></i></span>
             <strong data-i18n="capture.mode_import_sub">Dokiman oswa foto deja nan telefòn nan</strong>
-            <span class="text-xs muted">PDF (max 20 Mo) oswa imaj</span>
+            <span class="text-xs muted" data-i18n="capture.import_drop_hint">PDF (max 20 Mo) oswa imaj</span>
             <input id="import-input" type="file" accept="application/pdf,image/*" multiple hidden>
           </label>
           <div id="import-status" class="text-sm muted mt-3"></div>
@@ -238,7 +238,7 @@
             </div>
           </div>
 
-          <textarea class="textarea" id="raw-text" rows="8" placeholder="Tèks tablo, transkripsyon oswa nòt rapid ou a ap parèt la..."></textarea>
+          <textarea class="textarea" id="raw-text" rows="8" placeholder="Tèks tablo, transkripsyon oswa nòt rapid ou a ap parèt la..." data-i18n-placeholder="capture.raw_text_placeholder"></textarea>
 
           <div class="row-wrap mt-4">
             <button type="button" class="btn btn-primary" id="ai-structure-btn">
@@ -259,10 +259,10 @@
             </div>
             <div class="segmented" id="note-ai-scope-segment" style="display:inline-flex;">
               <button type="button" class="btn btn-xs active" id="note-ai-scope-global" title="Reponn selon konesans inivèsèl">
-                <span data-i18n="assignments.domain_general">Jeneral</span>
+                <span data-i18n="capture.scope_general">Jeneral</span>
               </button>
               <button type="button" class="btn btn-xs" id="note-ai-scope-faculty" title="Reponn selon fakilte w la">
-                <span id="note-ai-fac-name" data-i18n="assignments.domain_faculty">Fakilte</span>
+                <span id="note-ai-fac-name" data-i18n="capture.scope_faculty">Fakilte</span>
               </button>
             </div>
           </div>
@@ -288,11 +288,11 @@
         <!-- Éditeur riche (Quill) + résultat structuré -->
         <section class="card">
           <div class="field">
-            <label for="note-title">Tit nòt la / Titre</label>
-            <input class="input" id="note-title" type="text" placeholder="Ex : Sik kadyak ak bri B1/B2">
+            <label for="note-title" data-i18n="capture.note_title_label">Tit nòt la</label>
+            <input class="input" id="note-title" type="text" placeholder="Ex : Sik kadyak ak bri B1/B2" data-i18n-placeholder="capture.note_title_ph">
           </div>
           <div class="field">
-            <label>Kontni pwòp / Contenu structuré</label>
+            <label data-i18n="capture.structured_content_label">Kontni pwòp</label>
             <div id="quill-editor"></div>
           </div>
           <div id="structured-preview" class="stack-sm mt-4" hidden></div>
@@ -316,18 +316,18 @@
           </div>
 
           <div class="field">
-            <label for="note-unit">Chapit silabis / Unité</label>
+            <label for="note-unit" data-i18n="capture.syllabus_unit_label">Chapit silabis</label>
             <select class="select" id="note-unit">
               <option value="" data-i18n="common.none">Okenn</option>
             </select>
           </div>
 
           <div class="field">
-            <label for="note-lang">Lang nòt la</label>
+            <label for="note-lang" data-i18n="capture.note_lang_label">Lang nòt la</label>
             <select class="select" id="note-lang">
-              <option value="mix">Kreyòl + Fransè (melanje)</option>
-              <option value="ht">Kreyòl ayisyen</option>
-              <option value="fr">Français</option>
+              <option value="mix" data-i18n="capture.lang_mix">Kreyòl + Fransè (melanje)</option>
+              <option value="ht" data-i18n="capture.lang_ht">Kreyòl ayisyen</option>
+              <option value="fr" data-i18n="capture.lang_fr">Français</option>
             </select>
           </div>
 

@@ -114,7 +114,7 @@ function renderAiPlan(plan, librarySources = []) {
         <div class="row-wrap" style="gap:6px;">
           <button type="button" class="btn btn-sm btn-primary" id="asg-insert-proposal-btn">${icon('plus')}<span>${esc(t('assignments.insert_in_draft'))}</span></button>
           <button type="button" class="btn btn-sm btn-warning" id="asg-replace-proposal-btn">${icon('check')}<span>${esc(t('assignments.replace_all'))}</span></button>
-          <button type="button" class="btn btn-sm btn-secondary" id="asg-copy-proposal-btn">${icon('copy')}<span>${esc(t('assignments.copy') || 'Kopye')}</span></button>
+          <button type="button" class="btn btn-sm btn-secondary" id="asg-copy-proposal-btn">${icon('copy')}<span>${esc(t('common.copy') || 'Kopye')}</span></button>
         </div>
       </div>
       <div class="card card-sm mb-3" style="background:var(--c-surface);"><p class="text-sm mb-0" id="asg-proposal-text" style="white-space:pre-wrap;">${esc(plan.content_proposal)}</p></div>
@@ -152,7 +152,7 @@ function renderAiPlan(plan, librarySources = []) {
         <div class="row-wrap" style="gap:6px;">
           <button type="button" class="btn btn-sm btn-primary" id="asg-insert-answer-btn">${icon('plus')}<span>${esc(t('assignments.insert_in_draft'))}</span></button>
           <button type="button" class="btn btn-sm btn-warning" id="asg-replace-answer-btn">${icon('check')}<span>${esc(t('assignments.replace_all'))}</span></button>
-          <button type="button" class="btn btn-sm btn-secondary" id="asg-copy-answer-btn">${icon('copy')}<span>${esc(t('assignments.copy') || 'Kopye')}</span></button>
+          <button type="button" class="btn btn-sm btn-secondary" id="asg-copy-answer-btn">${icon('copy')}<span>${esc(t('common.copy') || 'Kopye')}</span></button>
         </div>
       </div>
       <div class="card card-sm mb-2" style="background:var(--c-surface);"><p class="text-sm mb-0" id="asg-answer-text" style="white-space:pre-wrap;">${esc(plan.answer)}</p></div>
@@ -182,7 +182,7 @@ function renderAiPlan(plan, librarySources = []) {
         <div class="row-wrap" style="gap:6px;">
           <button type="button" class="btn btn-sm btn-primary" id="asg-insert-suggestion-btn">${icon('plus')}<span>${esc(t('assignments.insert_in_draft'))}</span></button>
           <button type="button" class="btn btn-sm btn-warning" id="asg-replace-suggestion-btn">${icon('check')}<span>${esc(t('assignments.replace_all'))}</span></button>
-          <button type="button" class="btn btn-sm btn-secondary" id="asg-copy-suggestion-btn">${icon('copy')}<span>${esc(t('assignments.copy') || 'Kopye')}</span></button>
+          <button type="button" class="btn btn-sm btn-secondary" id="asg-copy-suggestion-btn">${icon('copy')}<span>${esc(t('common.copy') || 'Kopye')}</span></button>
         </div>
       </div>
       <div class="card card-sm mb-2" style="background:var(--c-surface);"><p class="text-sm mb-0" id="asg-suggestion-text" style="white-space:pre-wrap;">${esc(plan.suggestion)}</p></div>
@@ -281,6 +281,72 @@ async function resolveAssignmentWork({
   const effectiveLang = isGrammarOrConjugation ? 'fr' : language;
   const effectiveFac = (scope === 'global' || isGrammarOrConjugation) ? 'general' : faculty;
 
+  // Pou redaksyon konplè, konjigezon, egzèsis ak kalkil : itilize askTutor dirèkteman pou vitès maksimòm ak repons 100% konplè
+  if (isRedactionOrSolve) {
+    let solvePrompt = '';
+    if (isGrammarOrConjugation || workType === 'conjugation') {
+      solvePrompt = `Tu es l'assistant universitaire d'excellence en langue française et conjugaison.
+Donne la conjugaison COMPLÈTE et INTÉGRALE du verbe sans aucune omission, sans abréviation et sans renvoyer l'étudiant à chercher lui-même :
+Demande exacte : "${question || instructions}".
+
+RÈGLES CAPITALES :
+1. Fournis TOUS les modes et TOUS les temps sans exception :
+- INDICATIF : Présent, Imparfait, Passé simple, Futur simple, Passé composé, Plus-que-parfait, Passé antérieur, Futur antérieur.
+- SUBJONCTIF : Présent, Imparfait, Passé, Plus-que-parfait.
+- CONDITIONNEL : Présent, Passé (1ère et 2ème forme).
+- IMPÉRATIF : Présent, Passé.
+- PARTICIPE : Présent, Passé composé.
+- INFINITIF : Présent, Passé.
+- GÉRONDIF : Présent, Passé.
+2. Pour chaque temps, donne les 6 personnes (je, tu, il/elle/on, nous, vous, ils/elles) au complet avec chaque pronom.
+3. Rédige en français parfait, clair et bien structuré avec des titres pour chaque mode.
+4. Aucun emoji.`;
+    } else if (workType === 'exercise') {
+      solvePrompt = `Tu es l'assistant universitaire d'excellence pour la résolution intégrale d'exercices et devoirs.
+Résous COMPLÈTEMENT l'exercice ou le problème suivant de manière rigoureuse, détaillée et étape par étape :
+"${question || instructions}".
+${content ? `Brouillon / contexte actuel :\n${content.slice(0, 3000)}` : ''}
+
+RÈGLES CAPITALES :
+1. Donne la solution intégrale, tous les calculs, démonstrations et justifications rédigées.
+2. Ne donne jamais un simple plan ni de consignes abstraites.
+3. Aucun emoji.`;
+    } else {
+      solvePrompt = `Tu es l'assistant de rédaction et de résolution intégrale de devoirs universitaires.
+L'étudiant te demande de rédiger ou résoudre complètement :
+"${question || instructions}".
+${content ? `Brouillon / contexte actuel :\n${content.slice(0, 3000)}` : ''}
+
+RÈGLES CAPITALES :
+1. RÉDIGE LA SOLUTION OU LE DEVOIR COMPLET : Ne donne JAMAIS un simple plan ni de consignes abstraites. Rédige l'intégralité du travail réutilisable immédiatement (Introduction avec problématique et plan, Développement structuré en parties approfondies avec arguments et exemples concrets, Conclusion synthétique).
+2. Fournis un contenu universitaire, soigné, structuré et rigoureux.
+3. Si la demande est en français, réponds en français impeccable.
+4. Aucun emoji.`;
+    }
+
+    const tutorRes = await askTutor({
+      message: solvePrompt,
+      mode: 'simple',
+      scope: scope || 'global',
+      contextType: 'assignment',
+      contextId: assignment?.id,
+      contextText: `Titre : ${assignment?.title || ''}\nConsigne : ${instructions || question}\n${content ? `Brouillon actuel :\n${content.slice(0, 2000)}` : ''}`,
+      faculty: effectiveFac,
+      level,
+      language: effectiveLang,
+    });
+
+    const reply = tutorRes?.reply || '';
+    return {
+      data: {
+        content_proposal: reply,
+        answer: reply,
+        suggestion: reply,
+      },
+      library_sources: tutorRes?.libraryCitations || [],
+    };
+  }
+
   let res = null;
   let plan = {};
 
@@ -299,69 +365,7 @@ async function resolveAssignmentWork({
     });
     plan = res?.data || {};
   } catch (err) {
-    if (!isRedactionOrSolve) throw err;
-    console.warn('[assignment] assistAssignment failed, falling back to direct tutor solver:', err);
-  }
-
-  // Vérifier si le texte retourné est une vraie rédaction complète ou seulement une consigne/plan tronqué
-  let text = plan.content_proposal || plan.answer || plan.suggestion || '';
-  const isConjugationIncomplete = (isGrammarOrConjugation || workType === 'conjugation') &&
-    (text.length < 500 || !/indicatif|présent|imparfait|futur|passé/i.test(text) || !/je |tu |il |nous |vous /i.test(text));
-  const isSolveIncomplete = (action === 'solve' || workType === 'solve') &&
-    (text.length < 350 || /présenter|donner|établir|faire le plan|introduire|détailler|consisterait à/i.test(text));
-  const isOutlineOnly = !text ||
-    (text.length < 250 && /présenter|donner|établir|faire|plan|introduire|détailler|conjugaison/i.test(text)) ||
-    (!plan.content_proposal && !plan.answer && Array.isArray(plan.outline) && plan.outline.length > 0);
-
-  const needsFullTutorGeneration = isRedactionOrSolve && (isOutlineOnly || isConjugationIncomplete || isSolveIncomplete);
-
-  if (needsFullTutorGeneration) {
-    let solvePrompt = '';
-    if (isGrammarOrConjugation || workType === 'conjugation') {
-      solvePrompt = `Tu es l'assistant de langue française et de conjugaison d'excellence.
-Donne TOUTE la conjugaison complète du verbe sans aucune omission, sans abréviation et sans renvoyer l'étudiant à chercher lui-même :
-Consigne exacte : ${question || instructions}.
-
-RÈGLES CAPITALES :
-1. Fournis TOUS les modes et TOUS les temps sans exception :
-- INDICATIF : Présent, Imparfait, Passé simple, Futur simple, Passé composé, Plus-que-parfait, Passé antérieur, Futur antérieur.
-- SUBJONCTIF : Présent, Imparfait, Passé, Plus-que-parfait.
-- CONDITIONNEL : Présent, Passé (1ère et 2ème forme).
-- IMPÉRATIF : Présent, Passé.
-- PARTICIPE : Présent, Passé composé.
-- INFINITIF : Présent, Passé.
-- GÉRONDIF : Présent, Passé.
-2. Pour chaque temps, donne les 6 personnes (je, tu, il/elle/on, nous, vous, ils/elles) au complet avec chaque pronom.
-3. Rédige en français parfait, clair et bien structuré avec des titres pour chaque mode.
-4. Aucun emoji.`;
-    } else {
-      solvePrompt = `Tu es l'assistant de rédaction et de résolution intégrale de devoirs universitaires.
-L'étudiant te demande de rédiger ou résoudre complètement :
-"${question || instructions}".
-
-RÈGLES CAPITALES :
-1. RÉDIGE LA SOLUTION OU LE DEVOIR COMPLET : Ne donne JAMAIS un simple plan ni de consignes abstraites. Rédige l'intégralité du travail réutilisable immédiatement (démonstration, rédaction, calculs, argumentation détaillée).
-2. Fournis un contenu universitaire, soigné, structuré et rigoureux.
-3. Si la demande est en français, réponds en français impeccable.
-4. Aucun emoji.`;
-    }
-
-    const tutorRes = await askTutor({
-      message: solvePrompt,
-      scope: scope || 'global',
-      contextType: 'assignment',
-      contextId: assignment?.id,
-      contextText: `Titre : ${assignment?.title || ''}\nConsigne : ${instructions || question}\n${content ? `Brouillon actuel :\n${content}` : ''}`,
-      faculty: effectiveFac,
-      level,
-      language: effectiveLang,
-    });
-
-    if (tutorRes?.reply) {
-      plan.content_proposal = tutorRes.reply;
-      plan.answer = tutorRes.reply;
-      plan.suggestion = tutorRes.reply;
-    }
+    throw err;
   }
 
   return {
@@ -515,7 +519,7 @@ function openAiWriterModal({ initialQuestion = '', initialAction = 'solve', auto
             <div class="row-wrap" style="gap:6px;">
               <button type="button" class="btn btn-sm btn-primary" id="modal-asg-insert-btn">${icon('plus')}<span>${esc(t('assignments.insert_in_draft'))}</span></button>
               <button type="button" class="btn btn-sm btn-warning" id="modal-asg-replace-btn">${icon('check')}<span>${esc(t('assignments.replace_all'))}</span></button>
-              <button type="button" class="btn btn-sm btn-secondary" id="modal-asg-copy-btn">${icon('copy')}<span>${esc(t('assignments.copy') || 'Kopye')}</span></button>
+              <button type="button" class="btn btn-sm btn-secondary" id="modal-asg-copy-btn">${icon('copy')}<span>${esc(t('common.copy') || 'Kopye')}</span></button>
             </div>
           </div>
           <div class="prose text-sm" style="white-space:pre-wrap;max-height:360px;overflow-y:auto;padding:10px;background:var(--c-surface-soft);border-radius:var(--r-card);">${esc(generatedText || 'Pa gen tèks jenere.')}</div>

@@ -19,6 +19,7 @@ let allNotes = [];
 let coursesMap = new Map();
 let page = 0;
 let hasMore = false;
+let currentUserRef = null;
 
 const modeIcons = { photo: 'camera', audio: 'mic', flash: 'zap', text: 'file-edit', import: 'upload' };
 
@@ -491,10 +492,11 @@ async function fetchNotes(reset = true) {
   const topItems = [...localDrafts, ...pending];
   const from = page * PAGE_SIZE;
   const to = from + PAGE_SIZE - 1;
+  const userNotesCacheKey = currentUserRef ? `notes_list_${currentUserRef.id}` : 'notes_list';
 
   if (!navigator.onLine) {
     if (reset) {
-      const cached = (await cacheGet('notes_list')) || [];
+      const cached = (await cacheGet(userNotesCacheKey)) || [];
       allNotes = mergeNotesList([topItems, cachedIndiv, cached]);
       hasMore = false;
     }
@@ -503,20 +505,28 @@ async function fetchNotes(reset = true) {
   }
 
   try {
-    const { data, error } = await db
+    let query = db
       .from('pran_not_notes')
-      .select('id, title, summary, content_text, raw_text, course_id, capture_mode, is_pinned, status, created_at, updated_at')
+      .select('id, title, summary, content_text, raw_text, course_id, capture_mode, is_pinned, status, created_at, updated_at');
+
+    // Toujou filtre strikteman pa user_id pou garanti vi prive chak etidyan menm si kont lan ta admin
+    if (currentUserRef?.id) {
+      query = query.eq('user_id', currentUserRef.id);
+    }
+
+    const { data, error } = await query
       .order('is_pinned', { ascending: false })
       .order('updated_at', { ascending: false })
       .range(from, to);
+
     if (error) throw error;
     hasMore = (data || []).length === PAGE_SIZE;
     const remote = reset ? (data || []) : [...allNotes.filter((n) => !n.is_local_pending && !n.is_local_draft), ...(data || [])];
-    await cacheSet('notes_list', remote);
+    await cacheSet(userNotesCacheKey, remote);
     allNotes = mergeNotesList([topItems, cachedIndiv, remote]);
   } catch (err) {
     if (reset) {
-      const cached = (await cacheGet('notes_list')) || [];
+      const cached = (await cacheGet(userNotesCacheKey)) || [];
       allNotes = mergeNotesList([topItems, cachedIndiv, cached]);
     }
     if (!allNotes.length) handleError(err);
@@ -526,14 +536,17 @@ async function fetchNotes(reset = true) {
 
 (async () => {
   const { user, profile } = await requireAuth();
+  currentUserRef = user;
   await initAppChrome({ profile, user, active: 'notes' });
   setTutorContext({ contextType: 'general', contextTitle: t('notes.title') });
   pageEnter();
 
+  const userNotesCacheKey = `notes_list_${user.id}`;
+
   // Affichage immédiat depuis le cache local (< 5 ms), puis actualisation si en ligne
   const [cachedCourses, cachedNotes, pendingNotes, cachedIndiv] = await Promise.all([
     cacheGet('courses_list'),
-    cacheGet('notes_list'),
+    cacheGet(userNotesCacheKey),
     getPendingNotes(),
     getCachedIndividualNotes(),
   ]);

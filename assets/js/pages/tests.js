@@ -35,7 +35,7 @@ function recommendedDifficulty() {
 async function createAndOpenTest({ courseId = null, unitId = null, difficulty = 'medium', kind = 'standard', title = '', weakList = [] }, btn = null) {
   setLoading(btn, true);
   try {
-    let qNotes = db.from('pran_not_notes').select('title, summary, content_text').order('updated_at', { ascending: false }).limit(5);
+    let qNotes = db.from('pran_not_notes').select('title, summary, content_text').eq('user_id', userRef.id).order('updated_at', { ascending: false }).limit(5);
     if (courseId) qNotes = qNotes.eq('course_id', courseId);
     if (unitId) qNotes = qNotes.eq('unit_id', unitId);
     const { data: nRows } = await qNotes;
