@@ -1329,24 +1329,48 @@ function bindActions() {
 }
 
 function formatDraftToNote(id, d, target) {
-  const cleanRaw = (d.rawText || d.body || d.content || '').trim();
+  const cleanBody = (d.body || d.rawText || d.content || '').trim();
+  const cleanThoughts = (d.thoughts || '').trim();
   const cleanHtml = (d.quillHtml || d.content_html || '').trim();
-  const html = cleanHtml || (cleanRaw ? `<p>${esc(cleanRaw).replace(/\n{2,}/g, '</p><p>').replace(/\n/g, '<br>')}</p>` : '');
-  const text = cleanRaw || (cleanHtml ? htmlToText(cleanHtml).trim() : '');
+
+  let combinedRaw = cleanBody;
+  if (cleanThoughts) {
+    combinedRaw = combinedRaw
+      ? `${combinedRaw}\n\n## ${t('live.thoughts_section_title') || 'Panse & Ide Rapid'}\n${cleanThoughts}`
+      : cleanThoughts;
+  }
+
+  const html = cleanHtml || (combinedRaw ? `<p>${esc(combinedRaw).replace(/\n{2,}/g, '</p><p>').replace(/\n/g, '<br>')}</p>` : '');
+  const text = combinedRaw || (cleanHtml ? htmlToText(cleanHtml).trim() : '');
   const title = d.title?.trim() || (text ? text.split('\n')[0].slice(0, 80) : t('notes.untitled'));
+
+  const isLive = id.includes('live') || d.source === 'live';
+  const defaultTarget = isLive
+    ? `./live-class.html?course=${encodeURIComponent(d.courseId || '')}&restore=1`
+    : './note-capture.html';
+
+  const structured = {
+    homework: Array.isArray(d.homework) ? d.homework.map((h) => ({
+      title: h.title,
+      due_hint: h.due,
+      description: h.description,
+    })) : [],
+    keywords: Array.isArray(d.keywords) ? d.keywords.map((k) => (typeof k === 'string' ? k : k.term)) : [],
+  };
 
   return {
     id,
     is_local_draft: true,
-    draft_target: target,
+    draft_target: target || defaultTarget,
     draft_data: d,
     title,
     content_html: html,
     content_text: text,
-    raw_text: cleanRaw || null,
+    raw_text: combinedRaw || null,
     summary: (d.summary || text).slice(0, 240),
     course_id: d.courseId || d.course_id || null,
-    capture_mode: d.currentMode || (id.includes('live') ? 'audio' : 'text'),
+    capture_mode: d.currentMode || (isLive ? 'audio' : 'text'),
+    structured,
     created_at: new Date(d.archivedAt || d.savedAt || Date.now()).toISOString(),
     updated_at: new Date(d.archivedAt || d.savedAt || Date.now()).toISOString(),
   };
@@ -1363,7 +1387,10 @@ function loadDraftById(id) {
   if (id === 'draft:live') {
     try {
       const raw = localStorage.getItem('prannot.liveClassDraft');
-      if (raw) return formatDraftToNote('draft:live', JSON.parse(raw), './live-class.html');
+      if (raw) {
+        const d = JSON.parse(raw);
+        return formatDraftToNote('draft:live', d, `./live-class.html?course=${encodeURIComponent(d.courseId || '')}&restore=1`);
+      }
     } catch {}
   }
   if (id.startsWith('draft:hist:')) {
@@ -1375,7 +1402,9 @@ function loadDraftById(id) {
         if (Array.isArray(hist) && hist[idx]) {
           const d = hist[idx];
           const isLive = d.source === 'live' || d.kind === 'live';
-          const target = isLive ? './live-class.html' : `./note-capture.html?restoreDraft=${encodeURIComponent(id)}`;
+          const target = isLive
+            ? `./live-class.html?course=${encodeURIComponent(d.courseId || '')}&histIdx=${idx}`
+            : `./note-capture.html?restoreDraft=${encodeURIComponent(id)}`;
           return formatDraftToNote(id, d, target);
         }
       }

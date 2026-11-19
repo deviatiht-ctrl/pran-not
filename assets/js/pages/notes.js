@@ -65,7 +65,9 @@ function renderList(append = false) {
     const ic = modeIcons[n.capture_mode] || 'file-text';
     const noteStatus = n.status || (n.is_local_pending || n.is_local_draft ? 'draft' : 'ready');
     const isDraft = noteStatus === 'draft';
-    const linkTarget = `./note-view.html?id=${esc(encodeURIComponent(n.id))}`;
+    const linkTarget = n.is_local_draft && n.draft_target
+      ? n.draft_target
+      : `./note-view.html?id=${esc(encodeURIComponent(n.id))}`;
 
     return `<article class="card card-sm" style="display:flex;flex-direction:column;gap:10px;">
       <div class="row-between">
@@ -340,18 +342,19 @@ function getLocalStorageDrafts() {
       const hasHw = Array.isArray(d?.homework) && d.homework.length > 0;
       const hasContent = Boolean(d?.title?.trim() || cleanBody || cleanThoughts || hasHw);
       if (hasContent) {
-        const title = resolveTitle(d?.title, d?.courseId, cleanBody || cleanThoughts);
+        const fullText = [cleanBody, cleanThoughts ? `Panse: ${cleanThoughts}` : ''].filter(Boolean).join('\n\n');
+        const title = resolveTitle(d?.title, d?.courseId, fullText);
         drafts.push({
           id: 'draft:live',
           title,
-          summary: cleanBody ? cleanBody.slice(0, 200) : (cleanThoughts ? cleanThoughts.slice(0, 200) : 'Kou an dirèk an kou'),
-          content_text: cleanBody || cleanThoughts || '',
+          summary: fullText ? fullText.slice(0, 200) : (hasHw ? `${d.homework.length} devwa an kou` : 'Kou an dirèk'),
+          content_text: fullText || '',
           course_id: d.courseId || null,
           capture_mode: 'audio',
           status: 'draft',
           is_pinned: false,
           is_local_draft: true,
-          draft_target: './live-class.html',
+          draft_target: `./live-class.html?course=${encodeURIComponent(d.courseId || '')}&restore=1`,
           created_at: new Date(d.savedAt || Date.now()).toISOString(),
           updated_at: new Date(d.savedAt || Date.now()).toISOString(),
         });
@@ -367,23 +370,27 @@ function getLocalStorageDrafts() {
       if (Array.isArray(hist)) {
         hist.forEach((d, idx) => {
           const cleanRaw = (d?.rawText || d?.body || '').trim();
+          const cleanThoughts = (d?.thoughts || '').trim();
+          const fullText = [cleanRaw, cleanThoughts ? `Panse: ${cleanThoughts}` : ''].filter(Boolean).join('\n\n');
           const cleanHtml = (d?.quillHtml || '').trim();
           const strippedHtml = cleanHtml ? htmlToText(cleanHtml).trim() : '';
-          const hasContent = Boolean(d?.title?.trim() || cleanRaw || strippedHtml);
+          const hasContent = Boolean(d?.title?.trim() || fullText || strippedHtml);
           if (hasContent) {
             const isLive = d?.source === 'live' || d?.kind === 'live';
-            const title = resolveTitle(d?.title, d?.courseId, cleanRaw || strippedHtml);
+            const title = resolveTitle(d?.title, d?.courseId, fullText || strippedHtml);
             drafts.push({
               id: `draft:hist:${idx}`,
               title,
-              summary: cleanRaw ? cleanRaw.slice(0, 200) : (strippedHtml ? strippedHtml.slice(0, 200) : 'Bwouyon achive'),
-              content_text: cleanRaw || strippedHtml || '',
+              summary: fullText ? fullText.slice(0, 200) : (strippedHtml ? strippedHtml.slice(0, 200) : 'Bwouyon achive'),
+              content_text: fullText || strippedHtml || '',
               course_id: d.courseId || null,
               capture_mode: isLive ? 'audio' : (d.currentMode || 'text'),
               status: 'draft',
               is_pinned: false,
               is_local_draft: true,
-              draft_target: isLive ? './live-class.html' : `./note-capture.html?restoreDraft=${encodeURIComponent(`draft:hist:${idx}`)}`,
+              draft_target: isLive
+                ? `./live-class.html?course=${encodeURIComponent(d.courseId || '')}&histIdx=${idx}`
+                : `./note-capture.html?restoreDraft=${encodeURIComponent(`draft:hist:${idx}`)}`,
               created_at: new Date(d.archivedAt || d.savedAt || Date.now()).toISOString(),
               updated_at: new Date(d.archivedAt || d.savedAt || Date.now()).toISOString(),
             });

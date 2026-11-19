@@ -85,9 +85,16 @@ function saveDraft({ showBadge = true } = {}) {
     const title = document.getElementById('live-note-title')?.value || '';
     const body = document.getElementById('live-notes-area')?.value || '';
     const thoughts = document.getElementById('live-thoughts-area')?.value || '';
+
+    // Si tout est vide et qu'il n'y a pas de devoirs ni de mots-clés, ne pas écraser un brouillon existant avec du vide
+    const hasAnyContent = Boolean(title.trim() || body.trim() || thoughts.trim() || (homeworkList && homeworkList.length) || (keywordsLog && keywordsLog.length));
+    if (!hasAnyContent) {
+      return;
+    }
+
     const payload = {
-      courseId: selectedCourseId,
-      unitId: selectedUnitId,
+      courseId: selectedCourseId || document.getElementById('live-course-select')?.value || '',
+      unitId: selectedUnitId || document.getElementById('live-unit-select')?.value || '',
       title,
       body,
       thoughts,
@@ -187,7 +194,7 @@ function renderHomeworkList() {
   });
 }
 
-function restoreDraft(targetCourseId) {
+async function restoreDraft(targetCourseId) {
   try {
     if (getParam('new') === '1' || getParam('reset') === '1') {
       clearDraft();
@@ -199,21 +206,76 @@ function restoreDraft(targetCourseId) {
       } catch {}
       return false;
     }
-    const raw = localStorage.getItem(DRAFT_KEY);
-    if (!raw) return false;
-    const d = JSON.parse(raw);
-    if (!d || Date.now() - Number(d.savedAt || 0) > 18 * 3600 * 1000) return false;
-    if (targetCourseId && d.courseId && d.courseId !== targetCourseId) return false;
+
+    let d = null;
+    const histIdxParam = getParam('histIdx');
+    if (histIdxParam !== null && histIdxParam !== undefined) {
+      try {
+        const hist = JSON.parse(localStorage.getItem('prannot.draft_history') || '[]');
+        const idx = parseInt(histIdxParam, 10);
+        if (Array.isArray(hist) && hist[idx]) {
+          d = hist[idx];
+        }
+      } catch {}
+    }
+
+    if (!d) {
+      const raw = localStorage.getItem(DRAFT_KEY);
+      if (raw) {
+        try { d = JSON.parse(raw); } catch {}
+      }
+    }
+
+    // Repli sou dènye sesyon kou an dirèk nan istorik si kle prensipal la vid
+    if (!d) {
+      try {
+        const hist = JSON.parse(localStorage.getItem('prannot.draft_history') || '[]');
+        if (Array.isArray(hist) && hist.length > 0) {
+          const liveItem = hist.find((x) => x.source === 'live' || x.body || x.thoughts);
+          if (liveItem) d = liveItem;
+        }
+      } catch {}
+    }
+
+    if (!d) return false;
+    // Si brouillon an gen plis pase 14 jou, pa retabli l
+    if (Date.now() - Number(d.savedAt || d.archivedAt || 0) > 14 * 86400000) return false;
+
+    const hasContent = Boolean((d.body || '').trim() || (d.thoughts || '').trim() || (d.title || '').trim() || (Array.isArray(d.homework) && d.homework.length));
+    if (!hasContent) return false;
+
+    // Senkwonize kou a ak kou brouillon an si l egziste nan lis kou etidyan an
+    const courseSel = document.getElementById('live-course-select');
+    if (d.courseId && courses.some((c) => c.id === d.courseId)) {
+      if (courseSel && courseSel.value !== d.courseId) {
+        courseSel.value = d.courseId;
+        selectedCourseId = d.courseId;
+        await loadUnitsForCourse(d.courseId);
+        updateHeaderStatus();
+      }
+    } else if (targetCourseId && !selectedCourseId) {
+      selectedCourseId = targetCourseId;
+    }
+
+    if (d.unitId) {
+      const unitSel = document.getElementById('live-unit-select');
+      if (unitSel && Array.from(unitSel.options).some((o) => o.value === d.unitId)) {
+        unitSel.value = d.unitId;
+        selectedUnitId = d.unitId;
+        renderUnitFocus();
+      }
+    }
+
     let restored = false;
-    if (d.title && document.getElementById('live-note-title') && !document.getElementById('live-note-title').value.trim()) {
+    if (d.title && document.getElementById('live-note-title')) {
       document.getElementById('live-note-title').value = d.title;
       restored = true;
     }
-    if (d.body && document.getElementById('live-notes-area') && !document.getElementById('live-notes-area').value.trim()) {
+    if (d.body && document.getElementById('live-notes-area')) {
       document.getElementById('live-notes-area').value = d.body;
       restored = true;
     }
-    if (d.thoughts && document.getElementById('live-thoughts-area') && !document.getElementById('live-thoughts-area').value.trim()) {
+    if (d.thoughts && document.getElementById('live-thoughts-area')) {
       document.getElementById('live-thoughts-area').value = d.thoughts;
       restored = true;
     }
@@ -227,7 +289,17 @@ function restoreDraft(targetCourseId) {
       renderKeywords();
       restored = true;
     }
+    if (d.classElapsedSec) {
+      classElapsedSec = Number(d.classElapsedSec) || 0;
+      const clock = document.getElementById('live-clock-badge');
+      if (clock) clock.textContent = formatDuration(classElapsedSec);
+    }
     if (d.sessionStartedAt) sessionStartedAt = d.sessionStartedAt;
+
+    if (restored) {
+      setStepDone(2, true);
+      setStepActive(2);
+    }
     return restored;
   } catch { /* ignore */ return false; }
 }
@@ -1121,8 +1193,20 @@ async function finishLiveClass({ withAi = true } = {}) {
     courseSel.insertAdjacentHTML('beforeend', `<option value="${esc(c.id)}">${esc(c.name)}${badge ? ` (${esc(badge)})` : ''}</option>`);
   });
 
-  // Auto-sélection : param ?course= -> sinon cours en direct -> sinon cours imminent
-  let initialCourseId = getParam('course') || '';
+  // Tcheke si gen yon brouillon ki deja gen yon kou assosye
+  let draftCourseId = '';
+  try {
+    const rawDraft = localStorage.getItem(DRAFT_KEY);
+    if (rawDraft) {
+      const d = JSON.parse(rawDraft);
+      if (d?.courseId && courses.some((c) => c.id === d.courseId)) {
+        draftCourseId = d.courseId;
+      }
+    }
+  } catch {}
+
+  // Auto-sélection : param ?course= -> sinon kou ki nan draft la -> sinon cours en direct -> sinon cours imminent
+  let initialCourseId = getParam('course') || draftCourseId || '';
   if (!initialCourseId) {
     const liveMatch = courses.find((c) => getCourseLiveStatus(c).state === 'live')
       || courses.find((c) => getCourseLiveStatus(c).state === 'soon');
@@ -1133,7 +1217,7 @@ async function finishLiveClass({ withAi = true } = {}) {
   }
 
   await loadUnitsForCourse(courseSel.value);
-  const didRestore = restoreDraft(courseSel.value);
+  const didRestore = await restoreDraft(courseSel.value);
   if (didRestore) {
     const banner = document.getElementById('live-draft-banner');
     if (banner) {
@@ -1383,6 +1467,18 @@ async function finishLiveClass({ withAi = true } = {}) {
       saveDraft({ showBadge: false });
     }
   }, 10000);
+
+  // Sove bwouyon otomatikman lè etidyan an ap kite paj la, klike sou yon lòt paj oswa mete aplikasyon an an aryè plan
+  window.addEventListener('beforeunload', () => saveDraft({ showBadge: false }));
+  window.addEventListener('pagehide', () => saveDraft({ showBadge: false }));
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') {
+      saveDraft({ showBadge: false });
+    }
+  });
+  document.getElementById('live-notes-area')?.addEventListener('blur', () => saveDraft({ showBadge: false }));
+  document.getElementById('live-note-title')?.addEventListener('blur', () => saveDraft({ showBadge: false }));
+  document.getElementById('live-thoughts-area')?.addEventListener('blur', () => saveDraft({ showBadge: false }));
 
   // Sauvegarde finale
   document.getElementById('live-finish-ai-btn').addEventListener('click', () => finishLiveClass({ withAi: true }));
