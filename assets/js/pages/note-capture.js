@@ -1649,6 +1649,9 @@ function initQuickAiModule() {
   });
 
   document.getElementById('save-note-btn').addEventListener('click', saveNote);
+  document.getElementById('header-save-note-btn')?.addEventListener('click', saveNote);
+  document.getElementById('banner-save-note-btn')?.addEventListener('click', saveNote);
+  document.getElementById('editor-save-note-btn')?.addEventListener('click', saveNote);
   document.body.dataset.captureReady = '1';
 
   // Inisyalize Asistan IA Kou & Definisyon Rapid

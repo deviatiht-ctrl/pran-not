@@ -110,12 +110,16 @@ function saveDraft({ showBadge = true } = {}) {
 
     if (showBadge) {
       const badgeText = document.getElementById('live-autosave-text');
+      const saveStatusEl = document.getElementById('live-notes-save-status');
+      const d = new Date();
+      const hh = String(d.getHours()).padStart(2, '0');
+      const mm = String(d.getMinutes()).padStart(2, '0');
+      const ss = String(d.getSeconds()).padStart(2, '0');
       if (badgeText) {
-        const d = new Date();
-        const hh = String(d.getHours()).padStart(2, '0');
-        const mm = String(d.getMinutes()).padStart(2, '0');
-        const ss = String(d.getSeconds()).padStart(2, '0');
         badgeText.textContent = `Sove ${hh}:${mm}:${ss}`;
+      }
+      if (saveStatusEl) {
+        saveStatusEl.textContent = `Nòt sove nan bwouyon a ${hh}:${mm}:${ss}`;
       }
     }
   } catch { /* ignore */ }
@@ -312,6 +316,8 @@ function updateHeaderStatus() {
 
   if (c) {
     heading.textContent = c.name;
+    const stickyCourseName = document.getElementById('live-sticky-course-name');
+    if (stickyCourseName) stickyCourseName.textContent = c.name;
     const st = getCourseLiveStatus(c);
     const sched = formatCourseScheduleBadge(c);
     if (sched) {
@@ -1005,8 +1011,20 @@ async function finishLiveClass({ withAi = true } = {}) {
     return;
   }
 
-  const btn = document.getElementById(withAi ? 'live-finish-ai-btn' : 'live-save-quick-btn');
-  setLoading(btn, true);
+  const allSaveButtons = [
+    document.getElementById('live-finish-ai-btn'),
+    document.getElementById('live-save-quick-btn'),
+    document.getElementById('live-header-finish-btn'),
+    document.getElementById('live-header-quick-save-btn'),
+    document.getElementById('live-notes-finish-btn'),
+    document.getElementById('live-notes-quick-save-btn'),
+    document.getElementById('live-banner-finish-btn'),
+    document.getElementById('live-sticky-finish-btn'),
+    document.getElementById('live-sticky-quick-btn'),
+    document.getElementById('live-mark-finished-btn'),
+  ].filter(Boolean);
+
+  allSaveButtons.forEach((b) => setLoading(b, true));
   setStepDone(5, true);
   setStepActive(5);
 
@@ -1151,7 +1169,7 @@ async function finishLiveClass({ withAi = true } = {}) {
     // Tout échec (erreur réseau, timeout, table ou RLS) bascule immédiatement en sauvegarde locale infaillible
     await saveOfflineQueue(t('live.save_secure_local'));
   } finally {
-    setLoading(btn, false);
+    allSaveButtons.forEach((b) => setLoading(b, false));
   }
 }
 
@@ -1480,9 +1498,41 @@ async function finishLiveClass({ withAi = true } = {}) {
   document.getElementById('live-note-title')?.addEventListener('blur', () => saveDraft({ showBadge: false }));
   document.getElementById('live-thoughts-area')?.addEventListener('blur', () => saveDraft({ showBadge: false }));
 
-  // Sauvegarde finale
-  document.getElementById('live-finish-ai-btn').addEventListener('click', () => finishLiveClass({ withAi: true }));
-  document.getElementById('live-save-quick-btn').addEventListener('click', () => finishLiveClass({ withAi: false }));
+  // Sauvegarde finale (tout bouton fini/anrejistre sou paj la)
+  const finishAiAction = () => finishLiveClass({ withAi: true });
+  const finishQuickAction = () => finishLiveClass({ withAi: false });
+
+  document.getElementById('live-finish-ai-btn')?.addEventListener('click', finishAiAction);
+  document.getElementById('live-header-finish-btn')?.addEventListener('click', finishAiAction);
+  document.getElementById('live-notes-finish-btn')?.addEventListener('click', finishAiAction);
+  document.getElementById('live-banner-finish-btn')?.addEventListener('click', finishAiAction);
+  document.getElementById('live-sticky-finish-btn')?.addEventListener('click', finishAiAction);
+
+  document.getElementById('live-save-quick-btn')?.addEventListener('click', finishQuickAction);
+  document.getElementById('live-header-quick-save-btn')?.addEventListener('click', finishQuickAction);
+  document.getElementById('live-notes-quick-save-btn')?.addEventListener('click', finishQuickAction);
+  document.getElementById('live-sticky-quick-btn')?.addEventListener('click', finishQuickAction);
+
+  // Klik sou grenn etap yo pou deplase dirèkteman
+  document.querySelectorAll('.live-step-pill').forEach((pill) => {
+    pill.style.cursor = 'pointer';
+    pill.addEventListener('click', () => {
+      const step = Number(pill.dataset.step);
+      setStepActive(step);
+      if (step === 1) {
+        document.getElementById('live-course-select')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      } else if (step === 2) {
+        document.getElementById('live-notes-area')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        document.getElementById('live-notes-area')?.focus();
+      } else if (step === 3) {
+        document.getElementById('live-kw-input')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      } else if (step === 4) {
+        document.getElementById('live-search-input')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      } else if (step === 5) {
+        document.getElementById('live-finish-ai-btn')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    });
+  });
 
   icons(document.body);
 })();

@@ -4,13 +4,13 @@
    flashcards, quiz, simplification, tuteur, export PDF/Word/MD, partage.
    ===================================================================== */
 import '../supabase.js';
-import { requireAuth, appUrl } from '../auth.js';
+import { requireAuth, appUrl, recordActivity, awardXp } from '../auth.js';
 import { initAppChrome, setTutorContext, toggleTutorDrawer } from '../navbar.js';
 import { t, getLang, formatDate } from '../i18n.js';
 import {
   icons, icon, esc, sanitizeHtml, renderMarkdown, openModal, confirmDialog,
   toast, handleError, setLoading, getParam, isUuid, pageEnter, promptDialog,
-  htmlToText,
+  htmlToText, uid,
 } from '../utils.js';
 import { generateFlashcards, generateTest, explainText, processNote, askTutor } from '../ai.js';
 import { exportNotePdf, exportNoteDocx, exportNoteMarkdown } from '../export.js';
@@ -58,6 +58,11 @@ async function renderNote() {
         <h1>${esc(note.title || t('notes.untitled'))}</h1>
       </div>
       <div class="page-head-actions">
+        ${note.is_local_draft ? `
+          <button type="button" class="btn btn-primary btn-sm" id="btn-header-finalize-draft" style="font-weight:700;">
+            ${icon('check-circle')}<span>${esc(t('notes.btn_finalize_draft') || 'Fini & Anrejistre')}</span>
+          </button>
+        ` : ''}
         <button type="button" class="btn btn-secondary btn-sm" id="btn-live-transfer" title="${esc(t('transfer.send_title'))}">
           ${icon('share-2')}<span>${esc(t('notes.btn_transfer'))}</span>
         </button>
@@ -72,17 +77,22 @@ async function renderNote() {
     </div>
 
     ${note.is_local_draft ? `
-      <div class="alert alert-warning row-between mb-4" style="border-left:4px solid var(--c-warning,#f59e0b);">
+      <div class="alert alert-warning row-between mb-4" style="border-left:4px solid var(--c-warning,#f59e0b);flex-wrap:wrap;gap:12px;">
         <div class="row" style="gap:10px;">
           ${icon('file-edit')}
           <div>
             <strong>${esc(t('notes.local_draft') || 'Bwouyon lokal')}</strong>
-            <p class="text-sm mb-0">${esc(t('notes.draft_banner_text'))}</p>
+            <p class="text-sm mb-0">${esc(t('notes.draft_banner_text') || 'Sa se yon bwouyon ki poko anrejistre definitivman.')}</p>
           </div>
         </div>
-        <a href="${esc(note.draft_target || './note-capture.html')}" class="btn btn-sm btn-primary">
-          ${icon('pencil')}<span>${esc(t('notes.continue_draft') || 'Kontinye ekri')}</span>
-        </a>
+        <div class="row" style="gap:8px;flex-wrap:wrap;">
+          <button type="button" class="btn btn-sm btn-success" id="btn-banner-finalize-draft" style="font-weight:700;">
+            ${icon('check-circle')}<span>${esc(t('notes.btn_finalize_draft') || 'Fini & Anrejistre nòt sa')}</span>
+          </button>
+          <a href="${esc(note.draft_target || './note-capture.html')}" class="btn btn-sm btn-primary">
+            ${icon('pencil')}<span>${esc(t('notes.continue_draft') || 'Kontinye ekri')}</span>
+          </a>
+        </div>
       </div>` : ''}
 
     ${(!note.course_id && suggestedCourse) ? `
@@ -482,7 +492,91 @@ async function openAssignCourseModal() {
   });
 }
 
+async function finalizeDraftNote(draft) {
+  if (!draft || !userRef) return;
+  const clientId = uid();
+  const title = draft.title || t('notes.untitled');
+  const rawText = draft.raw_text || draft.content_text || '';
+  const contentText = draft.content_text || rawText || '';
+  const contentHtml = draft.content_html || (contentText ? `<p>${esc(contentText).replace(/\n{2,}/g, '</p><p>').replace(/\n/g, '<br>')}</p>` : '');
+  const summary = draft.summary || contentText.slice(0, 240);
+  const captureMode = draft.capture_mode || 'text';
+  const courseId = draft.course_id || null;
+  const unitId = draft.unit_id || null;
+
+  const saveOfflineQueue = async () => {
+    const item = await enqueue('note', {
+      client_id: clientId,
+      course_id: courseId,
+      unit_id: unitId,
+      title,
+      content_html: contentHtml,
+      content_text: contentText,
+      raw_text: rawText,
+      language: getLang(),
+      capture_mode: captureMode,
+      status: 'ready',
+      process_ai: false,
+    });
+    deleteDraftById(draft.id);
+    playNotificationSound('success');
+    toast(t('offline.saved_locally') || 'Nòt la anrejistre lokalman !', 'success');
+    setTimeout(() => {
+      location.replace(appUrl(`pages/note-view.html?id=${encodeURIComponent(`local:${item.id}`)}`));
+    }, 300);
+  };
+
+  if (!navigator.onLine || userRef.is_offline_guest || !db) {
+    await saveOfflineQueue();
+    return;
+  }
+
+  try {
+    const { data: noteRow, error } = await db.from('pran_not_notes').upsert({
+      user_id: userRef.id,
+      client_id: clientId,
+      course_id: courseId,
+      unit_id: unitId,
+      title,
+      summary,
+      content_html: contentHtml,
+      content_text: contentText,
+      raw_text: rawText,
+      structured: draft.structured || null,
+      language: getLang(),
+      capture_mode: captureMode,
+      status: 'ready',
+    }, { onConflict: 'user_id,client_id' }).select().single();
+
+    if (error) throw error;
+
+    await cacheSet(`note_${noteRow.id}`, noteRow);
+    deleteDraftById(draft.id);
+    playNotificationSound('success');
+    await Promise.all([recordActivity(), awardXp(15, 'finalize_draft', noteRow.id)]);
+    toast(t('notes.saved') || 'Nòt la anrejistre definitivman !', 'success');
+    location.replace(appUrl(`pages/note-view.html?id=${encodeURIComponent(noteRow.id)}`));
+  } catch (err) {
+    console.warn('[note-view] finalizeDraft fallback offline:', err);
+    await saveOfflineQueue();
+  }
+}
+
 function bindActions() {
+  const onFinalizeClick = async (e) => {
+    const btn = e.currentTarget;
+    setLoading(btn, true);
+    try {
+      await finalizeDraftNote(note);
+    } catch (err) {
+      handleError(err);
+      setLoading(btn, false);
+    }
+  };
+
+  document.getElementById('btn-header-finalize-draft')?.addEventListener('click', onFinalizeClick);
+  document.getElementById('btn-banner-finalize-draft')?.addEventListener('click', onFinalizeClick);
+
   document.getElementById('btn-assign-course')?.addEventListener('click', openAssignCourseModal);
 
   document.getElementById('btn-confirm-course')?.addEventListener('click', async (e) => {

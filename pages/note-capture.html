@@ -35,6 +35,10 @@
         <h1 data-i18n="capture.page_title">Kaptire nòt</h1>
       </div>
       <div class="page-head-actions">
+        <button type="button" class="btn btn-primary" id="header-save-note-btn" style="font-weight:700;">
+          <i data-lucide="check-circle" aria-hidden="true"></i>
+          <span data-i18n="capture.save_note">Anrejistre nòt la</span>
+        </button>
         <button type="button" class="btn btn-outline" id="header-new-note-btn" data-i18n-title="notes.new_fresh" title="Kòmanse yon nouvo nòt nèf">
           <i data-lucide="plus-circle" aria-hidden="true"></i>
           <span data-i18n="notes.new_fresh">Nouvo nòt</span>
@@ -55,7 +59,11 @@
           <p class="text-xs mb-0 muted" data-i18n="notes.draft_restored_sub">Nou remete nòt ou t ap pran an. Klike si ou vle kòmanse yon nòt nèf a zewo.</p>
         </div>
       </div>
-      <div class="row" style="gap:8px;">
+      <div class="row" style="gap:8px;flex-wrap:wrap;">
+        <button type="button" class="btn btn-sm btn-primary" id="banner-save-note-btn" style="font-weight:700;">
+          <i data-lucide="check-circle" aria-hidden="true"></i>
+          <span>Fini & Anrejistre nòt sa kounye a</span>
+        </button>
         <button type="button" class="btn btn-sm btn-ghost text-error" id="discard-draft-btn">
           <i data-lucide="trash-2" aria-hidden="true"></i>
           <span data-i18n="notes.start_fresh">Kòmanse a zewo</span>
@@ -296,6 +304,13 @@
             <div id="quill-editor"></div>
           </div>
           <div id="structured-preview" class="stack-sm mt-4" hidden></div>
+          <div class="row-between mt-4 pt-3" style="border-top:1px solid var(--c-border);flex-wrap:wrap;gap:8px;align-items:center;">
+            <span class="text-xs muted">Nòt ou a ap sove otomatikman nan bwouyon pandan w ap tape.</span>
+            <button type="button" class="btn btn-primary" id="editor-save-note-btn" style="font-weight:700;">
+              <i data-lucide="check-circle" aria-hidden="true"></i>
+              <span data-i18n="capture.save_note">Fini & Anrejistre nòt la</span>
+            </button>
+          </div>
         </section>
       </div>
 
