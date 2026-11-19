@@ -403,9 +403,11 @@ function openCourseModal(existing = null) {
   setTutorContext({ contextType: 'general', contextTitle: t('courses.title') });
   pageEnter();
 
-  const cached = await cacheGet('courses_list');
+  const userCoursesKey = `courses_list_${user.id}`;
+  const cached = (await cacheGet(userCoursesKey)) || (await cacheGet('courses_list'));
   if (cached?.length) {
-    courses = mergeCourseSchedules(cached);
+    const userOnly = cached.filter((c) => !c.user_id || c.user_id === user.id);
+    courses = mergeCourseSchedules(userOnly);
     renderSemesterFilterBar(courses);
     renderDayFilterBar();
     renderCourses();
@@ -413,9 +415,15 @@ function openCourseModal(existing = null) {
 
   if (navigator.onLine) {
     try {
-      const { data, error } = await db.from('pran_not_courses').select('*').eq('archived', false).order('created_at', { ascending: false });
+      const { data, error } = await db
+        .from('pran_not_courses')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('archived', false)
+        .order('created_at', { ascending: false });
       if (error) throw error;
       courses = mergeCourseSchedules(data || []);
+      await cacheSet(userCoursesKey, courses);
       await cacheSet('courses_list', courses);
       renderSemesterFilterBar(courses);
       renderDayFilterBar();

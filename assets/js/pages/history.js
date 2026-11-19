@@ -241,9 +241,10 @@ function buildYearFilter() {
   pageEnter();
 
   // --- Chaje done: kache an premye si offline ---
-  const cached = await cacheGet('courses_list');
+  const userCoursesKey = `courses_list_${user.id}`;
+  const cached = (await cacheGet(userCoursesKey)) || (await cacheGet('courses_list'));
   if (cached?.length && !navigator.onLine) {
-    allCourses = cached;
+    allCourses = cached.filter((c) => !c.user_id || c.user_id === user.id);
     buildYearFilter();
     renderTimeline();
   }
@@ -254,6 +255,7 @@ function buildYearFilter() {
       const { data: coursesData, error: cErr } = await db
         .from('pran_not_courses')
         .select('*')
+        .eq('user_id', user.id)
         .or('archived.eq.true,archived.eq.false')
         .order('created_at', { ascending: false });
       if (cErr) throw cErr;
@@ -262,7 +264,8 @@ function buildYearFilter() {
       // Tout nòt (sèlman id ak course_id ase)
       const { data: notesData, error: nErr } = await db
         .from('pran_not_notes')
-        .select('id, course_id');
+        .select('id, course_id')
+        .eq('user_id', user.id);
       if (nErr) throw nErr;
       allNotes = notesData || [];
 

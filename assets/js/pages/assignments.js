@@ -133,28 +133,33 @@ function openNewModal() {
   setTutorContext({ contextType: 'general', contextTitle: t('assignments.title') });
   pageEnter();
 
+  const userCoursesKey = `courses_list_${user.id}`;
+  const userAsgsKey = `assignments_list_${user.id}`;
+
   const [cachedCourses, cachedAsgs] = await Promise.all([
-    cacheGet('courses_list'),
-    cacheGet('assignments_list'),
+    cacheGet(userCoursesKey).then((c) => c || cacheGet('courses_list')),
+    cacheGet(userAsgsKey).then((a) => a || cacheGet('assignments_list')),
   ]);
-  if (cachedCourses) courses = cachedCourses;
+  if (cachedCourses) courses = cachedCourses.filter((c) => !c.user_id || c.user_id === user.id);
   if (cachedAsgs) {
-    assignments = cachedAsgs;
+    assignments = cachedAsgs.filter((a) => !a.user_id || a.user_id === user.id);
     renderList();
   }
 
   if (navigator.onLine) {
     try {
       const [cRes, aRes] = await Promise.all([
-        db.from('pran_not_courses').select('id, name').eq('archived', false).order('name'),
-        db.from('pran_not_assignments').select('*').order('due_at', { ascending: true, nullsFirst: false }),
+        db.from('pran_not_courses').select('id, name').eq('user_id', user.id).eq('archived', false).order('name'),
+        db.from('pran_not_assignments').select('*').eq('user_id', user.id).order('due_at', { ascending: true, nullsFirst: false }),
       ]);
       if (cRes.data) {
         courses = cRes.data;
+        await cacheSet(userCoursesKey, courses);
         await cacheSet('courses_list', courses);
       }
       if (aRes.data) {
         assignments = aRes.data;
+        await cacheSet(userAsgsKey, assignments);
         await cacheSet('assignments_list', assignments);
       }
       renderList();

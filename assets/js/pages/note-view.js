@@ -322,12 +322,22 @@ async function renderSources() {
 }
 
 async function loadAvailableCourses() {
-  let coursesList = (await cacheGet('courses_list')) || [];
-  if (navigator.onLine) {
+  const userCoursesKey = userRef ? `courses_list_${userRef.id}` : 'courses_list';
+  let coursesList = (await cacheGet(userCoursesKey)) || (await cacheGet('courses_list')) || [];
+  if (userRef?.id) {
+    coursesList = coursesList.filter((c) => !c.user_id || c.user_id === userRef.id);
+  }
+  if (navigator.onLine && userRef?.id) {
     try {
-      const { data } = await db.from('pran_not_courses').select('*').eq('archived', false).order('name');
+      const { data } = await db
+        .from('pran_not_courses')
+        .select('*')
+        .eq('user_id', userRef.id)
+        .eq('archived', false)
+        .order('name');
       if (data?.length) {
         coursesList = data;
+        await cacheSet(userCoursesKey, data);
         await cacheSet('courses_list', data);
       }
     } catch { /* fallback cache */ }

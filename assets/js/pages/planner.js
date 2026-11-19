@@ -296,14 +296,23 @@ async function openGroupDetail(groupId) {
     if (courses[0]?.exam_date) document.getElementById('plan-exam-date').value = courses[0].exam_date;
   };
 
-  const cachedCourses = await cacheGet('courses_list');
-  if (cachedCourses) populateCourseSelects(cachedCourses);
+  const userCoursesKey = `courses_list_${user.id}`;
+  const cachedCourses = (await cacheGet(userCoursesKey)) || (await cacheGet('courses_list'));
+  if (cachedCourses) {
+    populateCourseSelects(cachedCourses.filter((c) => !c.user_id || c.user_id === user.id));
+  }
 
   if (navigator.onLine) {
     try {
-      const { data: cData } = await db.from('pran_not_courses').select('id, name, exam_date').eq('archived', false).order('name');
+      const { data: cData } = await db
+        .from('pran_not_courses')
+        .select('id, name, exam_date')
+        .eq('user_id', user.id)
+        .eq('archived', false)
+        .order('name');
       if (cData) {
         populateCourseSelects(cData);
+        await cacheSet(userCoursesKey, cData);
         await cacheSet('courses_list', cData);
       }
     } catch { /* offline fallback */ }

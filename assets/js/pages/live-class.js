@@ -825,6 +825,7 @@ async function runQuickSearch(query) {
         const { data } = await db
           .from('pran_not_notes')
           .select('id, title, summary, content_text')
+          .eq('user_id', userRef.id)
           .ilike('content_text', `%${q}%`)
           .limit(6);
         rows = data || [];
@@ -1094,14 +1095,21 @@ async function finishLiveClass({ withAi = true } = {}) {
   pageEnter();
   drawIdleMeter();
 
-  const cachedCourses = (await cacheGet('courses_list')) || [];
-  courses = mergeCourseSchedules(cachedCourses);
+  const userCoursesKey = `courses_list_${user.id}`;
+  const cachedCourses = (await cacheGet(userCoursesKey)) || (await cacheGet('courses_list')) || [];
+  courses = mergeCourseSchedules(cachedCourses.filter((c) => !c.user_id || c.user_id === user.id));
 
   if (navigator.onLine) {
     try {
-      const { data } = await db.from('pran_not_courses').select('*').eq('archived', false).order('name');
+      const { data } = await db
+        .from('pran_not_courses')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('archived', false)
+        .order('name');
       if (data) {
         courses = mergeCourseSchedules(data);
+        await cacheSet(userCoursesKey, courses);
         await cacheSet('courses_list', courses);
       }
     } catch { /* use cached */ }

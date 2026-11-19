@@ -19,14 +19,15 @@ const db = window.db;
   setTutorContext({ contextType: 'general', contextTitle: t('progress.title') });
   pageEnter();
 
-  let progData = await cacheGet('progress_data');
+  const userProgKey = `progress_data_${user.id}`;
+  let progData = (await cacheGet(userProgKey)) || (await cacheGet('progress_data'));
   if (navigator.onLine) {
     try {
       const [sessRes, attRes, cardRes, courseRes] = await Promise.all([
-        db.from('pran_not_study_sessions').select('duration_minutes, started_at').order('started_at', { ascending: false }).limit(200),
-        db.from('pran_not_test_attempts').select('percent, created_at').not('finished_at', 'is', null).order('created_at', { ascending: true }).limit(40),
-        db.from('pran_not_flashcards').select('interval_days').gte('interval_days', 7),
-        db.from('pran_not_courses').select('name, mastery, color').eq('archived', false),
+        db.from('pran_not_study_sessions').select('duration_minutes, started_at').eq('user_id', user.id).order('started_at', { ascending: false }).limit(200),
+        db.from('pran_not_test_attempts').select('percent, created_at').eq('user_id', user.id).not('finished_at', 'is', null).order('created_at', { ascending: true }).limit(40),
+        db.from('pran_not_flashcards').select('interval_days').eq('user_id', user.id).gte('interval_days', 7),
+        db.from('pran_not_courses').select('name, mastery, color').eq('user_id', user.id).eq('archived', false),
       ]);
       progData = {
         sessions: sessRes.data || [],
@@ -34,6 +35,7 @@ const db = window.db;
         masteredCards: (cardRes.data || []).length,
         courses: courseRes.data || [],
       };
+      await cacheSet(userProgKey, progData);
       await cacheSet('progress_data', progData);
     } catch { /* fallback cache */ }
   }

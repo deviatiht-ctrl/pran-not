@@ -433,7 +433,9 @@ function getLocalStorageDrafts() {
 async function getCachedIndividualNotes() {
   try {
     const entries = await cacheEntriesByPrefix('note_');
-    return (entries || []).map((e) => e.data).filter((n) => n && n.id);
+    return (entries || [])
+      .map((e) => e.data)
+      .filter((n) => n && n.id && (!currentUserRef?.id || !n.user_id || n.user_id === currentUserRef.id));
   } catch {
     return [];
   }
@@ -542,25 +544,35 @@ async function fetchNotes(reset = true) {
   pageEnter();
 
   const userNotesCacheKey = `notes_list_${user.id}`;
+  const userCoursesCacheKey = `courses_list_${user.id}`;
 
   // Affichage immédiat depuis le cache local (< 5 ms), puis actualisation si en ligne
   const [cachedCourses, cachedNotes, pendingNotes, cachedIndiv] = await Promise.all([
-    cacheGet('courses_list'),
+    cacheGet(userCoursesCacheKey).then((c) => c || cacheGet('courses_list')),
     cacheGet(userNotesCacheKey),
     getPendingNotes(),
     getCachedIndividualNotes(),
   ]);
   const localDrafts = getLocalStorageDrafts();
-  if (cachedCourses?.length) populateCoursesFilter(cachedCourses);
-  allNotes = mergeNotesList([localDrafts, pendingNotes, cachedIndiv || [], cachedNotes || []]);
+  const cleanCourses = (cachedCourses || []).filter((c) => !c.user_id || c.user_id === user.id);
+  const cleanNotes = (cachedNotes || []).filter((n) => !n.user_id || n.user_id === user.id);
+  const cleanIndiv = (cachedIndiv || []).filter((n) => !n.user_id || n.user_id === user.id);
+
+  if (cleanCourses.length) populateCoursesFilter(cleanCourses);
+  allNotes = mergeNotesList([localDrafts, pendingNotes, cleanIndiv, cleanNotes]);
   if (allNotes.length) renderList();
 
   if (navigator.onLine) {
-    db.from('pran_not_courses').select('*').eq('archived', false).order('name')
+    db.from('pran_not_courses')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('archived', false)
+      .order('name')
       .then(async ({ data: cData }) => {
         if (cData) {
           const merged = mergeCourseSchedules(cData);
           populateCoursesFilter(merged);
+          await cacheSet(userCoursesCacheKey, merged);
           await cacheSet('courses_list', merged);
         }
       })

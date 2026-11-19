@@ -308,9 +308,16 @@ async function dedupeCards() {
     cacheGet('courses_list'),
     cacheGet('flashcard_decks'),
   ]);
-  if (cachedCourses) courses = cachedCourses;
+  const userCoursesKey = `courses_list_${user.id}`;
+  const userDecksKey = `flashcard_decks_${user.id}`;
+
+  const [cachedCourses, cachedDecks] = await Promise.all([
+    cacheGet(userCoursesKey).then((c) => c || cacheGet('courses_list')),
+    cacheGet(userDecksKey).then((d) => d || cacheGet('flashcard_decks')),
+  ]);
+  if (cachedCourses) courses = cachedCourses.filter((c) => !c.user_id || c.user_id === user.id);
   if (cachedDecks) {
-    decks = cachedDecks;
+    decks = cachedDecks.filter((d) => !d.user_id || d.user_id === user.id);
     const deckParamCached = getParam('deck');
     if (isUuid(deckParamCached)) await openDeck(deckParamCached);
     else renderDecks();
@@ -319,15 +326,17 @@ async function dedupeCards() {
   if (navigator.onLine) {
     try {
       const [cRes, dRes] = await Promise.all([
-        db.from('pran_not_courses').select('id, name').eq('archived', false).order('name'),
-        db.from('pran_not_flashcard_decks').select('*').order('created_at', { ascending: false }),
+        db.from('pran_not_courses').select('id, name').eq('user_id', user.id).eq('archived', false).order('name'),
+        db.from('pran_not_flashcard_decks').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
       ]);
       if (cRes.data) {
         courses = cRes.data;
+        await cacheSet(userCoursesKey, courses);
         await cacheSet('courses_list', courses);
       }
       if (dRes.data) {
         decks = dRes.data;
+        await cacheSet(userDecksKey, decks);
         await cacheSet('flashcard_decks', decks);
       }
 

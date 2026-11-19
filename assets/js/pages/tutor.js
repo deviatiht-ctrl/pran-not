@@ -128,8 +128,8 @@ async function sendMsg(text, mode = 'standard') {
   pageEnter();
 
   const [cRes, convRes] = await Promise.all([
-    db.from('pran_not_courses').select('id, name').eq('archived', false).order('name'),
-    db.from('pran_not_tutor_conversations').select('*').order('updated_at', { ascending: false }).limit(30),
+    db.from('pran_not_courses').select('id, name').eq('user_id', user.id).eq('archived', false).order('name'),
+    db.from('pran_not_tutor_conversations').select('*').eq('user_id', user.id).order('updated_at', { ascending: false }).limit(30),
   ]);
 
   const cSel = document.getElementById('tutor-course-sel');

@@ -61,7 +61,7 @@ function renderAnalysis(analysis) {
   pageEnter();
 
   const sel = document.getElementById('syl-course');
-  const { data: cData } = await db.from('pran_not_courses').select('id, name').eq('archived', false).order('name');
+  const { data: cData } = await db.from('pran_not_courses').select('id, name').eq('user_id', user.id).eq('archived', false).order('name');
   if (!cData?.length) {
     sel.innerHTML = `<option value="">${esc(t('syllabus.create_course_first'))}</option>`;
   } else {

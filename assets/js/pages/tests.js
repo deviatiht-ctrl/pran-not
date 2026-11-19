@@ -230,13 +230,14 @@ function renderLists() {
   setTutorContext({ contextType: 'general', contextTitle: t('tests.title') });
   pageEnter();
 
-  const cachedTests = await cacheGet('tests_overview');
+  const userTestsKey = `tests_overview_${user.id}`;
+  const cachedTests = (await cacheGet(userTestsKey)) || (await cacheGet('tests_overview'));
   const applyTestsState = (st) => {
-    courses = st.courses || [];
-    units = st.units || [];
-    tests = st.tests || [];
-    attempts = st.attempts || [];
-    weakKeywords = st.weakKeywords || [];
+    courses = (st.courses || []).filter((c) => !c.user_id || c.user_id === user.id);
+    units = (st.units || []).filter((u) => !u.user_id || u.user_id === user.id);
+    tests = (st.tests || []).filter((t) => !t.user_id || t.user_id === user.id);
+    attempts = (st.attempts || []).filter((a) => !a.user_id || a.user_id === user.id);
+    weakKeywords = (st.weakKeywords || []).filter((k) => !k.user_id || k.user_id === user.id);
   };
   if (cachedTests) {
     applyTestsState(cachedTests);
@@ -247,11 +248,11 @@ function renderLists() {
   if (navigator.onLine) {
     try {
       const [cRes, uRes, tRes, aRes, kRes] = await Promise.all([
-        db.from('pran_not_courses').select('id, name, mastery').eq('archived', false).order('name'),
-        db.from('pran_not_syllabus_units').select('id, course_id, title, description, keywords').order('position'),
-        db.from('pran_not_tests').select('*').order('created_at', { ascending: false }).limit(20),
-        db.from('pran_not_test_attempts').select('*, test:pran_not_tests(title)').not('finished_at', 'is', null).order('created_at', { ascending: false }).limit(15),
-        db.from('pran_not_keywords').select('term, weakness, course_id').gte('weakness', 35).order('weakness', { ascending: false }).limit(12),
+        db.from('pran_not_courses').select('id, name, mastery').eq('user_id', userRef.id).eq('archived', false).order('name'),
+        db.from('pran_not_syllabus_units').select('id, course_id, title, description, keywords').eq('user_id', userRef.id).order('position'),
+        db.from('pran_not_tests').select('*').eq('user_id', userRef.id).order('created_at', { ascending: false }).limit(20),
+        db.from('pran_not_test_attempts').select('*, test:pran_not_tests(title)').eq('user_id', userRef.id).not('finished_at', 'is', null).order('created_at', { ascending: false }).limit(15),
+        db.from('pran_not_keywords').select('term, weakness, course_id').eq('user_id', userRef.id).gte('weakness', 35).order('weakness', { ascending: false }).limit(12),
       ]);
       const fresh = {
         courses: cRes.data || [],
@@ -261,6 +262,7 @@ function renderLists() {
         weakKeywords: kRes.data || [],
       };
       applyTestsState(fresh);
+      await cacheSet(userTestsKey, fresh);
       await cacheSet('tests_overview', fresh);
       renderLists();
       renderChart();

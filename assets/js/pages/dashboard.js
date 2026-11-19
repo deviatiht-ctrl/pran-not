@@ -249,9 +249,11 @@ function renderTodayClasses(rawCourses = []) {
   pageEnter();
 
   // Afficher instantanément les données locales en cache (< 5 ms), puis actualiser si en ligne
+  const userCoursesKey = `courses_list_${user.id}`;
+  const cleanCachedCourses = (cachedCourses || []).filter((c) => !c.user_id || c.user_id === user.id);
   if (stats) renderStats(stats, profile);
   if (plan) renderPlan(plan);
-  renderTodayClasses(cachedCourses || []);
+  renderTodayClasses(cleanCachedCourses);
 
   if (navigator.onLine) {
     try {
@@ -259,7 +261,7 @@ function renderTodayClasses(rawCourses = []) {
       const [sRes, pRes, cRes] = await Promise.all([
         db.rpc('pran_not_get_dashboard_stats'),
         db.rpc('pran_not_get_daily_plan'),
-        db.from('pran_not_courses').select('*').eq('archived', false).order('created_at', { ascending: false }),
+        db.from('pran_not_courses').select('*').eq('user_id', user.id).eq('archived', false).order('created_at', { ascending: false }),
       ]);
       if (sRes.error) throw sRes.error;
       if (pRes.error) throw pRes.error;
@@ -268,6 +270,7 @@ function renderTodayClasses(rawCourses = []) {
       await Promise.all([cacheSet('dashboard_stats', stats), cacheSet('daily_plan', plan)]);
       if (cRes?.data) {
         const mergedCourses = mergeCourseSchedules(cRes.data);
+        await cacheSet(userCoursesKey, mergedCourses);
         await cacheSet('courses_list', mergedCourses);
         renderTodayClasses(mergedCourses);
       }

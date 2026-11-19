@@ -5,6 +5,7 @@
 import './supabase.js';
 import { initI18n, detectLang } from './i18n.js';
 import { syncThemeFromProfile } from './theme.js';
+import { cacheGet, cacheSet, cacheDel, cacheEntriesByPrefix } from './offline.js';
 
 const db = window.db;
 let profileCache = null;
@@ -233,7 +234,53 @@ export async function requireAuth({ requireOnboarded = true } = {}) {
     }
   }
 
+  // Nettoyer en arrière-plan tout résidu de cache d'autres étudiants (indispensable pour les comptes admin-étudiants)
+  sanitizeUserStorage(session.user.id).catch(() => {});
+
   return { session, user: session.user, profile };
+}
+
+/**
+ * Nettoie le cache local si des données d'autres étudiants s'y trouvent
+ * (essentiel pour les comptes administrateurs qui sont aussi étudiants).
+ */
+export async function sanitizeUserStorage(userId) {
+  if (!userId) return;
+  try {
+    // 1. Nettoyer les cours globaux en cache
+    const cachedCourses = await cacheGet('courses_list');
+    if (Array.isArray(cachedCourses) && cachedCourses.some((c) => c.user_id && c.user_id !== userId)) {
+      const cleanCourses = cachedCourses.filter((c) => !c.user_id || c.user_id === userId);
+      await cacheSet('courses_list', cleanCourses);
+      await cacheSet(`courses_list_${userId}`, cleanCourses);
+    }
+
+    // 2. Nettoyer les notes globales en cache
+    const cachedNotes = await cacheGet('notes_list');
+    if (Array.isArray(cachedNotes) && cachedNotes.some((n) => n.user_id && n.user_id !== userId)) {
+      const cleanNotes = cachedNotes.filter((n) => !n.user_id || n.user_id === userId);
+      await cacheSet('notes_list', cleanNotes);
+      await cacheSet(`notes_list_${userId}`, cleanNotes);
+    }
+
+    // 3. Nettoyer les devoirs globaux en cache
+    const cachedAsgs = await cacheGet('assignments_list');
+    if (Array.isArray(cachedAsgs) && cachedAsgs.some((a) => a.user_id && a.user_id !== userId)) {
+      const cleanAsgs = cachedAsgs.filter((a) => !a.user_id || a.user_id === userId);
+      await cacheSet('assignments_list', cleanAsgs);
+      await cacheSet(`assignments_list_${userId}`, cleanAsgs);
+    }
+
+    // 4. Nettoyer les notes individuelles enregistrées dans le cache
+    const entries = await cacheEntriesByPrefix('note_');
+    for (const entry of entries || []) {
+      if (entry.data?.user_id && entry.data.user_id !== userId) {
+        await cacheDel(entry.key);
+      }
+    }
+  } catch (e) {
+    console.warn('[auth] sanitizeUserStorage error:', e);
+  }
 }
 
 /** L'utilisateur courant figure-t-il dans pran_not_admin_users ? */
@@ -290,6 +337,9 @@ export async function signOut() {
     localStorage.removeItem('prannot.offline_guest');
     localStorage.removeItem('prannot_note_capture_draft');
     localStorage.removeItem('prannot.liveClassDraft');
+    await cacheDel('courses_list').catch(() => {});
+    await cacheDel('notes_list').catch(() => {});
+    await cacheDel('assignments_list').catch(() => {});
     location.replace(appUrl('login.html'));
   }
 }

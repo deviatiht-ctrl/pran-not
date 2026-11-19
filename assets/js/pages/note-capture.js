@@ -1715,12 +1715,21 @@ function initQuickAiModule() {
 
     cSel.addEventListener('change', () => loadUnits(cSel.value));
 
-    const cachedCourses = await cacheGet('courses_list');
-    if (cachedCourses?.length) populateCourses(cachedCourses);
+    const userCoursesKey = `courses_list_${user.id}`;
+    const cachedCourses = (await cacheGet(userCoursesKey)) || (await cacheGet('courses_list'));
+    if (cachedCourses?.length) {
+      populateCourses(cachedCourses.filter((c) => !c.user_id || c.user_id === user.id));
+    }
 
     if (navigator.onLine) {
-      const { data: cData } = await db.from('pran_not_courses').select('id, name').eq('archived', false).order('name');
+      const { data: cData } = await db
+        .from('pran_not_courses')
+        .select('id, name')
+        .eq('user_id', user.id)
+        .eq('archived', false)
+        .order('name');
       if (cData) {
+        await cacheSet(userCoursesKey, cData);
         await cacheSet('courses_list', cData);
         populateCourses(cData);
       }

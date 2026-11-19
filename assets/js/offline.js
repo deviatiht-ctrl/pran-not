@@ -78,6 +78,15 @@ export async function cacheGet(key) {
   }
 }
 
+/** Supprime une clé du cache local. */
+export async function cacheDel(key) {
+  try {
+    await tx(STORE_CACHE, 'readwrite', (s) => s.delete(key));
+  } catch (e) {
+    console.warn('[offline] cacheDel', e);
+  }
+}
+
 /** Lit toutes les entrées du cache dont la clé commence par un préfixe. */
 export async function cacheEntriesByPrefix(prefix) {
   try {
