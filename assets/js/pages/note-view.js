@@ -12,7 +12,7 @@ import {
   toast, handleError, setLoading, getParam, isUuid, pageEnter, promptDialog,
   htmlToText,
 } from '../utils.js';
-import { generateFlashcards, generateTest, explainText, processNote } from '../ai.js';
+import { generateFlashcards, generateTest, explainText, processNote, askTutor } from '../ai.js';
 import { exportNotePdf, exportNoteDocx, exportNoteMarkdown } from '../export.js';
 import {
   cacheSet, cacheGet, cacheEntriesByPrefix, isDataSaver, enqueue,
@@ -95,7 +95,7 @@ async function renderNote() {
       </div>` : ''}
 
     <!-- Barre d'actions IA sur la note -->
-    <div class="row-wrap mb-6">
+    <div class="row-wrap mb-4">
       <button type="button" class="btn btn-primary" id="btn-gen-cards">${icon('layers')}<span>${esc(t('notes.btn_flashcards'))}</span></button>
       <button type="button" class="btn btn-dark" id="btn-gen-quiz">${icon('check-circle-2')}<span>${esc(t('notes.btn_quiz'))}</span></button>
       <button type="button" class="btn btn-secondary" id="btn-points-summary" title="${esc(t('notes.bullet_summary_title'))}">
@@ -105,6 +105,41 @@ async function renderNote() {
       <button type="button" class="btn btn-secondary" id="btn-ask-tutor">${icon('message-square')}<span>${esc(t('notes.btn_tutor'))}</span></button>
       ${!note.structured && note.raw_text ? `<button type="button" class="btn btn-secondary" id="btn-ai-clean">${icon('wand-2')}<span>${esc(t('capture.structure_ai'))}</span></button>` : ''}
     </div>
+
+    <!-- Modil Asistan IA Kou & Definisyon Rapid -->
+    <section class="card mb-6" id="note-view-quick-ai-card" style="background:linear-gradient(135deg, rgba(27,42,74,0.04), rgba(224,90,43,0.06));border:1.5px solid var(--c-primary-soft, #cbd5e1);">
+      <div class="row-between mb-2" style="flex-wrap:wrap;gap:8px;align-items:center;">
+        <div class="row" style="gap:8px;align-items:center;">
+          <span class="badge badge-primary font-bold">${icon('sparkles')} <span>${esc(t('capture.quick_ai_title'))}</span></span>
+          <span class="text-xs muted">${esc(t('capture.quick_ai_sub'))}</span>
+        </div>
+        <div class="segmented" id="nv-ai-scope-segment" style="display:inline-flex;">
+          <button type="button" class="btn btn-xs active" id="nv-ai-scope-global" title="Reponn selon konesans inivèsèl">
+            <span>${esc(t('assignments.domain_general'))}</span>
+          </button>
+          <button type="button" class="btn btn-xs" id="nv-ai-scope-faculty" title="Reponn selon fakilte w la">
+            <span id="nv-ai-fac-name">${esc(profileRef?.faculty?.name_fr || profileRef?.faculty_id || t('assignments.domain_faculty'))}</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="input-group mb-2">
+        <input type="text" class="input" id="nv-quick-ai-input" placeholder="${esc(t('capture.quick_ai_ph'))}">
+        <button type="button" class="btn btn-primary" id="nv-quick-ai-btn" style="min-width:110px;">
+          ${icon('sparkles')}
+          <span>${esc(t('capture.quick_ai_ask_btn'))}</span>
+        </button>
+      </div>
+
+      <div class="row-wrap mb-2" style="gap:6px;" id="nv-quick-ai-chips">
+        <button type="button" class="btn btn-xs btn-outline" data-quick-prompt="Defini byen klè epi bay yon egzanp konkrè : ">${esc(t('capture.chip_def_example'))}</button>
+        <button type="button" class="btn btn-xs btn-outline" data-quick-prompt="Eksplike nosyon sa a senpleman an 2 fraz : ">${esc(t('capture.chip_short_explain'))}</button>
+        <button type="button" class="btn btn-xs btn-outline" data-quick-prompt="Bay fòmil, prensip oswa atik lwa ki gen rapò ak : ">${esc(t('capture.chip_formula_law'))}</button>
+        <button type="button" class="btn btn-xs btn-outline" data-quick-prompt="Ki diferans ki genyen ant : ">${esc(t('capture.chip_comparison'))}</button>
+      </div>
+
+      <div id="nv-quick-ai-result" class="mt-3" hidden></div>
+    </section>
 
     <div class="grid grid-main-side">
       <div class="stack">
@@ -1108,6 +1143,179 @@ function bindActions() {
     if (error) handleError(error);
     else location.replace(appUrl('pages/notes.html'));
   });
+
+  // Quick AI Assistant nan note-view
+  const nvAiCard = document.getElementById('note-view-quick-ai-card');
+  if (nvAiCard) {
+    const nvBtnGlobal = document.getElementById('nv-ai-scope-global');
+    const nvBtnFaculty = document.getElementById('nv-ai-scope-faculty');
+    const nvInput = document.getElementById('nv-quick-ai-input');
+    const nvAskBtn = document.getElementById('nv-quick-ai-btn');
+    const nvChips = document.getElementById('nv-quick-ai-chips');
+    const nvResult = document.getElementById('nv-quick-ai-result');
+
+    let nvScope = localStorage.getItem('prannot.note_ai_scope') || 'global';
+
+    const syncNvScopeUI = () => {
+      if (nvScope === 'global') {
+        nvBtnGlobal?.classList.add('active');
+        nvBtnFaculty?.classList.remove('active');
+      } else {
+        nvBtnFaculty?.classList.add('active');
+        nvBtnGlobal?.classList.remove('active');
+      }
+    };
+    syncNvScopeUI();
+
+    nvBtnGlobal?.addEventListener('click', () => {
+      nvScope = 'global';
+      localStorage.setItem('prannot.note_ai_scope', 'global');
+      syncNvScopeUI();
+      toast(t('tutor.scope_switched_global'), 'info');
+    });
+
+    nvBtnFaculty?.addEventListener('click', () => {
+      nvScope = 'faculty';
+      localStorage.setItem('prannot.note_ai_scope', 'faculty');
+      syncNvScopeUI();
+      toast(t('tutor.scope_switched_faculty'), 'info');
+    });
+
+    nvChips?.querySelectorAll('[data-quick-prompt]').forEach((chip) => {
+      chip.addEventListener('click', () => {
+        const prefix = chip.dataset.quickPrompt || '';
+        if (nvInput) {
+          nvInput.value = prefix + (nvInput.value ? nvInput.value.replace(/^[^:]+:\s*/, '') : '');
+          nvInput.focus();
+        }
+      });
+    });
+
+    const runNvQuickAi = async () => {
+      const q = nvInput?.value?.trim();
+      if (!q) {
+        toast(t('errors.required'), 'warning');
+        nvInput?.focus();
+        return;
+      }
+
+      setLoading(nvAskBtn, true);
+      nvResult.hidden = false;
+      nvResult.innerHTML = `
+        <div class="card card-sm text-center p-3" style="background:var(--c-surface);">
+          <div class="spinner mb-2" style="margin:0 auto;"></div>
+          <p class="text-xs muted mb-0">${esc(t('capture.quick_ai_searching'))}</p>
+        </div>
+      `;
+
+      try {
+        const effectiveFaculty = nvScope === 'global' ? 'general' : (profileRef?.faculty_id || 'general');
+        const res = await askTutor({
+          message: q,
+          mode: 'simple',
+          scope: nvScope,
+          faculty: effectiveFaculty,
+          level: profileRef?.level || 'L1',
+          language: getLang(),
+          courseId: note.course_id || null,
+          contextType: 'note',
+          contextId: note.id,
+          contextText: `Nòt : ${note.title || ''}\n${note.summary || ''}\n${(note.content_text || '').slice(0, 2000)}`,
+        });
+
+        const reply = res?.reply || '';
+        if (!reply) throw new Error('No answer received');
+
+        nvResult.innerHTML = `
+          <div class="card card-sm" style="background:var(--c-surface);border:1px solid var(--c-primary-soft, #cbd5e1);">
+            <div class="row-between mb-2" style="flex-wrap:wrap;gap:6px;">
+              <div class="ai-suggestion-label">${icon('sparkles')}<span>${esc(q.length > 50 ? q.slice(0, 50) + '...' : q)}</span></div>
+              <div class="row-wrap" style="gap:4px;">
+                <button type="button" class="btn btn-xs btn-primary" id="nv-ai-insert-note">
+                  ${icon('plus')}<span>${esc(t('capture.insert_in_note'))}</span>
+                </button>
+                <button type="button" class="btn btn-xs btn-ghost" id="nv-ai-copy-btn">
+                  ${icon('copy')}<span>${esc(t('assignments.copy') || 'Kopye')}</span>
+                </button>
+                <button type="button" class="btn-icon" id="nv-ai-close-btn" aria-label="${esc(t('common.close'))}">
+                  ${icon('x')}
+                </button>
+              </div>
+            </div>
+            <div class="prose text-sm" style="max-height:260px;overflow-y:auto;padding:8px;background:var(--c-surface-soft);border-radius:var(--r-card);">
+              ${renderMarkdown(reply)}
+            </div>
+          </div>
+        `;
+        icons(nvResult);
+
+        nvResult.querySelector('#nv-ai-insert-note')?.addEventListener('click', async (e) => {
+          const insertBtn = e.currentTarget;
+          setLoading(insertBtn, true);
+          try {
+            const insertionHtml = `<div class="card card-sm card-muted mt-3 mb-3" style="border-left:4px solid var(--c-primary,#F97316);background:var(--c-surface-2);">
+              <h4 class="text-xs font-bold text-uppercase muted mb-1">${esc(q)}</h4>
+              <div class="prose text-sm">${renderMarkdown(reply)}</div>
+            </div>`;
+            const insertionText = `\n\n[${q}]\n${reply}\n`;
+
+            note.content_html = (note.content_html || '') + insertionHtml;
+            note.content_text = (note.content_text || '') + insertionText;
+
+            // Mete a jou nan DOM imedyatman
+            const proseArticle = document.querySelector('#note-root article.prose');
+            if (proseArticle) {
+              proseArticle.insertAdjacentHTML('beforeend', insertionHtml);
+              icons(proseArticle);
+            }
+
+            // Sove nan baz done oswa kach
+            if (navigator.onLine && isUuid(note.id)) {
+              await db.from('pran_not_notes').update({
+                content_html: note.content_html,
+                content_text: note.content_text,
+                updated_at: new Date().toISOString(),
+              }).eq('id', note.id);
+            }
+            await cacheSet(`note_${note.id}`, note);
+            toast(t('capture.insert_in_note') + ' !', 'success');
+            nvResult.hidden = true;
+          } catch (insErr) {
+            handleError(insErr);
+          } finally {
+            setLoading(insertBtn, false);
+          }
+        });
+
+        nvResult.querySelector('#nv-ai-copy-btn')?.addEventListener('click', async () => {
+          try {
+            await navigator.clipboard.writeText(reply);
+            toast(t('common.copied') || 'Kopye !', 'success');
+          } catch {
+            toast('Kopye echwe', 'error');
+          }
+        });
+
+        nvResult.querySelector('#nv-ai-close-btn')?.addEventListener('click', () => {
+          nvResult.hidden = true;
+        });
+
+      } catch (err) {
+        handleError(err);
+        nvResult.innerHTML = `<div class="alert alert-error text-xs">${esc(err.message || 'Erè pandan repons IA')}</div>`;
+      } finally {
+        setLoading(nvAskBtn, false);
+      }
+    };
+
+    nvAskBtn?.addEventListener('click', runNvQuickAi);
+    nvInput?.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        runNvQuickAi();
+      }
+    });
+  }
 }
 
 function formatDraftToNote(id, d, target) {

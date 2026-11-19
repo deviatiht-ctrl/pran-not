@@ -53,12 +53,12 @@ Deno.serve(async (req) => {
     }> = [];
     let libraryContext = '';
 
-    if (!isGlobal && (useLibrary || action === 'library_research') && !isGrammarOrLanguage) {
+    if ((useLibrary || action === 'library_research') && !isGrammarOrLanguage) {
       const searchQuery = [title, instructions].filter(Boolean).join(' ').slice(0, 220) || content.slice(0, 220);
       try {
         const { data: libHits } = await auth.userClient.rpc('pran_not_search_library', {
           p_query: searchQuery,
-          p_faculty: faculty,
+          p_faculty: isGlobal ? null : faculty,
           p_scope: null,
           p_book_id: bookIds.length === 1 ? bookIds[0] : null,
           p_limit: 8,
@@ -303,10 +303,17 @@ ${effectiveContent.slice(0, 6000)}`;
       faculty: effectiveFaculty,
       level,
       language: isGrammarOrLanguage ? 'fr' : language,
-      maxTokens: needsLongOutput ? 6144 : 4096,
+      systemExtra: needsLongOutput
+        ? `RÈGLES CAPITALES DE RÉDACTION ET RÉSOLUTION :
+1. Tu dois impérativement rédiger la solution ou le devoir COMPLET, INTÉGRAL et DIRECTEMENT EXPLOITABLE.
+2. Ne donne JAMAIS un simple plan ou une consigne abstraite invitant l'étudiant à chercher.
+3. Si la demande concerne une conjugaison (comme le verbe contraindre), donne TOUS les temps et TOUS les modes au complet avec toutes les personnes (je/tu/il/nous/vous/ils).
+4. Aucun emoji.`
+        : undefined,
+      maxTokens: needsLongOutput ? 8192 : 4096,
       prompt,
       expectJson: true,
-      useCache: !needsLongOutput,
+      useCache: false,
       cacheKeyPayload: { action, title, instructions, content: effectiveContent.slice(0, 6000), question, language, scope: isGlobal ? 'global' : 'faculty', faculty: effectiveFaculty, useLibrary, bookIds },
     });
 

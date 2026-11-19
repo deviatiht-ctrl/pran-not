@@ -20,6 +20,7 @@ const db = window.db;
 let userRef = null;
 let courses = [];
 let activeSemFilter = 'all'; // 'all' or a semester string
+let activeDayFilter = 'all'; // 'all' | 'today' | 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun' | 'none'
 
 const DAYS = [
   { id: 'mon', label: 'Lun' },
@@ -32,12 +33,48 @@ const DAYS = [
 ];
 const COLORS = ['#F97316', '#1B2A4A', '#15803D', '#1D4ED8', '#A16207', '#B91C1C'];
 
+function getTodayDayId() {
+  const dayIndex = new Date().getDay();
+  const map = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+  return map[dayIndex] || 'mon';
+}
+
 function renderCourses() {
   const grid = document.getElementById('courses-grid');
-  // Filtre pa semès aktif
-  const visible = activeSemFilter === 'all'
-    ? courses
+  const todayId = getTodayDayId();
+
+  // 1. Filtre pa semès aktif
+  let visible = activeSemFilter === 'all'
+    ? courses.slice()
     : courses.filter((c) => (c.semester || '') === activeSemFilter);
+
+  // 2. Filtre pa jou kou
+  if (activeDayFilter === 'today') {
+    visible = visible.filter((c) => Array.isArray(c.schedule_days) && c.schedule_days.includes(todayId));
+  } else if (activeDayFilter === 'none') {
+    visible = visible.filter((c) => !Array.isArray(c.schedule_days) || c.schedule_days.length === 0);
+  } else if (activeDayFilter !== 'all') {
+    visible = visible.filter((c) => Array.isArray(c.schedule_days) && c.schedule_days.includes(activeDayFilter));
+  }
+
+  // 3. Òdonans entèlijan (an dirèk an premye, ap kòmanse talè an dezyèm, jou jodi a, orè kwonolojik, alfabetik)
+  visible.sort((a, b) => {
+    const liveA = getCourseLiveStatus(a);
+    const liveB = getCourseLiveStatus(b);
+    const scoreA = liveA.state === 'live' ? 0 : (liveA.state === 'soon' ? 1 : 2);
+    const scoreB = liveB.state === 'live' ? 0 : (liveB.state === 'soon' ? 1 : 2);
+    if (scoreA !== scoreB) return scoreA - scoreB;
+
+    const hasTodayA = Array.isArray(a.schedule_days) && a.schedule_days.includes(todayId) ? 0 : 1;
+    const hasTodayB = Array.isArray(b.schedule_days) && b.schedule_days.includes(todayId) ? 0 : 1;
+    if (hasTodayA !== hasTodayB) return hasTodayA - hasTodayB;
+
+    const timeA = a.schedule_time_start || '99:99';
+    const timeB = b.schedule_time_start || '99:99';
+    if (timeA !== timeB) return timeA.localeCompare(timeB);
+
+    return (a.name || '').localeCompare(b.name || '');
+  });
 
   if (!visible.length) {
     grid.className = '';
@@ -176,6 +213,47 @@ function updateSemFilterActive() {
     const isActive = sem ? activeSemFilter === sem : activeSemFilter === 'all';
     b.className = isActive ? 'btn btn-sm btn-primary' : 'btn btn-sm btn-outline';
   });
+}
+
+/* ------------------------------------------------------------------
+   Rann baton filtre jou kou nan #day-filter-bar
+   ------------------------------------------------------------------ */
+function renderDayFilterBar() {
+  const bar = document.getElementById('day-filter-bar');
+  if (!bar) return;
+
+  const dayOptions = [
+    { id: 'all', label: t('courses.day_all') || 'Tout' },
+    { id: 'today', label: t('courses.day_today') || 'Jodi a' },
+    { id: 'mon', label: t('courses.day_mon') || 'Lendi' },
+    { id: 'tue', label: t('courses.day_tue') || 'Madi' },
+    { id: 'wed', label: t('courses.day_wed') || 'Mèkredi' },
+    { id: 'thu', label: t('courses.day_thu') || 'Jedi' },
+    { id: 'fri', label: t('courses.day_fri') || 'Vandredi' },
+    { id: 'sat', label: t('courses.day_sat') || 'Samdi' },
+    { id: 'sun', label: t('courses.day_sun') || 'Dimanch' },
+    { id: 'none', label: t('courses.no_schedule') || 'San orè' },
+  ];
+
+  bar.innerHTML = `
+    <span class="text-xs muted font-bold" style="text-transform:uppercase;margin-right:2px;">${esc(t('courses.filter_days_title') || 'Jou :')}</span>
+    ${dayOptions.map((opt) => `
+      <button type="button" class="btn btn-xs ${activeDayFilter === opt.id ? 'btn-primary' : 'btn-outline'}" data-day-filter="${esc(opt.id)}">
+        ${opt.id === 'today' ? icon('clock') : ''}
+        <span>${esc(opt.label)}</span>
+      </button>
+    `).join('')}
+  `;
+
+  bar.querySelectorAll('[data-day-filter]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      activeDayFilter = btn.dataset.dayFilter;
+      renderDayFilterBar();
+      renderCourses();
+    });
+  });
+
+  icons(bar);
 }
 
 function openCourseModal(existing = null) {
@@ -329,6 +407,7 @@ function openCourseModal(existing = null) {
   if (cached?.length) {
     courses = mergeCourseSchedules(cached);
     renderSemesterFilterBar(courses);
+    renderDayFilterBar();
     renderCourses();
   }
 
@@ -339,14 +418,17 @@ function openCourseModal(existing = null) {
       courses = mergeCourseSchedules(data || []);
       await cacheSet('courses_list', courses);
       renderSemesterFilterBar(courses);
+      renderDayFilterBar();
       renderCourses();
     } catch (err) {
       if (!courses.length) {
+        renderDayFilterBar();
         renderCourses();
         handleError(err);
       }
     }
   } else if (!courses.length) {
+    renderDayFilterBar();
     renderCourses();
   }
 

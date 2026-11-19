@@ -13,7 +13,7 @@ import {
   loadScript, loadStyle, CDN, sanitizeHtml, pageEnter, checkFileSize,
   openModal,
 } from '../utils.js';
-import { assistAssignment, askTutor } from '../ai.js';
+import { assistAssignment, askTutor, searchLibraryWeb } from '../ai.js';
 import { exportAssignmentPdf, exportAssignmentDocx } from '../export.js';
 import { cacheSet, cacheGet, enqueue, isNetworkError } from '../offline.js';
 
@@ -305,11 +305,17 @@ async function resolveAssignmentWork({
 
   // Vérifier si le texte retourné est une vraie rédaction complète ou seulement une consigne/plan tronqué
   let text = plan.content_proposal || plan.answer || plan.suggestion || '';
+  const isConjugationIncomplete = (isGrammarOrConjugation || workType === 'conjugation') &&
+    (text.length < 500 || !/indicatif|présent|imparfait|futur|passé/i.test(text) || !/je |tu |il |nous |vous /i.test(text));
+  const isSolveIncomplete = (action === 'solve' || workType === 'solve') &&
+    (text.length < 350 || /présenter|donner|établir|faire le plan|introduire|détailler|consisterait à/i.test(text));
   const isOutlineOnly = !text ||
-    (text.length < 130 && /présenter|donner|établir|faire|plan|introduire|détailler|conjugaison du verbe/i.test(text)) ||
+    (text.length < 250 && /présenter|donner|établir|faire|plan|introduire|détailler|conjugaison/i.test(text)) ||
     (!plan.content_proposal && !plan.answer && Array.isArray(plan.outline) && plan.outline.length > 0);
 
-  if (isRedactionOrSolve && isOutlineOnly) {
+  const needsFullTutorGeneration = isRedactionOrSolve && (isOutlineOnly || isConjugationIncomplete || isSolveIncomplete);
+
+  if (needsFullTutorGeneration) {
     let solvePrompt = '';
     if (isGrammarOrConjugation || workType === 'conjugation') {
       solvePrompt = `Tu es l'assistant de langue française et de conjugaison d'excellence.
@@ -354,6 +360,7 @@ RÈGLES CAPITALES :
     if (tutorRes?.reply) {
       plan.content_proposal = tutorRes.reply;
       plan.answer = tutorRes.reply;
+      plan.suggestion = tutorRes.reply;
     }
   }
 
@@ -917,6 +924,80 @@ async function renderPage() {
       }
 
       assignment.instructions = instVal;
+
+      if (action === 'library_research') {
+        setLoading(btn, true);
+        const outputBox = document.getElementById('asg-ai-output');
+        if (outputBox) {
+          outputBox.hidden = false;
+          outputBox.innerHTML = `
+            <div class="card card-sm text-center p-4">
+              <div class="spinner mb-2" style="margin:0 auto;"></div>
+              <p class="text-sm muted mb-0">${esc(t('capture.quick_ai_searching'))}</p>
+            </div>
+          `;
+        }
+        try {
+          const searchQ = instVal || assignment.title || 'Devoir universitaire';
+          const facParam = currentScope === 'faculty' ? profileRef?.faculty_id : null;
+
+          const [webRes, assistRes] = await Promise.allSettled([
+            searchLibraryWeb({ query: searchQ, faculty: facParam, includeLibrary: true, language: getLang() }),
+            assistAssignment({
+              action: 'library_research',
+              title: assignment?.title || '',
+              instructions: instVal,
+              content: effectiveContent,
+              question: instVal,
+              scope: currentScope,
+              useLibrary: true,
+              language: getLang(),
+              faculty: facParam || 'general',
+              level: profileRef?.level,
+            }),
+          ]);
+
+          const webData = webRes.status === 'fulfilled' ? webRes.value : null;
+          const assistData = assistRes.status === 'fulfilled' ? assistRes.value?.data : null;
+
+          const combinedSources = [];
+          if (webData?.libraryMatches?.length) {
+            webData.libraryMatches.forEach((m) => {
+              combinedSources.push({
+                book_id: m.book_id,
+                book_title: m.book_title,
+                section_label: m.section_label,
+                excerpt: m.content ? m.content.slice(0, 280) : '',
+              });
+            });
+          }
+          if (webData?.webSources?.length) {
+            webData.webSources.slice(0, 6).forEach((w) => {
+              combinedSources.push({
+                book_id: '',
+                book_title: `${w.title} (${w.source || 'Web Académique'})`,
+                section_label: w.author || w.url || '',
+                excerpt: w.snippet || '',
+              });
+            });
+          }
+
+          const combinedPlan = {
+            ...(assistData || {}),
+            content_proposal: webData?.aiOverview || assistData?.content_proposal || null,
+            synthesis_notes: assistData?.synthesis_notes?.length ? assistData.synthesis_notes : (webData?.aiOverview ? [webData.aiOverview] : []),
+          };
+
+          assignment.plan = combinedPlan;
+          renderAiPlan(combinedPlan, combinedSources);
+          outputBox?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        } catch (libErr) {
+          handleError(libErr);
+        } finally {
+          setLoading(btn, false);
+        }
+        return;
+      }
 
       setLoading(btn, true);
       const outputBox = document.getElementById('asg-ai-output');

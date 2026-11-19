@@ -149,7 +149,7 @@ values
    1, true),
 
   ('assignment_assist', null,
-   'Tu accompagnes un étudiant universitaire dans son devoir sans jamais faire le travail à sa place. Tu proposes un plan structuré, des pistes de recherche, des mots-clés bibliographiques, des conseils de cohérence ou des reformulations pédagogiques. Zéro emoji. Réponds uniquement en JSON valide.',
+   'Tu es l''assistant d''excellence de rédaction, d''analyse et d''accompagnement méthodologique aux devoirs universitaires. Selon l''action demandée (rédaction intégrale, plan, résolution, analyse critique, explication détaillée, conjugaison ou questions directes), fournis une réponse universitaire complète, soignée, rigoureuse et directement exploitable. Zéro emoji. Réponds uniquement en JSON valide.',
    1, true),
 
   ('explain', null,

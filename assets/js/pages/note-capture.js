@@ -14,8 +14,9 @@ import {
   icons, icon, esc, toast, handleError, setLoading, getParam, uid,
   compressImage, blobToBase64, checkFileSize, extractPdfText, renderPdfPageToBlob,
   loadScript, loadStyle, CDN, sanitizeHtml, htmlToText, promptDialog, formatDuration, pageEnter, debounce,
+  renderMarkdown,
 } from '../utils.js';
-import { ocrBoard, transcribeAudio, processNote } from '../ai.js';
+import { ocrBoard, transcribeAudio, processNote, askTutor } from '../ai.js';
 import { enqueue, isDataSaver, cacheGet, cacheSet, isNetworkError } from '../offline.js';
 
 const db = window.db;
@@ -1357,6 +1358,181 @@ async function saveNote() {
   }
 }
 
+function insertTextIntoQuill(text) {
+  if (!quill) {
+    insertTextIntoRaw(text);
+    return;
+  }
+  const sel = quill.getSelection();
+  const idx = sel ? sel.index : quill.getLength();
+  quill.insertText(idx, '\n' + text + '\n');
+  quill.setSelection(idx + text.length + 2);
+  saveDraftToStorage();
+}
+
+function insertTextIntoRaw(text) {
+  const rawEl = document.getElementById('raw-text');
+  if (rawEl) {
+    rawEl.value = (rawEl.value ? rawEl.value + '\n\n' : '') + text;
+    rawEl.dispatchEvent(new Event('input'));
+    saveDraftToStorage();
+    rawEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+}
+
+function initQuickAiModule() {
+  const card = document.getElementById('note-quick-ai-card');
+  if (!card) return;
+
+  const btnGlobal = document.getElementById('note-ai-scope-global');
+  const btnFaculty = document.getElementById('note-ai-scope-faculty');
+  const facNameSpan = document.getElementById('note-ai-fac-name');
+  const input = document.getElementById('note-quick-ai-input');
+  const askBtn = document.getElementById('note-quick-ai-btn');
+  const chipsContainer = document.getElementById('note-quick-ai-chips');
+  const resultBox = document.getElementById('note-quick-ai-result');
+
+  let currentScope = localStorage.getItem('prannot.note_ai_scope') || 'global';
+
+  const updateScopeUI = () => {
+    if (currentScope === 'global') {
+      btnGlobal?.classList.add('active');
+      btnFaculty?.classList.remove('active');
+    } else {
+      btnFaculty?.classList.add('active');
+      btnGlobal?.classList.remove('active');
+    }
+  };
+
+  const facName = profileRef?.faculty?.name_fr || profileRef?.faculty_id || t('assignments.domain_faculty');
+  if (facNameSpan) facNameSpan.textContent = facName;
+  updateScopeUI();
+
+  btnGlobal?.addEventListener('click', () => {
+    currentScope = 'global';
+    localStorage.setItem('prannot.note_ai_scope', 'global');
+    updateScopeUI();
+    toast(t('tutor.scope_switched_global'), 'info');
+  });
+
+  btnFaculty?.addEventListener('click', () => {
+    currentScope = 'faculty';
+    localStorage.setItem('prannot.note_ai_scope', 'faculty');
+    updateScopeUI();
+    toast(t('tutor.scope_switched_faculty'), 'info');
+  });
+
+  chipsContainer?.querySelectorAll('[data-quick-prompt]').forEach((chip) => {
+    chip.addEventListener('click', () => {
+      const prefix = chip.dataset.quickPrompt || '';
+      if (input) {
+        input.value = prefix + (input.value ? input.value.replace(/^[^:]+:\s*/, '') : '');
+        input.focus();
+      }
+    });
+  });
+
+  const runQuickAi = async () => {
+    const q = input?.value?.trim();
+    if (!q) {
+      toast(t('errors.required'), 'warning');
+      input?.focus();
+      return;
+    }
+
+    setLoading(askBtn, true);
+    resultBox.hidden = false;
+    resultBox.innerHTML = `
+      <div class="card card-sm text-center p-3" style="background:var(--c-surface);">
+        <div class="spinner mb-2" style="margin:0 auto;"></div>
+        <p class="text-xs muted mb-0">${esc(t('capture.quick_ai_searching'))}</p>
+      </div>
+    `;
+
+    try {
+      const lang = document.getElementById('note-lang')?.value || profileRef?.language || 'ht';
+      const courseId = document.getElementById('note-course')?.value || null;
+      const effectiveFaculty = currentScope === 'global' ? 'general' : (profileRef?.faculty_id || 'general');
+
+      const res = await askTutor({
+        message: q,
+        mode: 'simple',
+        scope: currentScope,
+        faculty: effectiveFaculty,
+        level: profileRef?.level || 'L1',
+        language: lang,
+        courseId,
+      });
+
+      const reply = res?.reply || '';
+      if (!reply) throw new Error('No answer received');
+
+      resultBox.innerHTML = `
+        <div class="card card-sm" style="background:var(--c-surface);border:1px solid var(--c-primary-soft, #cbd5e1);">
+          <div class="row-between mb-2" style="flex-wrap:wrap;gap:6px;">
+            <div class="ai-suggestion-label">${icon('sparkles')}<span>${esc(q.length > 50 ? q.slice(0, 50) + '...' : q)}</span></div>
+            <div class="row-wrap" style="gap:4px;">
+              <button type="button" class="btn btn-xs btn-primary" id="note-ai-insert-quill">
+                ${icon('plus')}<span>${esc(t('capture.insert_in_note'))}</span>
+              </button>
+              <button type="button" class="btn btn-xs btn-secondary" id="note-ai-insert-raw">
+                ${icon('file-text')}<span>${esc(t('capture.insert_in_raw'))}</span>
+              </button>
+              <button type="button" class="btn btn-xs btn-ghost" id="note-ai-copy-btn">
+                ${icon('copy')}<span>${esc(t('assignments.copy') || 'Kopye')}</span>
+              </button>
+              <button type="button" class="btn-icon" id="note-ai-close-btn" aria-label="${esc(t('common.close'))}">
+                ${icon('x')}
+              </button>
+            </div>
+          </div>
+          <div class="prose text-sm" style="max-height:260px;overflow-y:auto;padding:8px;background:var(--c-surface-soft);border-radius:var(--r-card);">
+            ${renderMarkdown(reply)}
+          </div>
+        </div>
+      `;
+      icons(resultBox);
+
+      resultBox.querySelector('#note-ai-insert-quill')?.addEventListener('click', () => {
+        insertTextIntoQuill(reply);
+        toast(t('capture.insert_in_note') + ' !', 'success');
+      });
+
+      resultBox.querySelector('#note-ai-insert-raw')?.addEventListener('click', () => {
+        insertTextIntoRaw(reply);
+        toast(t('capture.insert_in_raw') + ' !', 'success');
+      });
+
+      resultBox.querySelector('#note-ai-copy-btn')?.addEventListener('click', async () => {
+        try {
+          await navigator.clipboard.writeText(reply);
+          toast(t('common.copied') || 'Kopye !', 'success');
+        } catch {
+          toast('Kopye echwe', 'error');
+        }
+      });
+
+      resultBox.querySelector('#note-ai-close-btn')?.addEventListener('click', () => {
+        resultBox.hidden = true;
+      });
+
+    } catch (err) {
+      handleError(err);
+      resultBox.innerHTML = `<div class="alert alert-error text-xs">${esc(err.message || 'Erè pandan repons IA')}</div>`;
+    } finally {
+      setLoading(askBtn, false);
+    }
+  };
+
+  askBtn?.addEventListener('click', runQuickAi);
+  input?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      runQuickAi();
+    }
+  });
+}
+
 (async () => {
   const { user, profile } = await requireAuth();
   userRef = user;
@@ -1473,6 +1649,9 @@ async function saveNote() {
 
   document.getElementById('save-note-btn').addEventListener('click', saveNote);
   document.body.dataset.captureReady = '1';
+
+  // Inisyalize Asistan IA Kou & Definisyon Rapid
+  initQuickAiModule();
 
   // Charger l'éditeur Quill et la liste des cours en parallèle sans bloquer la capture vocale/photo
   initQuill().then(() => {

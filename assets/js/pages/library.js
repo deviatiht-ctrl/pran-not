@@ -11,10 +11,10 @@ import { t, getLang } from '../i18n.js';
 import {
   icons, icon, esc, getParam, isUuid, uid, toast, handleError, setLoading,
   openModal, confirmDialog, sanitizeHtml, renderMarkdown, emptyState, debounce,
-  extractPdfText, safeFilename, pageEnter, compressImage, blobToBase64,
+  extractPdfText, safeFilename, pageEnter, compressImage, blobToBase64, promptDialog,
 } from '../utils.js';
 import {
-  searchLibraryWeb, analyzeLibrarySource, askLibrary, generateLibraryBook, scanBookCover,
+  searchLibraryWeb, analyzeLibrarySource, askLibrary, generateLibraryBook, scanBookCover, askTutor,
 } from '../ai.js';
 import { exportBookPdf, exportBookDocx } from '../export.js';
 import { cacheSet, cacheGet, cacheEntriesByPrefix, isDataSaver } from '../offline.js';
@@ -472,12 +472,31 @@ async function openBookReader(bookId) {
         ${book.metadata?.citation_apa ? `<span class="text-xs muted">APA : ${esc(book.metadata.citation_apa)}</span>` : ''}
       </div>
       <div class="row-wrap mb-4">
-        ${book.storage_path ? `<button type="button" class="btn btn-sm btn-primary" id="reader-view-pdf-btn">${icon('file-text')}<span>${esc(t('library.view_original_pdf'))}</span></button>` : ''}
+        <button type="button" class="btn btn-sm btn-primary" id="reader-expand-book-btn">${icon('sparkles')}<span>${esc(t('library.expand_book_btn'))}</span></button>
+        ${book.storage_path ? `<button type="button" class="btn btn-sm btn-outline" id="reader-view-pdf-btn">${icon('file-text')}<span>${esc(t('library.view_original_pdf'))}</span></button>` : ''}
         ${book.storage_path ? `<button type="button" class="btn btn-sm btn-secondary" id="reader-dl-btn">${icon('download')}<span>${esc(t('library.download_pdf_btn'))}</span></button>` : ''}
         <button type="button" class="btn btn-sm btn-secondary" id="reader-pdf-btn">${icon('file-text')}<span>${esc(t('library.export_pdf_btn'))}</span></button>
         <button type="button" class="btn btn-sm btn-secondary" id="reader-docx-btn">${icon('file-type')}<span>${esc(t('library.export_docx_btn'))}</span></button>
         <button type="button" class="btn btn-sm btn-ghost" id="reader-offline-btn">${icon('download-cloud')}<span>${esc(t('library.offline_save_btn'))}</span></button>
       </div>
+
+      <!-- Quick Ask IA sou liv la -->
+      <div class="card card-sm mb-4" style="background:var(--c-surface-2);border:1px solid var(--c-primary-soft, #cbd5e1);">
+        <div class="row-between mb-2" style="flex-wrap:wrap;gap:4px;">
+          <div class="row" style="gap:6px;align-items:center;">
+            <span class="badge badge-primary font-bold">${icon('message-square')} <span>${esc(t('library.reader_ask_title'))}</span></span>
+            <span class="text-xs muted">${esc(t('library.reader_ask_sub'))}</span>
+          </div>
+        </div>
+        <div class="input-group">
+          <input type="text" class="input" id="reader-ask-input" placeholder="${esc(t('library.reader_ask_ph'))}">
+          <button type="button" class="btn btn-primary" id="reader-ask-btn" style="min-width:110px;">
+            ${icon('sparkles')}<span>${esc(t('capture.quick_ai_ask_btn'))}</span>
+          </button>
+        </div>
+        <div id="reader-ask-output" class="mt-2" hidden></div>
+      </div>
+
       <div class="book-reader-body">
         ${readerContentHtml}
       </div>`;
@@ -491,6 +510,158 @@ async function openBookReader(bookId) {
     m.el.querySelector('#reader-pdf-btn')?.addEventListener('click', () => exportBookPdf(assembledBook, profileRef));
     m.el.querySelector('#reader-docx-btn')?.addEventListener('click', () => exportBookDocx(assembledBook, profileRef));
     m.el.querySelector('#reader-offline-btn')?.addEventListener('click', (e) => saveBookOffline(book.id, e.currentTarget));
+
+    const askInput = m.el.querySelector('#reader-ask-input');
+    const askBtn = m.el.querySelector('#reader-ask-btn');
+    const askOutput = m.el.querySelector('#reader-ask-output');
+
+    const handleReaderAsk = async () => {
+      const q = askInput?.value?.trim();
+      if (!q) {
+        toast(t('errors.required'), 'warning');
+        askInput?.focus();
+        return;
+      }
+      setLoading(askBtn, true);
+      askOutput.hidden = false;
+      askOutput.innerHTML = `
+        <div class="card card-sm text-center p-3" style="background:var(--c-surface);">
+          <div class="spinner mb-2" style="margin:0 auto;"></div>
+          <p class="text-xs muted mb-0">${esc(t('capture.quick_ai_searching'))}</p>
+        </div>
+      `;
+      try {
+        const res = await askTutor({
+          message: q,
+          mode: 'standard',
+          scope: 'global',
+          contextType: 'book',
+          contextId: book.id,
+          contextText: `Ouvrage : ${book.title} (Auteur : ${book.author || 'Inconnu'})\n${book.summary || ''}\n${chunks.map((c) => `[${c.section_label || 'Section'}]: ${c.content}`).slice(0, 10).join('\n\n')}`,
+          faculty: book.faculty_id || profileRef?.faculty_id || 'general',
+          level: profileRef?.level || 'L1',
+          language: getLang(),
+        });
+        const ans = res?.reply || '';
+        if (!ans) throw new Error('No reply');
+        askOutput.innerHTML = `
+          <div class="card card-sm" style="background:var(--c-surface);border:1px solid var(--c-primary-soft, #cbd5e1);">
+            <div class="row-between mb-2">
+              <span class="text-xs font-bold muted text-uppercase">${esc(q)}</span>
+              <button type="button" class="btn btn-xs btn-ghost" id="reader-ans-copy">${icon('copy')}<span>${esc(t('assignments.copy') || 'Kopye')}</span></button>
+            </div>
+            <div class="prose text-sm" style="max-height:220px;overflow-y:auto;padding:8px;background:var(--c-surface-soft);border-radius:var(--r-card);">
+              ${renderMarkdown(ans)}
+            </div>
+          </div>
+        `;
+        icons(askOutput);
+        askOutput.querySelector('#reader-ans-copy')?.addEventListener('click', async () => {
+          await navigator.clipboard.writeText(ans);
+          toast(t('common.copied') || 'Kopye !', 'success');
+        });
+      } catch (askErr) {
+        handleError(askErr);
+        askOutput.innerHTML = `<div class="alert alert-error text-xs">${esc(askErr.message || 'Erè')}</div>`;
+      } finally {
+        setLoading(askBtn, false);
+      }
+    };
+
+    askBtn?.addEventListener('click', handleReaderAsk);
+    askInput?.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        handleReaderAsk();
+      }
+    });
+
+    m.el.querySelector('#reader-expand-book-btn')?.addEventListener('click', async (e) => {
+      const expandBtn = e.currentTarget;
+      const topic = await promptDialog({
+        title: t('library.expand_book_prompt_title'),
+        message: t('library.expand_book_prompt_msg'),
+        defaultValue: t('library.expand_book_prompt_default'),
+      });
+      if (!topic) return;
+
+      setLoading(expandBtn, true);
+      toast(t('capture.quick_ai_searching'), 'info');
+      try {
+        const expandPrompt = `Tu es l'éminent professeur et auteur académique spécialisé dans : "${book.title}".
+L'étudiant demande de compléter et rédiger en profondeur cet ouvrage pour qu'il soit riche, exhaustif et directement exploitable :
+Sujet / Consignes spécifiques : ${topic}.
+
+RÈGLES CAPITALES :
+1. Rédige 5 chapitres détaillés et rigoureux (avec titres clairs, articles de loi ou théories exactes, définitions universitaires, analyses approfondies et exemples concrets).
+2. Pour chaque chapitre, fournis une matière substantielle et complète (pas de résumé superficiel).
+3. Aucun emoji.
+4. Structure ta réponse sous forme de chapitres avec le marqueur exact "### Chapitre N : Titre" au début de chaque section.`;
+
+        const res = await askTutor({
+          message: expandPrompt,
+          mode: 'standard',
+          scope: 'global',
+          contextType: 'book',
+          contextId: book.id,
+          contextText: `Titre : ${book.title}\nAuteur : ${book.author || ''}\nSommaire actuel : ${book.summary || ''}`,
+          faculty: book.faculty_id || profileRef?.faculty_id || 'general',
+          level: profileRef?.level || 'L1',
+          language: book.language || getLang(),
+        });
+
+        const reply = res?.reply || '';
+        if (!reply) throw new Error('Generation failed');
+
+        const rawChapters = reply.split(/(?=###?\s+Chapitre|\n(?=###?\s+[0-9]+))/i).filter((s) => s.trim().length > 30);
+        const newChunksData = (rawChapters.length ? rawChapters : [reply]).map((txt, idx) => {
+          const lines = txt.trim().split('\n');
+          const firstLine = lines[0].replace(/^#+\s*/, '').trim();
+          return {
+            book_id: book.id,
+            user_id: userRef?.id || null,
+            scope: book.scope || 'personal',
+            chunk_index: chunks.length + idx,
+            section_label: firstLine.slice(0, 120),
+            page_number: (chunks.length ? (chunks[chunks.length - 1].page_number || 10) : 10) + (idx + 1) * 8,
+            content: txt.trim(),
+            word_count: txt.trim().split(/\s+/).length,
+          };
+        });
+
+        if (navigator.onLine && isUuid(book.id)) {
+          await db.from('pran_not_library_chunks').insert(newChunksData).catch(() => {});
+          await db.from('pran_not_library_books').update({
+            chunk_count: chunks.length + newChunksData.length,
+            updated_at: new Date().toISOString(),
+          }).eq('id', book.id).catch(() => {});
+        }
+
+        chunks.push(...newChunksData);
+        await cacheSet(`library_book_${book.id}`, { book, chunks });
+
+        const bodyEl = m.el.querySelector('.book-reader-body');
+        if (bodyEl) {
+          const addedHtml = newChunksData.map((c) => `
+            <section class="mb-4 p-3" style="border-bottom:1px solid var(--c-border);background:var(--c-surface-soft);border-radius:var(--r-card);">
+              <h4 class="text-sm font-bold mb-1 text-primary">${esc(c.section_label || `${t('library.section_title')} ${c.chunk_index + 1}`)}${c.page_number ? ` (p. ${c.page_number})` : ''}</h4>
+              <div class="prose text-sm mb-0">${renderMarkdown(c.content)}</div>
+            </section>
+          `).join('');
+          bodyEl.insertAdjacentHTML('beforeend', `
+            <div class="alert alert-success mt-4 mb-3">${esc(t('library.expand_book_success'))}</div>
+            ${addedHtml}
+          `);
+          icons(bodyEl);
+        }
+
+        toast(t('library.expand_book_success'), 'success');
+      } catch (exErr) {
+        handleError(exErr);
+      } finally {
+        setLoading(expandBtn, false);
+      }
+    });
 
     const openOriginalPdf = async () => {
       const { data: signed, error: sErr } = await db.storage.from('pran-not-library').createSignedUrl(book.storage_path, 180);
