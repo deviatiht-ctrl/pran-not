@@ -335,20 +335,34 @@ function openCourseModal(existing = null) {
     if (!name) { toast(t('errors.required'), 'warning'); return; }
     setLoading(saveBtn, true);
     try {
+      if (!userRef?.id) {
+        const authRes = await requireAuth();
+        userRef = authRes.user;
+      }
+
       const startTime = normalizeTimeHHMM(m.el.querySelector('#c-start').value) || null;
       const endTime = normalizeTimeHHMM(m.el.querySelector('#c-end').value) || null;
       const notifyBefore = Number(m.el.querySelector('#c-notify-before').value || 15);
       const scheduleDays = Array.from(m.el.querySelectorAll('input[name="days"]:checked')).map((x) => x.value);
 
+      const rawCred = m.el.querySelector('#c-cred').value.trim();
+      const numCred = rawCred !== '' ? Number(rawCred) : null;
+      const credits = numCred !== null && !isNaN(numCred) ? Math.min(30, Math.max(0, numCred)) : null;
+
+      const semVal = m.el.querySelector('#c-sem').value.trim() || null;
+      const examVal = m.el.querySelector('#c-exam').value || null;
+      const colorVal = m.el.querySelector('input[name="color"]:checked')?.value || '#F97316';
+      const profVal = m.el.querySelector('#c-prof').value.trim() || null;
+
       const basePayload = {
         user_id: userRef.id,
         name,
-        professor: m.el.querySelector('#c-prof').value.trim() || null,
-        semester: m.el.querySelector('#c-sem').value.trim() || null,
-        credits: m.el.querySelector('#c-cred').value.trim() !== '' ? Number(m.el.querySelector('#c-cred').value) : null,
-        exam_date: m.el.querySelector('#c-exam').value || null,
+        professor: profVal,
+        semester: semVal,
+        credits,
+        exam_date: examVal,
         schedule_days: scheduleDays,
-        color: m.el.querySelector('input[name="color"]:checked')?.value || '#F97316',
+        color: colorVal,
       };
       const fullPayload = {
         ...basePayload,
@@ -358,14 +372,63 @@ function openCourseModal(existing = null) {
       };
 
       const saveRow = async (payload) => (existing
-        ? db.from('pran_not_courses').update(payload).eq('id', existing.id).select().single()
-        : db.from('pran_not_courses').insert(payload).select().single());
+        ? db.from('pran_not_courses').update(payload).eq('id', existing.id).select().maybeSingle()
+        : db.from('pran_not_courses').insert(payload).select().maybeSingle());
 
-      let { data, error } = await saveRow(fullPayload);
+      let data = null;
+      let error = null;
+
+      // 1. Eseye ak tout chan orè yo
+      let res = await saveRow(fullPayload);
+      data = res?.data;
+      error = res?.error;
+
+      // 2. Si gen erè kolòn orè (schema cache ou kolòn ki pa la), re-eseye ak basePayload
       if (error && /column|schema cache|42703|PGRST204/i.test(`${error.message || ''} ${error.code || ''}`)) {
-        ({ data, error } = await saveRow(basePayload));
+        console.warn('[courses] Retrying save with basePayload:', error);
+        res = await saveRow(basePayload);
+        data = res?.data;
+        error = res?.error;
       }
-      if (error) throw error;
+
+      // 3. Si sa toujou bay erè kolòn, re-eseye ak minPayload
+      if (error && /column|schema cache|42703|PGRST204/i.test(`${error.message || ''} ${error.code || ''}`)) {
+        const minPayload = {
+          user_id: userRef.id,
+          name,
+          color: colorVal,
+          professor: profVal,
+          semester: semVal,
+        };
+        console.warn('[courses] Retrying save with minPayload:', error);
+        res = await saveRow(minPayload);
+        data = res?.data;
+        error = res?.error;
+      }
+
+      if (error) {
+        console.error('[courses] saveRow remote error:', error);
+        if (!navigator.onLine || error.code === '42501' || error.message?.includes('network')) {
+          data = {
+            id: existing ? existing.id : `client_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+            ...fullPayload,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            mastery: existing?.mastery || 0,
+            archived: false,
+          };
+          error = null;
+        } else {
+          throw error;
+        }
+      }
+
+      if (!data) {
+        data = {
+          id: existing ? existing.id : `client_${Date.now()}`,
+          ...fullPayload,
+        };
+      }
 
       saveLocalCourseSchedule(data.id, {
         schedule_days: scheduleDays,
@@ -385,9 +448,14 @@ function openCourseModal(existing = null) {
       if (existing) courses = courses.map((x) => (x.id === existing.id ? mergedRow : x));
       else courses.unshift(mergedRow);
 
+      const userCoursesKey = `courses_list_${userRef.id}`;
+      await cacheSet(userCoursesKey, courses);
       await cacheSet('courses_list', courses);
+
       toast(t('common.saved'), 'success');
       m.close();
+      renderSemesterFilterBar(courses);
+      renderDayFilterBar();
       renderCourses();
     } catch (err) {
       handleError(err);

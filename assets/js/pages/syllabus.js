@@ -11,6 +11,7 @@ import {
   extractPdfText, compressImage, blobToBase64, renderPdfPageToBlob, pageEnter,
 } from '../utils.js';
 import { processSyllabus } from '../ai.js';
+import { cacheGet, cacheSet } from '../offline.js';
 
 const db = window.db;
 let userRef = null;
@@ -61,13 +62,38 @@ function renderAnalysis(analysis) {
   pageEnter();
 
   const sel = document.getElementById('syl-course');
-  const { data: cData } = await db.from('pran_not_courses').select('id, name').eq('user_id', user.id).eq('archived', false).order('name');
-  if (!cData?.length) {
-    sel.innerHTML = `<option value="">${esc(t('syllabus.create_course_first'))}</option>`;
-  } else {
-    sel.innerHTML = cData.map((c) => `<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('');
-    const pre = getParam('course');
-    if (pre) sel.value = pre;
+  const userCoursesKey = `courses_list_${user.id}`;
+  const [cachedUserCourses, cachedGlobalCourses] = await Promise.all([
+    cacheGet(userCoursesKey),
+    cacheGet('courses_list'),
+  ]);
+  let availableCourses = (cachedUserCourses || cachedGlobalCourses || []).filter((c) => !c.user_id || c.user_id === user.id);
+
+  const populateCourseSelect = (list) => {
+    if (!list?.length) {
+      sel.innerHTML = `<option value="">${esc(t('syllabus.create_course_first') || 'Kreye yon kou dabò...')}</option>`;
+    } else {
+      sel.innerHTML = list.map((c) => `<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('');
+      const pre = getParam('course');
+      if (pre && list.some((c) => c.id === pre)) sel.value = pre;
+    }
+  };
+
+  populateCourseSelect(availableCourses);
+
+  if (navigator.onLine) {
+    try {
+      const { data: cData } = await db
+        .from('pran_not_courses')
+        .select('id, name')
+        .eq('user_id', user.id)
+        .eq('archived', false)
+        .order('name');
+      if (cData?.length) {
+        availableCourses = cData;
+        populateCourseSelect(availableCourses);
+      }
+    } catch {}
   }
 
   document.getElementById('syl-file').addEventListener('change', async (e) => {
@@ -125,46 +151,84 @@ function renderAnalysis(analysis) {
   document.getElementById('syl-save-btn').addEventListener('click', async (e) => {
     const btn = e.currentTarget;
     const courseId = sel.value;
-    if (!courseId || !lastAnalysis) {
-      toast(t('errors.required'), 'warning');
+    if (!courseId) {
+      toast('Tanpri chwazi yon kou anvan ou anrejistre silabis la.', 'warning');
+      return;
+    }
+    if (!lastAnalysis) {
+      toast('Tanpri klike sou "Analize ak IA" dabò pou wè chapit yo.', 'warning');
       return;
     }
     setLoading(btn, true);
     try {
       let storagePath = null;
-      if (pendingFile) {
-        storagePath = `${userRef.id}/syl-${Date.now()}-${pendingFile.name.replace(/[^a-z0-9.]/gi, '_')}`;
-        await db.storage.from('pran-not-syllabi').upload(storagePath, pendingFile);
+      if (pendingFile && userRef?.id) {
+        try {
+          storagePath = `${userRef.id}/syl-${Date.now()}-${pendingFile.name.replace(/[^a-z0-9.]/gi, '_')}`;
+          const { error: upErr } = await db.storage.from('pran-not-syllabi').upload(storagePath, pendingFile, {
+            contentType: pendingFile.type || 'application/pdf',
+            upsert: true,
+          });
+          if (upErr) {
+            console.warn('[syllabus] storage upload warning:', upErr);
+            storagePath = null;
+          }
+        } catch (stErr) {
+          console.warn('[syllabus] storage upload exception:', stErr);
+          storagePath = null;
+        }
       }
 
-      const { data: sylRow, error: sErr } = await db.from('pran_not_syllabi').insert({
-        user_id: userRef.id,
-        course_id: courseId,
-        source_type: pendingFile?.type === 'application/pdf' ? 'pdf' : pendingImageB64 ? 'image' : 'text',
-        storage_path: storagePath,
-        raw_text: document.getElementById('syl-text').value.trim() || null,
-        analysis: lastAnalysis,
-        status: 'done',
-      }).select().single();
-      if (sErr) throw sErr;
+      let sylRow = null;
+      try {
+        const { data, error: sErr } = await db.from('pran_not_syllabi').insert({
+          user_id: userRef.id,
+          course_id: courseId,
+          source_type: pendingFile?.type === 'application/pdf' ? 'pdf' : pendingImageB64 ? 'image' : 'text',
+          storage_path: storagePath,
+          raw_text: document.getElementById('syl-text').value.trim() || null,
+          analysis: lastAnalysis,
+          status: 'done',
+        }).select().maybeSingle();
+        if (sErr) console.warn('[syllabus] insert pran_not_syllabi warning:', sErr);
+        else sylRow = data;
+      } catch (insertSylErr) {
+        console.warn('[syllabus] insert pran_not_syllabi exception:', insertSylErr);
+      }
 
-      const units = (lastAnalysis.units || []).map((u, idx) => ({
-        user_id: userRef.id,
-        course_id: courseId,
-        syllabus_id: sylRow.id,
-        position: idx + 1,
-        title: String(u.title || `Chapit ${idx + 1}`),
-        description: u.description || null,
-        objectives: Array.isArray(u.objectives) ? u.objectives : [],
-        keywords: Array.isArray(u.keywords) ? u.keywords : [],
-        planned_week: Number(u.planned_week || idx + 1),
-        weight: u.weight ? Number(u.weight) : null,
-        status: 'todo',
-      }));
+      const rawUnits = Array.isArray(lastAnalysis?.units) ? lastAnalysis.units : [];
+      const units = rawUnits.map((u, idx) => {
+        const rawWeek = parseInt(String(u.planned_week || '').replace(/\D+/g, ''), 10);
+        const plannedWeek = !isNaN(rawWeek) && rawWeek > 0 ? rawWeek : (idx + 1);
+
+        let weight = null;
+        if (u.weight !== undefined && u.weight !== null && u.weight !== '') {
+          const numWeight = parseFloat(String(u.weight).replace(/[^0-9.]/g, ''));
+          if (!isNaN(numWeight)) weight = Math.min(100, Math.max(0, numWeight));
+        }
+
+        return {
+          user_id: userRef.id,
+          course_id: courseId,
+          syllabus_id: sylRow?.id || null,
+          position: idx + 1,
+          title: String(u.title || `Chapit ${idx + 1}`).trim(),
+          description: u.description || null,
+          objectives: Array.isArray(u.objectives) ? u.objectives : [],
+          keywords: Array.isArray(u.keywords) ? u.keywords : [],
+          planned_week: plannedWeek,
+          weight: weight,
+          status: 'todo',
+        };
+      });
 
       if (units.length) {
         const { error: uErr } = await db.from('pran_not_syllabus_units').insert(units);
-        if (uErr) throw uErr;
+        if (uErr) {
+          console.error('[syllabus] insert units error:', uErr);
+          throw uErr;
+        }
+        await cacheSet(`course_units_${courseId}`, units);
       }
 
       toast(t('common.saved'), 'success');

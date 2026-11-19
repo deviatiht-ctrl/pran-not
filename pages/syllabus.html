@@ -41,7 +41,13 @@
       <div class="stack">
         <section class="card">
           <div class="field">
-            <label for="syl-course" data-i18n="syllabus.select_course">Chwazi kou a</label>
+            <div class="row-between mb-1" style="align-items:center;">
+              <label for="syl-course" data-i18n="syllabus.select_course" class="mb-0">Chwazi kou a</label>
+              <a href="./courses.html?new=1" class="btn btn-xs btn-outline" style="text-decoration:none;">
+                <i data-lucide="plus" aria-hidden="true"></i>
+                <span data-i18n="courses.new">Nouvo kou</span>
+              </a>
+            </div>
             <select class="select" id="syl-course"></select>
           </div>
           <div class="field">

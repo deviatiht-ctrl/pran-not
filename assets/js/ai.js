@@ -125,15 +125,65 @@ export async function processNote({ rawText, language, faculty, level, courses =
 
 /** Analyse d'un syllabus (texte ou image). */
 export async function processSyllabus({ text, imageBase64, language, faculty, level, courseId, syllabusId } = {}) {
-  return callEdge('process-syllabus', {
-    text,
-    imageBase64,
-    language: language || getLang(),
-    faculty,
-    level,
-    courseId,
-    syllabusId,
-  });
+  try {
+    return await callEdge('process-syllabus', {
+      text,
+      imageBase64,
+      language: language || getLang(),
+      faculty,
+      level,
+      courseId,
+      syllabusId,
+    });
+  } catch (err) {
+    console.warn('[ai] process-syllabus edge function failed, falling back to askTutor:', err);
+    try {
+      const fallbackPrompt = `Analyse ce syllabus universitaire et découpe-le en chapitres / unités d'apprentissage claires.
+Retourne UNIQUEMENT un JSON valide au format exact suivant, sans aucun bloc markdown, sans texte additionnel :
+{
+  "course_title": "Titre du cours",
+  "professor": "Nom de l'enseignant",
+  "objectives": ["Objectif 1", "Objectif 2"],
+  "evaluation": "Pondération des examens",
+  "study_order": ["Chapitre 1", "Chapitre 2"],
+  "units": [
+    {
+      "title": "Titre du chapitre",
+      "description": "Description concise",
+      "objectives": ["Obj 1"],
+      "keywords": ["mot-clé 1"],
+      "planned_week": 1,
+      "weight": 15
+    }
+  ]
+}
+
+Texte du syllabus :
+${(text || '').slice(0, 25000)}`;
+
+      const tutorRes = await askTutor({
+        message: fallbackPrompt,
+        mode: 'simple',
+        scope: 'global',
+        contextType: 'general',
+        faculty,
+        level,
+        language: language || getLang(),
+      });
+
+      const reply = tutorRes?.reply || '';
+      const jsonMatch = reply.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]);
+        if (Array.isArray(parsed?.units) && parsed.units.length) {
+          return { analysis: parsed, provider: tutorRes?.provider || 'gemini-fallback' };
+        }
+      }
+    } catch (fallbackErr) {
+      console.warn('[ai] askTutor syllabus fallback failed:', fallbackErr);
+    }
+    throw err;
+  }
 }
 
 /** Génération automatique de flashcards (SM-2). */
