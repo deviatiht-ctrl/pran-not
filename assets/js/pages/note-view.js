@@ -296,36 +296,54 @@ async function renderSources() {
   const box = document.getElementById('sources-box');
   if (!box || !sources.length) return;
 
-  if (!navigator.onLine) {
-    box.innerHTML = `<p class="text-sm muted mb-0">${esc(t('errors.offline'))}</p>`;
-    return;
-  }
-
   const saver = isDataSaver();
   const itemsHtml = [];
 
   for (const s of sources) {
-    const bucket = s.kind === 'audio' ? 'pran-not-note-audio' : s.kind === 'pdf' ? 'pran-not-syllabi' : 'pran-not-note-images';
-    const { data } = await db.storage.from(bucket).createSignedUrl(s.storage_path, 3600);
-    const url = data?.signedUrl;
-    if (!url) continue;
+    let url = null;
+    if (s.storage_path?.startsWith('data:') || s.storage_path?.startsWith('http://') || s.storage_path?.startsWith('https://') || s.storage_path?.startsWith('blob:')) {
+      url = s.storage_path;
+    } else if (navigator.onLine) {
+      const bucket = s.kind === 'audio' ? 'pran-not-note-audio' : s.kind === 'pdf' ? 'pran-not-syllabi' : 'pran-not-note-images';
+      try {
+        const { data } = await db.storage.from(bucket).createSignedUrl(s.storage_path, 3600);
+        url = data?.signedUrl;
+        if (!url) {
+          const pub = db.storage.from(bucket).getPublicUrl(s.storage_path);
+          url = pub?.data?.publicUrl;
+        }
+      } catch (stErr) {
+        console.warn('[renderSources] storage url error:', stErr);
+      }
+    }
+
+    if (!url) {
+      if (!navigator.onLine) {
+        itemsHtml.push(`<p class="text-xs muted mb-1">${icon('wifi-off')} <span>Fichye disponib sèlman sou entènèt</span></p>`);
+      }
+      continue;
+    }
 
     if (s.kind === 'image') {
       if (saver) {
-        itemsHtml.push(`<button type="button" class="btn btn-sm btn-secondary" data-load-img="${esc(url)}">${icon('image')}<span>Chaje foto orijinal (ekonomi done)</span></button>`);
+        itemsHtml.push(`<button type="button" class="btn btn-sm btn-secondary mb-2" data-load-img="${esc(url)}">${icon('image')}<span>Chaje foto orijinal (ekonomi done)</span></button>`);
       } else {
-        itemsHtml.push(`<img src="${esc(url)}" alt="Foto orijinal tablo" loading="lazy" style="border-radius:12px;border:1px solid var(--c-border);">`);
+        itemsHtml.push(`
+          <div class="note-image-wrap mb-3" style="max-width:100%;">
+            <img src="${esc(url)}" alt="Foto orijinal tablo" loading="lazy" style="max-width:100%;height:auto;border-radius:12px;border:1px solid var(--c-border);display:block;box-shadow:var(--shadow-sm);">
+          </div>`);
       }
     } else if (s.kind === 'audio') {
-      itemsHtml.push(`<div class="card card-sm card-muted"><div class="text-xs muted mb-1">Odyo orijinal</div><audio controls src="${esc(url)}" style="width:100%;"></audio></div>`);
+      itemsHtml.push(`<div class="card card-sm card-muted mb-2"><div class="text-xs muted mb-1">Odyo orijinal</div><audio controls src="${esc(url)}" style="width:100%;"></audio></div>`);
     } else {
-      itemsHtml.push(`<a class="btn btn-sm btn-secondary" href="${esc(url)}" target="_blank" rel="noopener">${icon('file-text')}<span>PDF orijinal</span></a>`);
+      itemsHtml.push(`<a class="btn btn-sm btn-secondary mb-2" href="${esc(url)}" target="_blank" rel="noopener">${icon('file-text')}<span>PDF orijinal</span></a>`);
     }
   }
-  box.innerHTML = itemsHtml.join('');
+
+  box.innerHTML = itemsHtml.length ? itemsHtml.join('') : (navigator.onLine ? '' : `<p class="text-sm muted mb-0">${esc(t('errors.offline'))}</p>`);
   box.querySelectorAll('[data-load-img]').forEach((b) => {
     b.addEventListener('click', () => {
-      b.outerHTML = `<img src="${esc(b.dataset.loadImg)}" alt="Foto orijinal" loading="lazy" style="border-radius:12px;border:1px solid var(--c-border);">`;
+      b.outerHTML = `<div class="note-image-wrap mb-3"><img src="${esc(b.dataset.loadImg)}" alt="Foto orijinal" loading="lazy" style="max-width:100%;height:auto;border-radius:12px;border:1px solid var(--c-border);display:block;"></div>`;
     });
   });
   icons(box);
@@ -1746,11 +1764,16 @@ async function resolveNote(rawId) {
   }
 
   // Sources originales
-  if (navigator.onLine && isUuid(note.id)) {
-    try {
-      const { data: sRows } = await db.from('pran_not_note_sources').select('*').eq('note_id', note.id).order('chunk_index');
-      sources = sRows || [];
-    } catch {}
+  if (isUuid(note.id)) {
+    if (navigator.onLine) {
+      try {
+        const { data: sRows } = await db.from('pran_not_note_sources').select('*').eq('note_id', note.id).order('chunk_index');
+        sources = sRows || [];
+        await cacheSet(`sources_${note.id}`, sources);
+      } catch {}
+    } else {
+      sources = (await cacheGet(`sources_${note.id}`)) || [];
+    }
   }
 
   setTutorContext({

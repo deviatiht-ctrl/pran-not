@@ -390,39 +390,86 @@ function updateRawWordCount() {
 
 function renderPhotoThumbs() {
   const grid = document.getElementById('photo-thumbs');
+  if (!grid) return;
   grid.innerHTML = photoBlobs.map((p, idx) => `
-    <div class="thumb">
+    <div class="thumb" title="${esc(p.name || '')}">
       <img src="${esc(p.url)}" alt="${currentLang() === 'fr' ? 'Photo' : 'Foto'} ${idx + 1}" loading="lazy">
       <button type="button" class="btn-icon" data-rm-photo="${idx}" aria-label="${esc(t('common.delete'))}">${icon('x')}</button>
     </div>`).join('');
   grid.querySelectorAll('[data-rm-photo]').forEach((b) => {
     b.addEventListener('click', () => {
       const i = Number(b.dataset.rmPhoto);
-      URL.revokeObjectURL(photoBlobs[i].url);
+      if (photoBlobs[i]?.url) URL.revokeObjectURL(photoBlobs[i].url);
       photoBlobs.splice(i, 1);
       renderPhotoThumbs();
     });
   });
-  document.getElementById('ocr-run-btn').disabled = photoBlobs.length === 0;
+  const ocrBtn = document.getElementById('ocr-run-btn');
+  if (ocrBtn) ocrBtn.disabled = photoBlobs.length === 0;
   icons(grid);
 }
 
 async function handlePhotoFiles(fileList) {
-  const enhance = document.getElementById('opt-enhance').checked;
-  const autoCrop = document.getElementById('opt-autocrop').checked;
+  const files = Array.from(fileList || []).slice(0, 10);
+  if (!files.length) return;
+
+  const enhance = document.getElementById('opt-enhance')?.checked || false;
+  const autoCrop = document.getElementById('opt-autocrop')?.checked || false;
   const maxSize = isDataSaver() ? 1200 : 1600;
   const quality = isDataSaver() ? 0.6 : 0.75;
 
-  for (const file of Array.from(fileList || []).slice(0, 8)) {
-    if (!checkFileSize(file, 'image')) continue;
-    try {
-      const blob = await compressImage(file, { maxSize, quality, enhance, autoCrop });
-      photoBlobs.push({ blob, url: URL.createObjectURL(blob), name: file.name });
-    } catch (err) {
-      handleError(err);
-    }
+  const grid = document.getElementById('photo-thumbs');
+  const loaderId = `photo-loading-${Date.now()}`;
+  if (grid) {
+    grid.insertAdjacentHTML('beforeend', `
+      <div class="thumb" id="${loaderId}" style="display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--c-surface-2);border:2px dashed var(--c-accent);border-radius:12px;color:var(--c-accent);padding:8px;font-size:0.75rem;text-align:center;">
+        <span class="spinner mb-1" style="width:18px;height:18px;border-width:2px;"></span>
+        <span>Ap monte...</span>
+      </div>`);
   }
-  renderPhotoThumbs();
+
+  let addedCount = 0;
+  try {
+    for (const file of files) {
+      if (!checkFileSize(file, 'image')) continue;
+      try {
+        let blob;
+        try {
+          blob = await compressImage(file, { maxSize, quality, enhance, autoCrop });
+        } catch (cErr) {
+          console.warn('[handlePhotoFiles] compressImage error, using original file blob:', cErr);
+          blob = file;
+        }
+
+        const mime = blob.type || file.type || 'image/jpeg';
+        const url = URL.createObjectURL(blob);
+        photoBlobs.push({
+          blob,
+          url,
+          name: file.name,
+          mime,
+        });
+        addedCount++;
+      } catch (err) {
+        console.warn('[handlePhotoFiles] failed processing file, trying raw fallback:', err);
+        try {
+          const url = URL.createObjectURL(file);
+          photoBlobs.push({ blob: file, url, name: file.name, mime: file.type || 'image/jpeg' });
+          addedCount++;
+        } catch (e2) {
+          handleError(err);
+        }
+      }
+    }
+  } finally {
+    const loaderEl = document.getElementById(loaderId);
+    if (loaderEl) loaderEl.remove();
+    renderPhotoThumbs();
+  }
+
+  if (addedCount > 0) {
+    toast(currentLang() === 'fr' ? `${addedCount} photo(s) ajoutée(s)` : `${addedCount} foto ajoute avèk siksè`, 'success');
+  }
 }
 
 function renderUncertainItems(uncertainList = []) {
@@ -1119,7 +1166,7 @@ async function handleImportFiles(fileList) {
       } catch (err) {
         handleError(err);
       }
-    } else if (file.type.startsWith('image/')) {
+    } else if (file.type.startsWith('image/') || /\.(jpe?g|png|webp|heic|heif|bmp|gif)$/i.test(file.name)) {
       await handlePhotoFiles([file]);
       switchMode('photo');
     } else if (file.type.startsWith('audio/') || /\.(mp3|m4a|mp4|wav|ogg|webm|aac|flac|opus)$/i.test(file.name)) {
@@ -1270,20 +1317,55 @@ async function saveNote() {
     if (error) throw error;
 
     for (let i = 0; i < photoBlobs.length; i++) {
-      const path = `${userRef.id}/${saved.id}/photo-${Date.now()}-${i}.jpg`;
-      const { error: imgUpErr } = await db.storage.from('pran-not-note-images').upload(path, photoBlobs[i].blob, { contentType: 'image/jpeg' });
-      if (imgUpErr) { console.warn('[saveNote] photo upload', imgUpErr); continue; }
-      await db.from('pran_not_note_sources').insert({
-        user_id: userRef.id,
-        note_id: saved.id,
-        kind: 'image',
-        storage_path: path,
-        mime: 'image/jpeg',
-        size_bytes: photoBlobs[i].blob.size,
-        chunk_index: i,
-        ocr_text: rawText || null,
-        status: 'done',
-      });
+      const p = photoBlobs[i];
+      const rawMime = p.mime || p.blob.type || 'image/jpeg';
+      const cleanMime = rawMime.split(';')[0].trim() || 'image/jpeg';
+      const ext = cleanMime.includes('png') ? 'png' : cleanMime.includes('webp') ? 'webp' : 'jpg';
+      const path = `${userRef.id}/${saved.id}/photo-${Date.now()}-${i}.${ext}`;
+
+      let storagePath = path;
+      let uploadSuccess = false;
+
+      try {
+        const { error: imgUpErr } = await db.storage.from('pran-not-note-images').upload(path, p.blob, {
+          contentType: cleanMime,
+          upsert: true,
+        });
+        if (!imgUpErr) {
+          uploadSuccess = true;
+        } else {
+          console.warn('[saveNote] photo storage upload warning:', imgUpErr);
+        }
+      } catch (stEx) {
+        console.warn('[saveNote] photo storage upload exception:', stEx);
+      }
+
+      // Si le stockage distant échoue (ex: bucket privé, permissions ou hors-ligne partiel),
+      // encoder en Base64 Data URL afin de ne JAMAIS perdre la photo de l'étudiant.
+      if (!uploadSuccess) {
+        try {
+          const b64 = await blobToBase64(p.blob);
+          if (b64) storagePath = `data:${cleanMime};base64,${b64}`;
+        } catch (b64Err) {
+          console.warn('[saveNote] fallback base64 error:', b64Err);
+        }
+      }
+
+      try {
+        await db.from('pran_not_note_sources').insert({
+          user_id: userRef.id,
+          note_id: saved.id,
+          kind: 'image',
+          storage_path: storagePath,
+          mime: cleanMime,
+          size_bytes: p.blob.size || 0,
+          chunk_index: i,
+          ocr_text: rawText || null,
+          status: 'done',
+        });
+      } catch (srcErr) {
+        console.warn('[saveNote] insert pran_not_note_sources warning:', srcErr);
+      }
     }
 
     for (let i = 0; i < audioChunksBlobs.length; i++) {
@@ -1576,18 +1658,36 @@ function initQuickAiModule() {
   });
 
   // Photos
-  document.getElementById('photo-input').addEventListener('change', (e) => handlePhotoFiles(e.target.files));
-  document.getElementById('photo-gallery-input')?.addEventListener('change', (e) => handlePhotoFiles(e.target.files));
-  document.getElementById('photo-camera-btn')?.addEventListener('click', () => document.getElementById('photo-input')?.click());
-  document.getElementById('photo-upload-gallery-btn')?.addEventListener('click', () => document.getElementById('photo-gallery-input')?.click());
-  const dropZone = document.getElementById('photo-drop');
-  dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('is-over'); });
-  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('is-over'));
-  dropZone.addEventListener('drop', (e) => {
-    e.preventDefault();
-    dropZone.classList.remove('is-over');
-    handlePhotoFiles(e.dataTransfer.files);
+  const onPhotoSelect = (e) => {
+    if (e.target?.files?.length) {
+      handlePhotoFiles(e.target.files);
+    }
+    e.target.value = ''; // Réinitialiser pour permettre de ré-uploader le même fichier si besoin
+  };
+  document.getElementById('photo-input')?.addEventListener('change', onPhotoSelect);
+  document.getElementById('photo-camera-input')?.addEventListener('change', onPhotoSelect);
+  document.getElementById('photo-gallery-input')?.addEventListener('change', onPhotoSelect);
+
+  document.getElementById('photo-camera-btn')?.addEventListener('click', () => {
+    const camInp = document.getElementById('photo-camera-input') || document.getElementById('photo-input');
+    camInp?.click();
   });
+  document.getElementById('photo-upload-gallery-btn')?.addEventListener('click', () => {
+    document.getElementById('photo-gallery-input')?.click();
+  });
+
+  const dropZone = document.getElementById('photo-drop');
+  if (dropZone) {
+    dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('is-over'); });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('is-over'));
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropZone.classList.remove('is-over');
+      if (e.dataTransfer?.files?.length) {
+        handlePhotoFiles(e.dataTransfer.files);
+      }
+    });
+  }
 
   document.getElementById('ocr-run-btn').addEventListener('click', async (e) => {
     const btn = e.currentTarget;

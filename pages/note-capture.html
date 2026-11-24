@@ -86,24 +86,28 @@
         <section class="card" id="panel-photo">
           <div class="row-wrap mb-4">
             <label class="switch">
-              <input type="checkbox" id="opt-enhance" checked>
+              <input type="checkbox" id="opt-enhance">
               <span class="switch-track"></span>
               <span class="text-sm" data-i18n="capture.enhance_label">Amelyore kontras (rekòmande pou tablo)</span>
             </label>
             <label class="switch">
-              <input type="checkbox" id="opt-autocrop" checked>
+              <input type="checkbox" id="opt-autocrop">
               <span class="switch-track"></span>
               <span class="text-sm" data-i18n="capture.autocrop_label">Rekadre otomatikman</span>
             </label>
           </div>
 
-          <label class="drop-zone" for="photo-input" id="photo-drop">
+          <label class="drop-zone" for="photo-gallery-input" id="photo-drop">
             <span class="icon-chip accent"><i data-lucide="camera" aria-hidden="true"></i></span>
             <strong data-i18n="capture.take_photos">Pran foto oswa chwazi imaj</strong>
             <span class="text-xs muted" data-i18n="capture.photo_drop_hint">JPEG / PNG / WEBP — konprese otomatikman anvan voye</span>
-            <input id="photo-input" type="file" accept="image/*" capture="environment" multiple hidden>
           </label>
+          <!-- Input caméra direct (appareil photo) -->
+          <input id="photo-camera-input" type="file" accept="image/*" capture="environment" multiple hidden>
+          <!-- Input galerie / explorateur de fichiers -->
           <input id="photo-gallery-input" type="file" accept="image/*" multiple hidden>
+          <!-- Input générique -->
+          <input id="photo-input" type="file" accept="image/*" multiple hidden>
 
           <div class="row-center mt-3" style="gap:10px;">
             <button type="button" class="btn btn-secondary btn-sm" id="photo-camera-btn">

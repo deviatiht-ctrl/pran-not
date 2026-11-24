@@ -284,16 +284,35 @@ async function syncNoteItem(db, userId, payload) {
         const rawMime = f.mime || (f.kind === 'audio' ? 'audio/webm' : 'image/jpeg');
         const cleanMime = rawMime.split(';')[0].trim() || rawMime;
         const uploadBlob = new Blob([f.blob], { type: cleanMime });
+        let storagePath = path;
+        let upOk = false;
         const { error: upErr } = await db.storage.from(bucket).upload(path, uploadBlob, {
           contentType: cleanMime,
           upsert: true,
         });
         if (!upErr) {
+          upOk = true;
+        } else {
+          console.warn('[offline] binary upload storage warning:', upErr);
+        }
+
+        // Repli Base64 Data URL pour les images si le bucket distant échoue
+        if (!upOk && f.kind === 'image') {
+          try {
+            const b64 = await blobToB64(f.blob);
+            if (b64) {
+              storagePath = `data:${cleanMime};base64,${b64}`;
+              upOk = true;
+            }
+          } catch {}
+        }
+
+        if (upOk) {
           await db.from('pran_not_note_sources').insert({
             user_id: userId,
             note_id: savedNote.id,
             kind: f.kind,
-            storage_path: path,
+            storage_path: storagePath,
             mime: cleanMime,
             size_bytes: f.blob.size,
             chunk_index: i,

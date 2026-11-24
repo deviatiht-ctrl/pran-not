@@ -449,92 +449,184 @@ export function ringSvg(percent, { size = 120, stroke = 10, label = '', sub = ''
    ------------------------------------------------------------------ */
 function loadImage(file) {
   return new Promise((resolve, reject) => {
-    const url = URL.createObjectURL(file);
-    const img = new Image();
-    img.onload = () => { URL.revokeObjectURL(url); resolve(img); };
-    img.onerror = (e) => { URL.revokeObjectURL(url); reject(e); };
-    img.src = url;
+    try {
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => {
+        // Garder l'URL active pendant le cycle d'affichage pour éviter l'invalidation prématurée du bitmap
+        setTimeout(() => URL.revokeObjectURL(url), 2000);
+        resolve(img);
+      };
+      img.onerror = (e) => {
+        URL.revokeObjectURL(url);
+        reject(e || new Error('image_decode_failed'));
+      };
+      img.src = url;
+    } catch (err) {
+      reject(err);
+    }
   });
 }
 
 /**
  * Compresse une image (JPEG). Option enhance : niveaux de gris + contraste
- * (utile pour le tableau) et rognage automatique des bords uniformes.
+ * (utile pour le tableau) et rognage automatique sécurisé des bords uniformes.
+ * En cas d'erreur de décodage ou de mémoire canvas, repli automatique sur le fichier d'origine.
  * @returns {Promise<Blob>}
  */
-export async function compressImage(file, { maxSize = 1600, quality = 0.72, enhance = false, autoCrop = false } = {}) {
-  const img = await loadImage(file);
-  let sx = 0; let sy = 0; let sw = img.naturalWidth; let sh = img.naturalHeight;
+export async function compressImage(file, { maxSize = 1600, quality = 0.75, enhance = false, autoCrop = false } = {}) {
+  let img;
+  try {
+    img = await loadImage(file);
+  } catch (loadErr) {
+    console.warn('[compressImage] loadImage failed, returning original file as blob:', loadErr);
+    if (file instanceof Blob) return file;
+    throw loadErr;
+  }
+
+  const nw = img.naturalWidth || img.width;
+  const nh = img.naturalHeight || img.height;
+  if (!nw || !nh) {
+    return file instanceof Blob ? file : new Blob([], { type: 'image/jpeg' });
+  }
+
+  let sx = 0;
+  let sy = 0;
+  let sw = nw;
+  let sh = nh;
 
   if (autoCrop) {
-    const crop = detectContentBounds(img);
-    if (crop) ({ sx, sy, sw, sh } = crop);
+    try {
+      const crop = detectContentBounds(img);
+      if (crop && crop.sw > 50 && crop.sh > 50) ({ sx, sy, sw, sh } = crop);
+    } catch (cropErr) {
+      console.warn('[compressImage] autoCrop error, ignoring:', cropErr);
+    }
   }
 
-  const scale = Math.min(1, maxSize / Math.max(sw, sh));
-  const w = Math.round(sw * scale);
-  const h = Math.round(sh * scale);
+  const scale = Math.min(1, maxSize / Math.max(sw, sh, 1));
+  const w = Math.max(1, Math.round(sw * scale));
+  const h = Math.max(1, Math.round(sh * scale));
   const canvas = document.createElement('canvas');
-  canvas.width = w; canvas.height = h;
-  const ctx = canvas.getContext('2d', { willReadFrequently: enhance });
-  ctx.drawImage(img, sx, sy, sw, sh, 0, 0, w, h);
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext('2d', { willReadFrequently: Boolean(enhance) });
+  if (!ctx) {
+    return file instanceof Blob ? file : new Blob([], { type: 'image/jpeg' });
+  }
+
+  try {
+    ctx.drawImage(img, sx, sy, sw, sh, 0, 0, w, h);
+  } catch (drawErr) {
+    console.warn('[compressImage] draw crop error, falling back to full image draw:', drawErr);
+    try {
+      ctx.clearRect(0, 0, w, h);
+      ctx.drawImage(img, 0, 0, nw, nh, 0, 0, w, h);
+    } catch {
+      return file instanceof Blob ? file : new Blob([], { type: 'image/jpeg' });
+    }
+  }
 
   if (enhance) {
-    const data = ctx.getImageData(0, 0, w, h);
-    const px = data.data;
-    // histogramme de luminance pour un étirement automatique des niveaux
-    const hist = new Uint32Array(256);
-    for (let i = 0; i < px.length; i += 4) {
-      const l = (px[i] * 0.299 + px[i + 1] * 0.587 + px[i + 2] * 0.114) | 0;
-      hist[l]++;
+    try {
+      const data = ctx.getImageData(0, 0, w, h);
+      const px = data.data;
+      // Histogramme de luminance pour un étirement automatique des niveaux
+      const hist = new Uint32Array(256);
+      for (let i = 0; i < px.length; i += 4) {
+        const l = (px[i] * 0.299 + px[i + 1] * 0.587 + px[i + 2] * 0.114) | 0;
+        hist[l]++;
+      }
+      const total = w * h;
+      let lo = 0;
+      let hi = 255;
+      let acc = 0;
+      for (let i = 0; i < 256; i++) {
+        acc += hist[i];
+        if (acc > total * 0.02) { lo = i; break; }
+      }
+      acc = 0;
+      for (let i = 255; i >= 0; i--) {
+        acc += hist[i];
+        if (acc > total * 0.02) { hi = i; break; }
+      }
+      const range = Math.max(1, hi - lo);
+      for (let i = 0; i < px.length; i += 4) {
+        const l = px[i] * 0.299 + px[i + 1] * 0.587 + px[i + 2] * 0.114;
+        let v = ((l - lo) / range) * 255;
+        v = v < 128 ? v * 0.9 : Math.min(255, v * 1.08); // léger renforcement du contraste
+        v = clamp(v, 0, 255);
+        px[i] = px[i + 1] = px[i + 2] = v;
+      }
+      ctx.putImageData(data, 0, 0);
+    } catch (enhErr) {
+      console.warn('[compressImage] enhance error ignored:', enhErr);
     }
-    const total = w * h;
-    let lo = 0; let hi = 255; let acc = 0;
-    for (let i = 0; i < 256; i++) { acc += hist[i]; if (acc > total * 0.02) { lo = i; break; } }
-    acc = 0;
-    for (let i = 255; i >= 0; i--) { acc += hist[i]; if (acc > total * 0.02) { hi = i; break; } }
-    const range = Math.max(1, hi - lo);
-    for (let i = 0; i < px.length; i += 4) {
-      const l = px[i] * 0.299 + px[i + 1] * 0.587 + px[i + 2] * 0.114;
-      let v = ((l - lo) / range) * 255;
-      v = v < 128 ? v * 0.9 : Math.min(255, v * 1.08); // léger renforcement du contraste
-      v = clamp(v, 0, 255);
-      px[i] = px[i + 1] = px[i + 2] = v;
-    }
-    ctx.putImageData(data, 0, 0);
   }
 
-  return new Promise((resolve, reject) => {
-    canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error('compression_failed'))), 'image/jpeg', quality);
+  return new Promise((resolve) => {
+    try {
+      canvas.toBlob((blob) => {
+        if (blob) resolve(blob);
+        else resolve(file instanceof Blob ? file : new Blob([], { type: 'image/jpeg' }));
+      }, 'image/jpeg', quality);
+    } catch {
+      resolve(file instanceof Blob ? file : new Blob([], { type: 'image/jpeg' }));
+    }
   });
 }
 
-/** Détection simple des bords (zones uniformes) pour un recadrage automatique. */
+/** Détection sécurisée des bords (zones uniformes) pour un recadrage automatique sans jamais crasher. */
 function detectContentBounds(img) {
-  const S = 200;
-  const scale = S / Math.max(img.naturalWidth, img.naturalHeight);
-  const w = Math.max(1, Math.round(img.naturalWidth * scale));
-  const h = Math.max(1, Math.round(img.naturalHeight * scale));
-  const c = document.createElement('canvas');
-  c.width = w; c.height = h;
-  const ctx = c.getContext('2d', { willReadFrequently: true });
-  ctx.drawImage(img, 0, 0, w, h);
-  const { data } = ctx.getImageData(0, 0, w, h);
-  const lum = (x, y) => { const i = (y * w + x) * 4; return data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114; };
-  const variance = (vals) => { const m = vals.reduce((a, b) => a + b, 0) / vals.length; return vals.reduce((a, b) => a + (b - m) ** 2, 0) / vals.length; };
-  const rowVar = (y) => variance(Array.from({ length: w }, (_, x) => lum(x, y)));
-  const colVar = (x) => variance(Array.from({ length: h }, (_, y) => lum(x, y)));
-  const TH = 60;
-  let top = 0; while (top < h * 0.3 && rowVar(top) < TH) top++;
-  let bottom = h - 1; while (bottom > h * 0.7 && rowVar(bottom) < TH) bottom--;
-  let left = 0; while (left < w * 0.3 && colVar(left) < TH) left++;
-  let right = w - 1; while (right > w * 0.7 && colVar(right) < TH) right--;
-  if (top === 0 && left === 0 && bottom === h - 1 && right === w - 1) return null;
-  const inv = 1 / scale;
-  return {
-    sx: Math.round(left * inv), sy: Math.round(top * inv),
-    sw: Math.round((right - left + 1) * inv), sh: Math.round((bottom - top + 1) * inv),
-  };
+  try {
+    const nw = img.naturalWidth || img.width;
+    const nh = img.naturalHeight || img.height;
+    if (!nw || !nh || nw < 60 || nh < 60) return null;
+
+    const S = 200;
+    const scale = S / Math.max(nw, nh);
+    const w = Math.max(1, Math.round(nw * scale));
+    const h = Math.max(1, Math.round(nh * scale));
+    const c = document.createElement('canvas');
+    c.width = w;
+    c.height = h;
+    const ctx = c.getContext('2d', { willReadFrequently: true });
+    if (!ctx) return null;
+
+    ctx.drawImage(img, 0, 0, w, h);
+    const { data } = ctx.getImageData(0, 0, w, h);
+    const lum = (x, y) => {
+      const i = (y * w + x) * 4;
+      return data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
+    };
+    const variance = (vals) => {
+      if (!vals.length) return 0;
+      const m = vals.reduce((a, b) => a + b, 0) / vals.length;
+      return vals.reduce((a, b) => a + (b - m) ** 2, 0) / vals.length;
+    };
+    const rowVar = (y) => variance(Array.from({ length: w }, (_, x) => lum(x, y)));
+    const colVar = (x) => variance(Array.from({ length: h }, (_, y) => lum(x, y)));
+    const TH = 40;
+    let top = 0; while (top < h * 0.25 && rowVar(top) < TH) top++;
+    let bottom = h - 1; while (bottom > h * 0.75 && rowVar(bottom) < TH) bottom--;
+    let left = 0; while (left < w * 0.25 && colVar(left) < TH) left++;
+    let right = w - 1; while (right > w * 0.75 && colVar(right) < TH) right--;
+
+    if (top === 0 && left === 0 && bottom === h - 1 && right === w - 1) return null;
+    if (right <= left || bottom <= top) return null;
+
+    const inv = 1 / scale;
+    const sx = Math.max(0, Math.round(left * inv));
+    const sy = Math.max(0, Math.round(top * inv));
+    const sw = Math.min(nw - sx, Math.round((right - left + 1) * inv));
+    const sh = Math.min(nh - sy, Math.round((bottom - top + 1) * inv));
+
+    if (sw < 80 || sh < 80) return null;
+    return { sx, sy, sw, sh };
+  } catch (e) {
+    console.warn('[detectContentBounds] exception, skipped crop:', e);
+    return null;
+  }
 }
 
 /** Blob -> base64 (sans préfixe data:). */
@@ -549,11 +641,11 @@ export function blobToBase64(blob) {
 
 /** Limites de taille des fichiers (octets). */
 export const FILE_LIMITS = {
-  image: 8 * 1024 * 1024,
+  image: 35 * 1024 * 1024,   // 35 Mo pour accepter les photos directes des appareils mobiles haute résolution
   audio: 25 * 1024 * 1024,   // par segment
   pdf: 20 * 1024 * 1024,
   assignment: 20 * 1024 * 1024,
-  avatar: 2 * 1024 * 1024,
+  avatar: 5 * 1024 * 1024,
 };
 
 export function checkFileSize(file, kind) {
