@@ -55,16 +55,133 @@ async function sha256(input: string): Promise<string> {
     .join('');
 }
 
+function cleanAndRepairJson(raw: string): string {
+  let str = String(raw || '').trim();
+
+  // 1. Détecter et extraire le bloc markdown
+  if (str.includes('```')) {
+    const fencedMatch = str.match(/```(?:json)?\s*([\s\S]*?)```/i);
+    if (fencedMatch && fencedMatch[1]) {
+      str = fencedMatch[1].trim();
+    } else {
+      str = str.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/i, '').trim();
+    }
+  }
+
+  // 2. Délimiter le premier et dernier crochet/accolade
+  const firstObj = str.indexOf('{');
+  const firstArr = str.indexOf('[');
+  let start = -1;
+  let end = -1;
+
+  if (firstObj !== -1 && (firstArr === -1 || firstObj < firstArr)) {
+    start = firstObj;
+    end = str.lastIndexOf('}');
+  } else if (firstArr !== -1) {
+    start = firstArr;
+    end = str.lastIndexOf(']');
+  }
+
+  if (start !== -1 && end > start) {
+    str = str.slice(start, end + 1);
+  } else if (start !== -1) {
+    str = str.slice(start);
+  }
+
+  // 3. Normaliser les guillemets typographiques
+  str = str.replace(/[\u201C\u201D\u201E\u201F\u00AB\u00BB]/g, '"');
+  str = str.replace(/[\u2018\u2019]/g, "'");
+
+  // 4. Supprimer les commentaires JS // et /* */
+  str = str.replace(/\/\/[^\n\r]*/g, '');
+  str = str.replace(/\/\*[\s\S]*?\*\//g, '');
+
+  // 5. Échapper les sauts de ligne et tabulations non échappés à l'intérieur des chaînes
+  let inString = false;
+  let escaped = false;
+  let result = '';
+
+  for (let i = 0; i < str.length; i++) {
+    const ch = str[i];
+    if (escaped) {
+      result += ch;
+      escaped = false;
+      continue;
+    }
+    if (ch === '\\') {
+      result += ch;
+      escaped = true;
+      continue;
+    }
+    if (ch === '"') {
+      inString = !inString;
+      result += ch;
+      continue;
+    }
+    if (inString) {
+      if (ch === '\n') {
+        result += '\\n';
+        continue;
+      }
+      if (ch === '\r') {
+        continue;
+      }
+      if (ch === '\t') {
+        result += '\\t';
+        continue;
+      }
+      if (ch.charCodeAt(0) < 32) {
+        continue;
+      }
+    }
+    result += ch;
+  }
+
+  // 6. Supprimer les virgules traînantes avant } ou ]
+  result = result.replace(/,\s*([}\]])/g, '$1');
+
+  // 7. Équilibrer les accolades/crochets non fermés si le JSON a été tronqué
+  const stack: string[] = [];
+  inString = false;
+  escaped = false;
+
+  for (let i = 0; i < result.length; i++) {
+    const ch = result[i];
+    if (escaped) { escaped = false; continue; }
+    if (ch === '\\') { escaped = true; continue; }
+    if (ch === '"') { inString = !inString; continue; }
+    if (!inString) {
+      if (ch === '{' || ch === '[') stack.push(ch);
+      else if (ch === '}' && stack[stack.length - 1] === '{') stack.pop();
+      else if (ch === ']' && stack[stack.length - 1] === '[') stack.pop();
+    }
+  }
+
+  if (inString) result += '"';
+  result = result.replace(/,\s*$/, '');
+  while (stack.length > 0) {
+    const top = stack.pop();
+    result += top === '{' ? '}' : ']';
+  }
+
+  return result;
+}
+
 function extractJson(raw: string): unknown {
   const cleaned = raw.trim();
   try {
     return JSON.parse(cleaned);
-  } catch { /* tenter extraction bloc markdown / accolades */ }
+  } catch { /* premier échec direct */ }
+
+  const repaired = cleanAndRepairJson(cleaned);
+  try {
+    return JSON.parse(repaired);
+  } catch { /* deuxième échec réparé */ }
 
   const fenced = cleaned.match(/```(?:json)?\s*([\s\S]*?)```/i);
   if (fenced?.[1]) {
     try {
-      return JSON.parse(fenced[1].trim());
+      return JSON.parse(cleanAndRepairJson(fenced[1].trim()));
     } catch { /* continue */ }
   }
 
@@ -72,14 +189,16 @@ function extractJson(raw: string): unknown {
   const lastObj = cleaned.lastIndexOf('}');
   if (firstObj !== -1 && lastObj > firstObj) {
     try {
-      return JSON.parse(cleaned.slice(firstObj, lastObj + 1));
+      return JSON.parse(cleanAndRepairJson(cleaned.slice(firstObj, lastObj + 1)));
     } catch { /* continue */ }
   }
 
   const firstArr = cleaned.indexOf('[');
   const lastArr = cleaned.lastIndexOf(']');
   if (firstArr !== -1 && lastArr > firstArr) {
-    return JSON.parse(cleaned.slice(firstArr, lastArr + 1));
+    try {
+      return JSON.parse(cleanAndRepairJson(cleaned.slice(firstArr, lastArr + 1)));
+    } catch { /* continue */ }
   }
 
   throw new Error('invalid_json_output');

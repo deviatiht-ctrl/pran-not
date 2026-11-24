@@ -617,21 +617,27 @@ function bindActions() {
     const btn = e.currentTarget;
     setLoading(btn, true);
     try {
+      const sourcesText = (sources || [])
+        .map((s) => s.ocr_text || s.transcript || '')
+        .filter(Boolean)
+        .join('\n\n');
+      const content = (note.content_text || note.raw_text || note.summary || sourcesText || note.title || '').trim();
+
       const res = await generateFlashcards({
-        content: note.content_text || note.raw_text || note.summary || '',
-        title: note.title,
+        content,
+        title: note.title || 'Kat memwa',
         language: getLang(),
         faculty: profileRef?.faculty_id,
         level: profileRef?.level,
         count: 8,
-        courseId: note.course_id,
-        unitId: note.unit_id,
-        noteId: note.id,
+        courseId: isUuid(note.course_id) ? note.course_id : null,
+        unitId: isUuid(note.unit_id) ? note.unit_id : null,
+        noteId: isUuid(note.id) ? note.id : null,
       });
       toast(`${res.cards?.length || 0} kat memwa kreye.`, 'success', {
         action: {
           label: t('nav.review'),
-          onClick: () => { location.href = appUrl(`pages/flashcards.html?deck=${res.deckId}`); },
+          onClick: () => { location.href = appUrl(`pages/flashcards.html?deck=${res.deckId || ''}`); },
         },
       });
     } catch (err) {
@@ -645,33 +651,62 @@ function bindActions() {
     const btn = e.currentTarget;
     setLoading(btn, true);
     try {
+      const sourcesText = (sources || [])
+        .map((s) => s.ocr_text || s.transcript || '')
+        .filter(Boolean)
+        .join('\n\n');
+      const content = (note.content_text || note.raw_text || note.summary || sourcesText || note.title || '').trim();
+
       const res = await generateTest({
-        content: note.content_text || note.raw_text || note.summary || '',
-        title: note.title,
+        content,
+        title: note.title || 'Tès Pran Nòt',
         difficulty: 'medium',
         language: getLang(),
         faculty: profileRef?.faculty_id,
         level: profileRef?.level,
         count: 5,
       });
-      const { data: testRow, error: tErr } = await db.from('pran_not_tests').insert({
-        user_id: userRef.id,
-        course_id: note.course_id,
-        unit_id: note.unit_id,
-        note_id: note.id,
-        title: res.title || note.title,
+
+      const fallbackTestId = uid();
+      let testRow = {
+        id: fallbackTestId,
+        user_id: userRef?.id || 'guest',
+        course_id: isUuid(note.course_id) ? note.course_id : null,
+        unit_id: isUuid(note.unit_id) ? note.unit_id : null,
+        note_id: isUuid(note.id) ? note.id : null,
+        title: res.title || note.title || 'Tès Pran Nòt',
         difficulty: 'medium',
         kind: 'standard',
         source: 'ai',
-      }).select().single();
-      if (tErr) throw tErr;
+      };
+
+      if (navigator.onLine && isUuid(userRef?.id)) {
+        try {
+          const { data: dbTest, error: tErr } = await db.from('pran_not_tests').insert({
+            user_id: userRef.id,
+            course_id: isUuid(note.course_id) ? note.course_id : null,
+            unit_id: isUuid(note.unit_id) ? note.unit_id : null,
+            note_id: isUuid(note.id) ? note.id : null,
+            title: res.title || note.title || 'Tès Pran Nòt',
+            difficulty: 'medium',
+            kind: 'standard',
+            source: 'ai',
+          }).select().single();
+          if (!tErr && dbTest) {
+            testRow = dbTest;
+          }
+        } catch (saveErr) {
+          console.warn('[note-view] test db save error, using offline cache:', saveErr);
+        }
+      }
 
       const qRows = (res.questions || []).map((q, idx) => ({
+        id: uid(),
         test_id: testRow.id,
-        user_id: userRef.id,
-        unit_id: note.unit_id,
+        user_id: userRef?.id || 'guest',
+        unit_id: testRow.unit_id,
         position: idx + 1,
-        type: q.type,
+        type: q.type || 'mcq',
         prompt: q.prompt,
         options: q.options || [],
         answer: q.answer,
@@ -679,7 +714,29 @@ function bindActions() {
         keyword: q.keyword || '',
         points: q.points || 1,
       }));
-      if (qRows.length) await db.from('pran_not_test_questions').insert(qRows);
+
+      if (navigator.onLine && isUuid(userRef?.id) && isUuid(testRow.id) && qRows.length) {
+        try {
+          await db.from('pran_not_test_questions').insert(qRows.map((q) => ({
+            test_id: testRow.id,
+            user_id: userRef.id,
+            unit_id: testRow.unit_id,
+            position: q.position,
+            type: q.type,
+            prompt: q.prompt,
+            options: q.options,
+            answer: q.answer,
+            explanation: q.explanation,
+            keyword: q.keyword,
+            points: q.points,
+          })));
+        } catch (qErr) {
+          console.warn('[note-view] questions db save error, using offline cache:', qErr);
+        }
+      }
+
+      // Toujours cacher la session pour chargement instantané
+      await cacheSet(`test_session_${testRow.id}`, { testRow, questions: qRows });
       location.href = appUrl(`pages/test-session.html?id=${testRow.id}`);
     } catch (err) {
       handleError(err);

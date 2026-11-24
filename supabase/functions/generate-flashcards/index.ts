@@ -18,16 +18,23 @@ Deno.serve(async (req) => {
     const content = String(body.content || '').trim();
     const title = String(body.title || 'Kat memwa').trim();
     const count = Math.min(20, Math.max(3, Number(body.count || 8)));
-    if (!content) return errorResponse('invalid_input', 'Contenu source manquant.', 400);
+    if (!content && !title) return errorResponse('invalid_input', 'Contenu source ou titre manquant.', 400);
+
+    const effectiveContent = content || `Tèm etid : "${title}". Jenere kat memwa pou memorizasyon konsèp kle sou sijè sa a.`;
 
     const faculty = body.faculty || auth.profile?.faculty_id || 'autre';
     const level = body.level || auth.profile?.level || 'L1';
     const language = body.language || auth.profile?.language || 'ht';
 
-    const prompt = `À partir du contenu ci-dessous (titre : "${title}"), génère exactement ${count} flashcards utiles pour la mémorisation espacée.
+    const langInstruction = language === 'ht'
+      ? 'ENPÒTAN: Ekri TOUT kat yo (kesyon devan, repons dèyè) NÈT ALKÒLE an KREYÒL AYISYEN klè e kòrèk.'
+      : 'IMPORTANT : Rédige TOUTES les cartes (recto et verso) STRICTEMENT en Français académique.';
+
+    const prompt = `${langInstruction}
+À partir du contenu ci-dessous (titre : "${title.replace(/"/g, "'")}"), génère exactement ${count} flashcards utiles pour la mémorisation espacée.
 Varie les types parmi : "qa", "definition", "cloze" (entoure le mot à deviner avec {{mot}} dans front), "true_false", "formula", "case" (cas pratique adapté à la faculté ${faculty}).
 
-Retourne STRICTEMENT ce JSON :
+Retourne STRICTEMENT et UNIQUEMENT ce JSON valide, sans balises markdown, sans texte additionnel :
 {
   "cards": [
     {
@@ -40,7 +47,7 @@ Retourne STRICTEMENT ce JSON :
 }
 
 Contenu :
-${content.slice(0, 16000)}`;
+${effectiveContent.slice(0, 16000)}`;
 
     const out = await runAiTask(auth.admin, auth.user.id, auth.profile?.ai_daily_quota || 500, {
       task: 'generate_flashcards',
@@ -49,7 +56,7 @@ ${content.slice(0, 16000)}`;
       language,
       prompt,
       expectJson: true,
-      cacheKeyPayload: { title, content: content.slice(0, 16000), count, language, faculty },
+      cacheKeyPayload: { title, content: effectiveContent.slice(0, 16000), count, language, faculty },
     });
 
     const rawCards = Array.isArray((out.result as { cards?: unknown[] })?.cards)
@@ -57,13 +64,22 @@ ${content.slice(0, 16000)}`;
       : [];
 
     const cards = rawCards
-      .filter((c) => c?.front && c?.back)
-      .map((c) => ({
-        type: VALID_TYPES.has(String(c.type)) ? String(c.type) : 'qa',
-        front: String(c.front).trim(),
-        back: String(c.back).trim(),
-        tags: Array.isArray(c.tags) ? c.tags.map(String).slice(0, 5) : [],
-      }));
+      .map((c) => {
+        const item = (c && typeof c === 'object') ? (c as Record<string, unknown>) : {};
+        const front = String(item.front || item.question || item.recto || '').trim();
+        const back = String(item.back || item.answer || item.reponse || item.verso || '').trim();
+        if (!front || !back) return null;
+
+        const type = VALID_TYPES.has(String(item.type)) ? String(item.type) : 'qa';
+        const tags = Array.isArray(item.tags)
+          ? item.tags.map(String).slice(0, 5)
+          : Array.isArray(item.keywords)
+            ? (item.keywords as unknown[]).map(String).slice(0, 5)
+            : [];
+
+        return { type, front, back, tags };
+      })
+      .filter((c): c is NonNullable<typeof c> => c !== null);
 
     let deckId = body.deckId || null;
     if (body.save !== false && cards.length) {

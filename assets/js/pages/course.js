@@ -139,11 +139,13 @@ async function launchFlashTest(e) {
     }).select().single();
     if (error) throw error;
 
-    await db.from('pran_not_test_questions').insert((res.questions || []).map((q, idx) => ({
+    const qRows = (res.questions || []).map((q, idx) => ({
       test_id: testRow.id, user_id: userRef.id, position: idx + 1, type: q.type,
       prompt: q.prompt, options: q.options || [], answer: q.answer,
       explanation: q.explanation || '', keyword: q.keyword || '', points: q.points || 1,
-    })));
+    }));
+    if (qRows.length) await db.from('pran_not_test_questions').insert(qRows);
+    await cacheSet(`test_session_${testRow.id}`, { testRow, questions: qRows });
     location.href = appUrl(`pages/test-session.html?id=${testRow.id}`);
   } catch (err) {
     handleError(err);

@@ -90,7 +90,7 @@ async function createAndOpenTest({ courseId = null, unitId = null, difficulty = 
       points: q.points || 1,
     }));
     if (qRows.length) await db.from('pran_not_test_questions').insert(qRows);
-
+    await cacheSet(`test_session_${testRow.id}`, { testRow, questions: qRows });
     location.href = appUrl(`pages/test-session.html?id=${testRow.id}`);
   } catch (err) {
     handleError(err);
