@@ -97,7 +97,9 @@ function renderCourses() {
     const liveStatus = getCourseLiveStatus(c);
     const isLive = liveStatus.state === 'live';
     const isSoon = liveStatus.state === 'soon';
-    return `<article class="card">
+    const hasSyllabus = Boolean(c.units && c.units.length > 0);
+
+    return `<article class="card" style="border-left:4px solid ${esc(c.color || '#F97316')};">
       <div class="card-head">
         <div class="row">
           <span class="course-dot" style="background:${esc(c.color || '#F97316')}"></span>
@@ -117,6 +119,7 @@ function renderCourses() {
       <div class="row-wrap mb-3">
         ${isLive ? `<span class="badge badge-error">${icon('radio')}<span>${esc(t('live.badge_live'))}</span></span>` : ''}
         ${isSoon ? `<span class="badge badge-accent">${icon('clock')}<span>${esc(t('live.badge_soon', { min: liveStatus.minutesToStart }))}</span></span>` : ''}
+        ${hasSyllabus ? `<span class="badge badge-success">${icon('check')}<span>${c.units.length} chapit</span></span>` : `<span class="badge badge-outline text-warning">${icon('file-up')}<span>Silabis manke</span></span>`}
         ${days ? `<span class="badge">${esc(days)}</span>` : ''}
         ${timeBadge ? `<span class="badge badge-outline">${icon('clock')}<span>${esc(timeBadge)}</span></span>` : ''}
         ${c.credits && Number(c.credits) > 0 ? `<span class="badge">${c.credits} ${esc(t('courses.credits'))}</span>` : ''}
@@ -129,7 +132,7 @@ function renderCourses() {
       </div>
       <div class="progress ${pct >= 80 ? 'success' : ''} mb-4"><span style="width:${pct}%"></span></div>
 
-      <div class="row-wrap">
+      <div class="row-wrap" style="gap:8px;">
         <a class="btn btn-sm ${isLive || isSoon ? 'btn-primary' : 'btn-secondary'}" href="./live-class.html?course=${esc(c.id)}">${icon('radio')}<span>${esc(t('live.enter_btn'))}</span></a>
         <a class="btn btn-sm btn-primary" href="./course.html?id=${esc(c.id)}">${icon('arrow-right')}<span>${esc(t('common.open'))}</span></a>
         <a class="btn btn-sm btn-secondary" href="./syllabus.html?course=${esc(c.id)}">${icon('file-up')}<span>Silabis</span></a>
@@ -485,7 +488,7 @@ function openCourseModal(existing = null) {
     try {
       const { data, error } = await db
         .from('pran_not_courses')
-        .select('*')
+        .select('*, units:pran_not_syllabus_units(id)')
         .eq('user_id', user.id)
         .eq('archived', false)
         .order('created_at', { ascending: false });

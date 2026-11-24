@@ -78,6 +78,82 @@ function formatStamp() {
 }
 
 let isClassSaved = false;
+let liveClientId = localStorage.getItem('prannot.liveCurrentClientId') || uid();
+try { localStorage.setItem('prannot.liveCurrentClientId', liveClientId); } catch {}
+let liveAutoSaveTimer = null;
+
+async function syncLiveNoteToDatabase() {
+  if (isClassSaved) return;
+  const compiled = buildCompiledContent();
+  if (!compiled.rawText && !audioChunks.length) return;
+
+  const title = compiled.title;
+  const rawText = compiled.rawText;
+  const captureMode = audioChunks.length > 0 ? 'audio' : 'text';
+  const contentHtml = `<p>${esc(rawText).replace(/\n{2,}/g, '</p><p><p>').replace(/\n/g, '<br>')}</p>`;
+
+  // 1. Sauvegarde instantanée dans le cache local
+  const localRow = {
+    id: liveClientId,
+    client_id: liveClientId,
+    course_id: selectedCourseId || null,
+    unit_id: selectedUnitId || null,
+    title,
+    summary: rawText.slice(0, 240),
+    content_html: contentHtml,
+    content_text: rawText,
+    raw_text: rawText,
+    language: getLang(),
+    capture_mode: captureMode,
+    status: 'ready',
+    live_started_at: sessionStartedAt,
+    live_duration_seconds: classElapsedSec,
+    updated_at: new Date().toISOString(),
+    created_at: sessionStartedAt,
+  };
+  await cacheSet(`note_${liveClientId}`, localRow);
+
+  // 2. Sauvegarde continue sur Supabase pour que la note soit garantie dans les notes de l'étudiant
+  if (navigator.onLine && userRef && !userRef.is_offline_guest && db) {
+    try {
+      const { data, error } = await db.from('pran_not_notes').upsert({
+        user_id: userRef.id,
+        client_id: liveClientId,
+        course_id: selectedCourseId || null,
+        unit_id: selectedUnitId || null,
+        title,
+        summary: rawText.slice(0, 240),
+        content_html: contentHtml,
+        content_text: rawText,
+        raw_text: rawText,
+        language: getLang(),
+        capture_mode: captureMode,
+        status: 'ready',
+        live_started_at: sessionStartedAt,
+        live_duration_seconds: classElapsedSec,
+      }, { onConflict: 'user_id,client_id' }).select('id').maybeSingle();
+
+      if (!error && data?.id) {
+        const badgeText = document.getElementById('live-autosave-text');
+        const d = new Date();
+        const hh = String(d.getHours()).padStart(2, '0');
+        const mm = String(d.getMinutes()).padStart(2, '0');
+        const ss = String(d.getSeconds()).padStart(2, '0');
+        if (badgeText) badgeText.textContent = `Sove nan Nòt ou a ${hh}:${mm}:${ss}`;
+      }
+    } catch (e) {
+      console.warn('[live-class] auto-sync remote note notice:', e);
+    }
+  }
+}
+
+function triggerContinuousAutoSave() {
+  saveDraft({ showBadge: true });
+  clearTimeout(liveAutoSaveTimer);
+  liveAutoSaveTimer = setTimeout(() => {
+    syncLiveNoteToDatabase().catch(() => {});
+  }, 1000);
+}
 
 function saveDraft({ showBadge = true } = {}) {
   if (isClassSaved) return;
@@ -1015,7 +1091,8 @@ async function finishLiveClass({ withAi = true } = {}) {
   }
   await transcribeQueue.catch(() => {});
 
-  const { title, rawText } = buildCompiledContent();
+  const compiled = buildCompiledContent();
+  const { title, rawText, thoughts } = compiled;
   if (!rawText && !audioChunks.length) {
     toast(t('errors.required'), 'warning');
     return;
@@ -1038,7 +1115,7 @@ async function finishLiveClass({ withAi = true } = {}) {
 
   const captureMode = audioChunks.length > 0 ? 'audio' : 'text';
   const contentHtml = `<p>${esc(rawText).replace(/\n{2,}/g, '</p><p>').replace(/\n/g, '<br>')}</p>`;
-  const clientId = uid();
+  const clientId = liveClientId || uid();
 
   // Sauvegarde systématique dans le draft localStorage en priorité absolue avant tout traitement réseau
   saveDraft({ showBadge: true });
@@ -1111,7 +1188,7 @@ async function finishLiveClass({ withAi = true } = {}) {
     if (!finalStructured && rawText.trim()) {
       const cleanPs = rawText.split(/\n\s*\n/).filter(Boolean).map((p) => `<p>${esc(p.trim())}</p>`).join('');
       let fallbackHtml = `<h2>${esc(finalTitle || 'Nòt Kou')}</h2>${cleanPs}`;
-      if (thoughts.trim()) {
+      if (thoughts && thoughts.trim()) {
         fallbackHtml += `<h3>Panse ak Kesyon pandan Kou a</h3><p>${esc(thoughts.trim())}</p>`;
       }
       finalHtml = fallbackHtml;
@@ -1284,9 +1361,10 @@ async function finishLiveClass({ withAi = true } = {}) {
   document.getElementById('live-notes-area').addEventListener('input', () => {
     setStepDone(2, true);
     setStepActive(2);
-    saveDraft();
+    triggerContinuousAutoSave();
   });
-  document.getElementById('live-note-title').addEventListener('input', saveDraft);
+  document.getElementById('live-note-title').addEventListener('input', triggerContinuousAutoSave);
+  document.getElementById('live-thoughts-area')?.addEventListener('input', triggerContinuousAutoSave);
 
   document.getElementById('live-stamp-btn').addEventListener('click', () => {
     insertIntoNotes(`${formatStamp()} `);
@@ -1496,24 +1574,29 @@ async function finishLiveClass({ withAi = true } = {}) {
     }
   });
 
-  // Auto-save en arrière-plan chak 10 segonn
+  // Auto-save continu chak kèk segonn pou nòt la pa janm pèdi
   setInterval(() => {
-    if (document.getElementById('live-notes-area')?.value) {
+    if (document.getElementById('live-notes-area')?.value || document.getElementById('live-note-title')?.value) {
       saveDraft({ showBadge: false });
+      syncLiveNoteToDatabase().catch(() => {});
     }
-  }, 10000);
+  }, 4000);
 
-  // Sove bwouyon otomatikman lè etidyan an ap kite paj la, klike sou yon lòt paj oswa mete aplikasyon an an aryè plan
-  window.addEventListener('beforeunload', () => saveDraft({ showBadge: false }));
-  window.addEventListener('pagehide', () => saveDraft({ showBadge: false }));
+  // Sove nòt la imedyatman lè etidyan an ap kite paj la, klike sou yon lòt paj oswa mete aplikasyon an an aryè plan
+  const instantSaveHandler = () => {
+    saveDraft({ showBadge: false });
+    syncLiveNoteToDatabase().catch(() => {});
+  };
+  window.addEventListener('beforeunload', instantSaveHandler);
+  window.addEventListener('pagehide', instantSaveHandler);
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden') {
-      saveDraft({ showBadge: false });
+      instantSaveHandler();
     }
   });
-  document.getElementById('live-notes-area')?.addEventListener('blur', () => saveDraft({ showBadge: false }));
-  document.getElementById('live-note-title')?.addEventListener('blur', () => saveDraft({ showBadge: false }));
-  document.getElementById('live-thoughts-area')?.addEventListener('blur', () => saveDraft({ showBadge: false }));
+  document.getElementById('live-notes-area')?.addEventListener('blur', instantSaveHandler);
+  document.getElementById('live-note-title')?.addEventListener('blur', instantSaveHandler);
+  document.getElementById('live-thoughts-area')?.addEventListener('blur', instantSaveHandler);
 
   // Sauvegarde finale (tout bouton fini/anrejistre sou paj la)
   const finishAiAction = () => finishLiveClass({ withAi: true });

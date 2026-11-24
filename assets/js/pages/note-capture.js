@@ -634,12 +634,15 @@ function startLiveSpeechPreview(langVal) {
   const box = document.getElementById('live-speech-box');
   const prev = document.getElementById('live-speech-preview');
   liveSpeechBuffer = '';
-  if (!SR || !navigator.onLine || !box || !prev) return;
+  // Seule la langue française a un modèle Web Speech standard fiable dans Chrome.
+  // Pour le Kreyòl ayisyen, on s'appuie directement sur Whisper large-v3 & Gemini Audio
+  // pour éviter que Chrome n'invente des mots français sans queue ni tête.
+  if (!SR || !navigator.onLine || !box || !prev || langVal === 'ht') return;
   try {
     speechRecognition = new SR();
     speechRecognition.continuous = true;
     speechRecognition.interimResults = true;
-    speechRecognition.lang = langVal === 'fr' ? 'fr-FR' : 'fr-HT';
+    speechRecognition.lang = 'fr-FR';
     let finalText = '';
     speechRecognition.onresult = (ev) => {
       let interim = '';

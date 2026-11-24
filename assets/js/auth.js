@@ -190,22 +190,20 @@ export async function requireAuth({ requireOnboarded = true } = {}) {
   const initialLang = localStorage.getItem('prannot.lang') || cachedProfile?.language || detectLang();
   const i18nPromise = initI18n(initialLang);
 
-  let profile = null;
-  if (!navigator.onLine && cachedProfile) {
-    profile = cachedProfile;
-  } else {
+  let profile = cachedProfile;
+  if (!profile) {
+    // Si aucun profil local, aller chercher sur Supabase
     try {
-      const fetchProfilePromise = getProfile();
-      profile = cachedProfile
-        ? await Promise.race([
-            fetchProfilePromise,
-            new Promise((resolve) => setTimeout(() => resolve(cachedProfile), 2500)),
-          ])
-        : await fetchProfilePromise;
+      profile = await getProfile();
     } catch (err) {
-      console.warn('[auth] profil indisponible, utilisation du cache', err);
-      profile = cachedProfile;
+      console.warn('[auth] profil indisponible', err);
     }
+  } else if (navigator.onLine) {
+    // Stale-While-Revalidate : utiliser le profil local instantanément (<1ms),
+    // et rafraîchir en arrière-plan sans bloquer le chargement de la page
+    getProfile(true).then((fresh) => {
+      if (fresh) applyPreferences(fresh);
+    }).catch(() => {});
   }
 
   if (profile?.is_banned) {

@@ -30,25 +30,82 @@ function renderAnalysis(analysis) {
   resultCard.hidden = false;
   aside.hidden = false;
 
-  unitsBox.innerHTML = units.map((u, i) => `
-    <div class="card card-sm">
-      <div class="row-between">
-        <strong>${i + 1}. ${esc(u.title)}</strong>
-        <div class="row" style="gap:6px;">
-          ${u.planned_week ? `<span class="badge">Semèn ${esc(u.planned_week)}</span>` : ''}
-          ${u.weight ? `<span class="badge badge-accent">${esc(u.weight)}%</span>` : ''}
+  unitsBox.innerHTML = `
+    <p class="text-xs muted mb-3">Ou ka modifye tit, semèn oswa pwa chak chapit dirèkteman anvan ou anrejistre :</p>
+    <div class="stack-sm mb-3" id="editable-units-container">
+      ${units.map((u, i) => `
+        <div class="card card-sm editable-unit-item" data-unit-idx="${i}" style="border:1px solid var(--c-border);">
+          <div class="row-between mb-2">
+            <span class="badge badge-accent">Chapit ${i + 1}</span>
+            <div class="row" style="gap:8px;flex-wrap:wrap;">
+              <span class="text-xs muted">Semèn :</span>
+              <input type="number" class="input unit-week" value="${esc(u.planned_week || (i + 1))}" style="width:65px;min-height:28px;padding:2px 6px;font-size:12px;">
+              <span class="text-xs muted">Pwa % :</span>
+              <input type="number" class="input unit-weight" value="${esc(u.weight || 15)}" style="width:65px;min-height:28px;padding:2px 6px;font-size:12px;">
+              <button type="button" class="btn-icon text-error btn-remove-unit" title="Retire chapit sa" aria-label="Supprimer">
+                <i data-lucide="trash-2"></i>
+              </button>
+            </div>
+          </div>
+          <div class="field mb-2">
+            <input class="input unit-title" value="${esc(u.title || `Chapit ${i + 1}`)}" placeholder="Tit chapit la" style="font-weight:600;">
+          </div>
+          <div class="field mb-2">
+            <textarea class="textarea unit-desc" rows="2" placeholder="Eksplikasyon ak nosyon chapit la">${esc(u.description || '')}</textarea>
+          </div>
+          ${Array.isArray(u.keywords) && u.keywords.length ? `<div class="row-wrap mb-1">${u.keywords.map((k) => `<span class="badge">${esc(typeof k === 'string' ? k : (k?.term || ''))}</span>`).join('')}</div>` : ''}
+        </div>
+      `).join('')}
+    </div>
+    <button type="button" class="btn btn-sm btn-secondary mb-3" id="btn-add-unit">
+      <i data-lucide="plus"></i><span>Ajoute yon lòt chapit</span>
+    </button>
+  `;
+
+  unitsBox.querySelectorAll('.btn-remove-unit').forEach((b) => {
+    b.addEventListener('click', (ev) => {
+      ev.currentTarget.closest('.editable-unit-item')?.remove();
+    });
+  });
+
+  unitsBox.querySelector('#btn-add-unit')?.addEventListener('click', () => {
+    const container = unitsBox.querySelector('#editable-units-container');
+    const count = container.querySelectorAll('.editable-unit-item').length;
+    const newIdx = count + 1;
+    const div = document.createElement('div');
+    div.className = 'card card-sm editable-unit-item';
+    div.style.border = '1px solid var(--c-border)';
+    div.innerHTML = `
+      <div class="row-between mb-2">
+        <span class="badge badge-accent">Chapit ${newIdx}</span>
+        <div class="row" style="gap:8px;flex-wrap:wrap;">
+          <span class="text-xs muted">Semèn :</span>
+          <input type="number" class="input unit-week" value="${newIdx}" style="width:65px;min-height:28px;padding:2px 6px;font-size:12px;">
+          <span class="text-xs muted">Pwa % :</span>
+          <input type="number" class="input unit-weight" value="15" style="width:65px;min-height:28px;padding:2px 6px;font-size:12px;">
+          <button type="button" class="btn-icon text-error btn-remove-unit" title="Retire chapit sa" aria-label="Supprimer">
+            <i data-lucide="trash-2"></i>
+          </button>
         </div>
       </div>
-      ${u.description ? `<p class="text-sm muted mt-1 mb-2">${esc(u.description)}</p>` : ''}
-      ${Array.isArray(u.keywords) && u.keywords.length ? `<div class="row-wrap">${u.keywords.map((k) => `<span class="badge">${esc(k)}</span>`).join('')}</div>` : ''}
-    </div>`).join('');
+      <div class="field mb-2">
+        <input class="input unit-title" value="Nouvo Chapit ${newIdx}" placeholder="Tit chapit la" style="font-weight:600;">
+      </div>
+      <div class="field mb-2">
+        <textarea class="textarea unit-desc" rows="2" placeholder="Eksplikasyon ak nosyon chapit la"></textarea>
+      </div>
+    `;
+    div.querySelector('.btn-remove-unit')?.addEventListener('click', () => div.remove());
+    container.appendChild(div);
+    icons(div);
+  });
 
   const objs = Array.isArray(analysis?.objectives) ? analysis.objectives : [];
-  document.getElementById('syl-objectives').innerHTML = objs.map((o) => `<li class="list-item text-sm">${esc(o)}</li>`).join('');
+  document.getElementById('syl-objectives').innerHTML = objs.map((o) => `<li class="list-item text-sm">${esc(typeof o === 'string' ? o : (o?.text || String(o)))}</li>`).join('');
   document.getElementById('syl-eval').textContent = analysis?.evaluation || t('common.none');
 
   const order = Array.isArray(analysis?.study_order) ? analysis.study_order : [];
-  document.getElementById('syl-order').innerHTML = order.map((o) => `<li class="mb-1">${esc(o)}</li>`).join('');
+  document.getElementById('syl-order').innerHTML = order.map((o) => `<li class="mb-1">${esc(typeof o === 'string' ? o : String(o))}</li>`).join('');
   icons(resultCard);
 }
 
@@ -216,7 +273,28 @@ function renderAnalysis(analysis) {
         console.warn('[syllabus] insert pran_not_syllabi exception:', insertSylErr);
       }
 
-      let rawUnits = Array.isArray(lastAnalysis?.units) && lastAnalysis.units.length ? lastAnalysis.units : [];
+      let rawUnits = [];
+      const editableItems = document.querySelectorAll('.editable-unit-item');
+      if (editableItems.length > 0) {
+        editableItems.forEach((item, idx) => {
+          const tVal = item.querySelector('.unit-title')?.value.trim() || `Chapit ${idx + 1}`;
+          const dVal = item.querySelector('.unit-desc')?.value.trim() || null;
+          const wVal = parseInt(item.querySelector('.unit-week')?.value, 10) || (idx + 1);
+          const wtVal = parseFloat(item.querySelector('.unit-weight')?.value) || 15;
+          const origUnit = Array.isArray(lastAnalysis?.units) ? lastAnalysis.units[idx] : null;
+          rawUnits.push({
+            title: tVal,
+            description: dVal,
+            planned_week: wVal,
+            weight: wtVal,
+            objectives: origUnit?.objectives || [],
+            keywords: origUnit?.keywords || [],
+          });
+        });
+      } else if (Array.isArray(lastAnalysis?.units) && lastAnalysis.units.length) {
+        rawUnits = lastAnalysis.units;
+      }
+
       if (!rawUnits.length) {
         const textFallback = document.getElementById('syl-text')?.value?.trim();
         rawUnits = [
@@ -241,6 +319,16 @@ function renderAnalysis(analysis) {
           if (!isNaN(numWeight)) weight = Math.min(100, Math.max(0, numWeight));
         }
 
+        const safeObjectives = (Array.isArray(u.objectives) ? u.objectives : [])
+          .map((o) => (typeof o === 'string' ? o : (o?.text || o?.title || String(o || ''))))
+          .map((s) => s.trim())
+          .filter(Boolean);
+
+        const safeKeywords = (Array.isArray(u.keywords) ? u.keywords : [])
+          .map((k) => (typeof k === 'string' ? k : (k?.keyword || k?.term || String(k || ''))))
+          .map((s) => s.trim())
+          .filter(Boolean);
+
         return {
           user_id: userRef.id,
           course_id: courseId,
@@ -248,29 +336,39 @@ function renderAnalysis(analysis) {
           position: idx + 1,
           title: String(u.title || `Chapit ${idx + 1}`).trim(),
           description: u.description || null,
-          objectives: Array.isArray(u.objectives) ? u.objectives : [],
-          keywords: Array.isArray(u.keywords) ? u.keywords : [],
+          objectives: safeObjectives,
+          keywords: safeKeywords,
           planned_week: plannedWeek,
           weight: weight,
           status: 'todo',
         };
       });
 
-      if (units.length) {
+      if (units.length && navigator.onLine && db) {
+        try {
+          await db.from('pran_not_syllabus_units').delete().eq('course_id', courseId).eq('user_id', userRef.id);
+        } catch (delErr) {
+          console.warn('[syllabus] netwaye ansyen chapit:', delErr);
+        }
+
         try {
           const { error: uErr } = await db.from('pran_not_syllabus_units').insert(units);
-          if (uErr) console.warn('[syllabus] insert units warning:', uErr);
+          if (uErr) {
+            console.warn('[syllabus] insert units warning, retry sans syllabus_id:', uErr);
+            const fallbackUnits = units.map((x) => ({ ...x, syllabus_id: null }));
+            const { error: retryErr } = await db.from('pran_not_syllabus_units').insert(fallbackUnits);
+            if (retryErr) throw retryErr;
+          }
         } catch (dbErr) {
           console.warn('[syllabus] insert units exception:', dbErr);
         }
-        await cacheSet(`course_units_${courseId}`, units);
-        await cacheDel(`course_detail_${courseId}`);
-        const existingDetail = await cacheGet(`course_detail_${courseId}`);
-        if (existingDetail) {
-          existingDetail.units = units;
-          await cacheSet(`course_detail_${courseId}`, existingDetail);
-        }
       }
+
+      await cacheSet(`course_units_${courseId}`, units);
+      const existingDetail = (await cacheGet(`course_detail_${courseId}`)) || {};
+      existingDetail.units = units;
+      existingDetail.syllabus = sylRow || lastAnalysis;
+      await cacheSet(`course_detail_${courseId}`, existingDetail);
 
       toast(t('common.saved'), 'success');
       setTimeout(() => {

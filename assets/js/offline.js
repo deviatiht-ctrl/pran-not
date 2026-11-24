@@ -268,106 +268,78 @@ async function syncNoteItem(db, userId, payload) {
     }
   }
 
-  // Upload des sources binaires (images/audio) si présentes
+  // Upload rapide en parallèle des sources binaires (images/audio) si présentes
   const files = payload.files || [];
   let collectedRaw = noteRow.raw_text || noteRow.content_text || '';
   const sessionRes = await db.auth.getSession();
   const token = sessionRes?.data?.session?.access_token;
 
-  for (let i = 0; i < files.length; i++) {
-    const f = files[i];
-    if (!f?.blob) continue;
-    try {
-      const ext = f.ext || mimeToExt(f.mime) || (f.kind === 'audio' ? 'webm' : 'jpg');
-      const bucket = f.kind === 'audio' ? 'pran-not-note-audio' : f.kind === 'pdf' ? 'pran-not-syllabi' : 'pran-not-note-images';
-      const path = `${userId}/${savedNote.id}/${Date.now()}-${i}.${ext}`;
-      const rawMime = f.mime || (f.kind === 'audio' ? 'audio/webm' : 'image/jpeg');
-      const cleanMime = rawMime.split(';')[0].trim() || rawMime;
-      const uploadBlob = new Blob([f.blob], { type: cleanMime });
-      const { error: upErr } = await db.storage.from(bucket).upload(path, uploadBlob, {
-        contentType: cleanMime,
-        upsert: true,
-      });
-      if (upErr) {
-        console.warn('[offline] binary upload warning:', upErr);
-      } else {
-        await db.from('pran_not_note_sources').insert({
-          user_id: userId,
-          note_id: savedNote.id,
-          kind: f.kind,
-          storage_path: path,
-          mime: cleanMime,
-          size_bytes: f.blob.size,
-          chunk_index: i,
-          status: 'uploaded',
-        });
-      }
-    } catch (uploadExc) {
-      console.warn('[offline] binary upload skipped:', uploadExc);
-    }
-
-    // Traitement IA différé si demandé et hors mode économie de données
-    if (payload.process_ai && token && !isDataSaver()) {
+  if (files.length > 0) {
+    await Promise.allSettled(files.map(async (f, i) => {
+      if (!f?.blob) return;
       try {
-        if (f.kind === 'image') {
-          const b64 = await blobToB64(f.blob);
-          const res = await fetch(`${FUNCTIONS_URL}/ocr-board`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${token}`,
-              apikey: SUPABASE_ANON_KEY,
-            },
-            body: JSON.stringify({ imagesBase64: [b64], language: noteRow.language, noteId: savedNote.id }),
+        const ext = f.ext || mimeToExt(f.mime) || (f.kind === 'audio' ? 'webm' : 'jpg');
+        const bucket = f.kind === 'audio' ? 'pran-not-note-audio' : f.kind === 'pdf' ? 'pran-not-syllabi' : 'pran-not-note-images';
+        const path = `${userId}/${savedNote.id}/${Date.now()}-${i}.${ext}`;
+        const rawMime = f.mime || (f.kind === 'audio' ? 'audio/webm' : 'image/jpeg');
+        const cleanMime = rawMime.split(';')[0].trim() || rawMime;
+        const uploadBlob = new Blob([f.blob], { type: cleanMime });
+        const { error: upErr } = await db.storage.from(bucket).upload(path, uploadBlob, {
+          contentType: cleanMime,
+          upsert: true,
+        });
+        if (!upErr) {
+          await db.from('pran_not_note_sources').insert({
+            user_id: userId,
+            note_id: savedNote.id,
+            kind: f.kind,
+            storage_path: path,
+            mime: cleanMime,
+            size_bytes: f.blob.size,
+            chunk_index: i,
+            status: 'uploaded',
           });
-          if (res.ok) {
-            const j = await res.json();
-            if (j?.text) collectedRaw = `${collectedRaw}\n\n${j.text}`.trim();
-          }
-        } else if (f.kind === 'audio') {
+        }
+      } catch (uploadExc) {
+        console.warn('[offline] binary upload skipped:', uploadExc);
+      }
+    }));
+  }
+
+  // Traitement IA uniquement si aucun texte n'est présent (ex: photo ou audio brut)
+  if (payload.process_ai && !collectedRaw.trim() && token && !isDataSaver() && files.length > 0) {
+    // Exécuter en tâche de fond pour ne pas geler la file de synchronisation
+    (async () => {
+      try {
+        for (let i = 0; i < files.length; i++) {
+          const f = files[i];
+          if (!f?.blob) continue;
           const b64 = await blobToB64(f.blob);
-          const res = await fetch(`${FUNCTIONS_URL}/transcribe`, {
+          const endpoint = f.kind === 'audio' ? 'transcribe' : 'ocr-board';
+          const body = f.kind === 'audio'
+            ? { audioBase64: b64, mimeType: f.mime || 'audio/webm', language: noteRow.language, noteId: savedNote.id, mode: 'fast' }
+            : { imagesBase64: [b64], language: noteRow.language, noteId: savedNote.id };
+          const res = await fetch(`${FUNCTIONS_URL}/${endpoint}`, {
             method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${token}`,
-              apikey: SUPABASE_ANON_KEY,
-            },
-            body: JSON.stringify({
-              audioBase64: b64,
-              mimeType: f.mime || 'audio/webm',
-              language: noteRow.language,
-              noteId: savedNote.id,
-              chunkIndex: i,
-              mode: 'detailed',
-              previousContext: collectedRaw.slice(-260),
-            }),
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}`, apikey: SUPABASE_ANON_KEY },
+            body: JSON.stringify(body),
           });
           if (res.ok) {
             const j = await res.json();
             if (j?.text) collectedRaw = `${collectedRaw}\n\n${j.text}`.trim();
           }
         }
-      } catch (aiErr) {
-        console.warn('[offline] Traitement IA différé reporté', aiErr);
+        if (collectedRaw.trim()) {
+          await fetch(`${FUNCTIONS_URL}/process-note`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}`, apikey: SUPABASE_ANON_KEY },
+            body: JSON.stringify({ rawText: collectedRaw, language: noteRow.language, noteId: savedNote.id }),
+          });
+        }
+      } catch (e) {
+        console.warn('[offline] Traitement IA arrière-plan:', e);
       }
-    }
-  }
-
-  if (payload.process_ai && collectedRaw && token && !isDataSaver()) {
-    try {
-      await fetch(`${FUNCTIONS_URL}/process-note`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-          apikey: SUPABASE_ANON_KEY,
-        },
-        body: JSON.stringify({ rawText: collectedRaw, language: noteRow.language, noteId: savedNote.id }),
-      });
-    } catch (e) {
-      console.warn('[offline] process-note différé', e);
-    }
+    })();
   }
 }
 

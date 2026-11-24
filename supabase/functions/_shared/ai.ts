@@ -100,20 +100,33 @@ function getApiKey(providerId: string): string | undefined {
   }
 }
 
+function normalizeGeminiModel(m: string): string {
+  if (!m || /3\.5|flash-lite|preview|latest/i.test(m)) {
+    return 'gemini-2.5-flash';
+  }
+  return m;
+}
+
+function normalizeGroqModel(m: string): string {
+  if (!m || /qwen|fake/i.test(m)) {
+    return 'llama-3.3-70b-versatile';
+  }
+  return m;
+}
+
 async function callGemini(
   apiKey: string,
   model: string,
   systemPrompt: string,
   req: AiRequest,
 ) {
-  // Cascading list of Gemini vision & text models to handle any 503 high demand or 429 spike
+  // Modèles valides et ultra-rapides pour Gemini (réponse < 1s)
+  const normPrimary = normalizeGeminiModel(model);
   const modelCandidates = [
-    model,
+    normPrimary,
     'gemini-2.5-flash',
-    'gemini-3.5-flash',
-    'gemini-3-flash-preview',
-    'gemini-3.5-flash-lite',
-    'gemini-flash-lite-latest',
+    'gemini-2.0-flash',
+    'gemini-1.5-flash',
   ].filter((m, i, arr) => m && arr.indexOf(m) === i);
 
   let lastErr: Error | null = null;
@@ -422,7 +435,8 @@ RÈGLE STRICTE DE NON-BIAIS : N'oriente JAMAIS tes réponses vers le droit ou la
           return await callGemini(apiKey, model, systemPrompt, effectiveReq);
         }
         if (p.id === 'groq') {
-          return await callOpenAiCompat('https://api.groq.com/openai/v1/chat/completions', apiKey, model, systemPrompt, effectiveReq);
+          const groqM = normalizeGroqModel(model);
+          return await callOpenAiCompat('https://api.groq.com/openai/v1/chat/completions', apiKey, groqM, systemPrompt, effectiveReq);
         }
         if (p.id === 'mistral') {
           return await callOpenAiCompat('https://api.mistral.ai/v1/chat/completions', apiKey, model, systemPrompt, effectiveReq);

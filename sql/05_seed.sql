@@ -88,10 +88,10 @@ insert into public.pran_not_ai_providers (id, name, tasks, priority, daily_quota
 values
   ('gemini', 'Google Gemini (Palier gratuit)',
    array['ocr_board','transcribe','process_note','process_syllabus','generate_flashcards','generate_test','grade_answer','tutor','assignment_assist','explain'],
-   1, 1500, 'active', 'gemini-3.5-flash-lite', 'gemini-3.5-flash-lite', 'gemini-3.5-flash-lite'),
+   1, 1500, 'active', 'gemini-2.5-flash', 'gemini-2.5-flash', 'gemini-2.5-flash'),
   ('groq', 'Groq (Palier gratuit)',
    array['transcribe','process_note','generate_flashcards','generate_test','grade_answer','tutor','assignment_assist','explain'],
-   2, 2000, 'active', 'qwen/qwen3.8-27b', null, 'whisper-large-v3'),
+   2, 2000, 'active', 'llama-3.3-70b-versatile', null, 'whisper-large-v3'),
   ('mistral', 'Mistral AI (Palier gratuit)',
    array['process_note','process_syllabus','generate_flashcards','generate_test','grade_answer','tutor','assignment_assist','explain'],
    3, 1000, 'active', 'mistral-small-latest', 'pixtral-12b-2409', null),

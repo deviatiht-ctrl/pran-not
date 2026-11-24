@@ -151,6 +151,8 @@ async function runGroqWhisper(params: {
   form.append('prompt', params.prompt.slice(0, 700));
   if (params.language === 'fr') {
     form.append('language', 'fr');
+  } else if (params.language === 'ht') {
+    form.append('language', 'ht');
   }
 
   const res = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
@@ -199,10 +201,11 @@ async function runGeminiAudio(params: {
 
   const systemInstruction = [
     'Tu es un transcripteur universitaire haïtien spécialisé dans la prise de notes en amphithéâtre.',
-    'Le professeur parle parfois vite, loin du microphone ou à volume modéré en Kreyòl ayisyen et Français.',
+    'Le professeur parle en Kreyòl ayisyen, en Français ou dans un mélange naturel des deux.',
     'PRIORITÉ ABSOLUE : ISOLE LA VOIX DU PROFESSEUR. Ignore les chuchotements, rires, froissements de papier et bavardages parasites des étudiants en arrière-plan. Si un étudiant pose une question audible au professeur, indique sobrement "[Kesyon] ..." puis transcris la réponse du professeur.',
     langGuide,
-    'RÈGLE STRICTE DE FIDÉLITÉ : transcris fidèlement ce qui est prononcé dans l’audio. N’invente jamais de contenu hors sujet et ne modifie pas la logique du cours.',
+    'RÈGLE STRICTE DE FIDÉLITÉ : transcris fidèlement ce qui est prononcé dans l’audio sans déformer les propos.',
+    'CONSERVATION DES NOMS PROPRES ET PERSONNES : Conserve scrupuleusement tous les noms propres (professeurs, auteurs, médecins, juristes, personnalités haïtiennes ou étrangères citées par le professeur). Ne les supprime JAMAIS sous prétexte d’incompréhension phonétique.',
     silenceRule,
     'Structure légèrement avec des retours à la ligne ou puces sobres si le professeur énumère des points, définitions ou formules.',
     'RÈGLE OBLIGATOIRE : ZÉRO emoji ou pictogramme dans la réponse.',
@@ -318,11 +321,12 @@ Deno.serve(async (req) => {
     const groqCfg = provRows?.find((p) => p.id === 'groq');
     const geminiCfg = provRows?.find((p) => p.id === 'gemini');
     const groqModelPrimary = groqCfg?.model_audio || 'whisper-large-v3';
-    const geminiModelPrimary = geminiCfg?.model_audio || 'gemini-3.5-flash-lite';
+    const rawGem = geminiCfg?.model_audio || '';
+    const geminiModelPrimary = (!rawGem || /3\.5|flash-lite/i.test(rawGem)) ? 'gemini-2.5-flash' : rawGem;
 
     const whisperPrompt = [
-      'Kou inivèsitè an Ayiti. Melanj natirèl Kreyòl ayisyen ak Fransè.',
-      'Konsantre sou vwa pwofesè a. Inyore chwichwi ak bri etidyan.',
+      'Kou inivèsitè an Ayiti. Kreyòl ayisyen ak Fransè.',
+      'Konsantre sou vwa pwofesè a ak tout non moun li site, fòmil ak nosyon.',
       courseName ? `Matyè : ${courseName}.` : '',
       faculty ? `Fakilte : ${faculty}.` : '',
       previousContext ? previousContext.slice(-220) : '',

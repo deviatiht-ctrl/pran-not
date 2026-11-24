@@ -17,6 +17,7 @@ import { mergeCourseSchedules, formatCourseScheduleBadge, getCourseLiveStatus } 
 
 const db = window.db;
 let course = null;
+let syllabus = null;
 let units = [];
 let notes = [];
 let keywords = [];
@@ -181,6 +182,29 @@ async function renderCourse() {
 
     <div class="grid grid-main-side">
       <div class="stack">
+        <!-- Plan ak Evalyasyon Silabis si disponib -->
+        ${syllabus?.analysis ? `
+          <section class="card mb-3" style="background:var(--c-surface-2);border:1px solid var(--c-border);">
+            <div class="row-between mb-2">
+              <span class="eyebrow mb-0"><i data-lucide="file-text"></i><span>Plan & Evalyasyon Silabis</span></span>
+              <a href="./syllabus.html?course=${esc(course.id)}" class="btn btn-xs btn-outline">Mete ajou</a>
+            </div>
+            ${syllabus.analysis.evaluation ? `<p class="text-sm mb-2"><strong>Evalyasyon :</strong> ${esc(syllabus.analysis.evaluation)}</p>` : ''}
+            ${Array.isArray(syllabus.analysis.objectives) && syllabus.analysis.objectives.length ? `
+              <div class="text-xs muted mb-1"><strong>Objektif jeneral :</strong></div>
+              <ul class="text-xs mb-2" style="padding-left:1.2rem;margin-bottom:8px;">
+                ${syllabus.analysis.objectives.slice(0, 3).map((o) => `<li>${esc(typeof o === 'string' ? o : o?.text || String(o))}</li>`).join('')}
+              </ul>
+            ` : ''}
+            ${Array.isArray(syllabus.analysis.recommended_books) && syllabus.analysis.recommended_books.length ? `
+              <div class="row-wrap" style="gap:6px;">
+                <span class="text-xs muted font-bold">Liv / Kòd :</span>
+                ${syllabus.analysis.recommended_books.map((b) => `<span class="badge badge-accent badge-xs">${esc(b)}</span>`).join('')}
+              </div>
+            ` : ''}
+          </section>
+        ` : ''}
+
         <!-- Unités d'apprentissage (syllabus) -->
         <section class="card">
           <div class="card-head">
@@ -291,6 +315,7 @@ async function renderCourse() {
   const cachedDetail = await cacheGet(`course_detail_${id}`);
   const applyDetail = async (d) => {
     course = d.course;
+    syllabus = d.syllabus || null;
     units = d.units || [];
     if (!units.length) {
       const cachedUnits = await cacheGet(`course_units_${id}`);
@@ -310,7 +335,7 @@ async function renderCourse() {
     await applyDetail(cachedDetail);
   } else {
     try {
-      const [cRes, uRes, nRes, kRes, dRes, fRes, aRes, asgRes] = await Promise.all([
+      const [cRes, uRes, nRes, kRes, dRes, fRes, aRes, asgRes, sylRes] = await Promise.all([
         db.from('pran_not_courses').select('*').eq('id', id).maybeSingle(),
         db.from('pran_not_syllabus_units').select('*').eq('course_id', id).order('position'),
         db.from('pran_not_notes').select('id, title, summary, content_text, updated_at, created_at').eq('course_id', id).order('updated_at', { ascending: false }),
@@ -319,6 +344,7 @@ async function renderCourse() {
         db.from('pran_not_flashcards').select('front, back, lapses, ease').eq('course_id', id).order('lapses', { ascending: false }).limit(8),
         db.from('pran_not_test_attempts').select('percent, created_at').eq('course_id', id).not('finished_at', 'is', null).order('created_at'),
         db.from('pran_not_assignments').select('id, title, status').eq('course_id', id),
+        db.from('pran_not_syllabi').select('*').eq('course_id', id).order('created_at', { ascending: false }).limit(1).maybeSingle(),
       ]);
       if (cRes.error || !cRes.data) throw new Error('not_found');
       let finalUnits = uRes.data || [];
@@ -328,6 +354,7 @@ async function renderCourse() {
       }
       const fresh = {
         course: cRes.data,
+        syllabus: sylRes?.data || null,
         units: finalUnits,
         notes: nRes.data || [],
         keywords: kRes.data || [],

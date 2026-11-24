@@ -23,24 +23,46 @@ Deno.serve(async (req) => {
     const level = body.level || auth.profile?.level || 'L1';
     const language = body.language || auth.profile?.language || 'ht';
 
-    const prompt = `Analyse ce syllabus universitaire (droit, médecine, économie, génie, sciences, etc.).
-Découpe-le en chapitres / unités d'apprentissage claires et exploitables par l'étudiant.
-Extrais également les livres ou codes recommandés (ex : Code civil, Constitution, manuels), les devoirs et pondérations d'examen.
+    const prompt = `MISSION : ANALYSE ET STRUCTURATION EXPERTE DE SYLLABUS UNIVERSITAIRE
+Tu es l'ingénieur pédagogique en chef de Pran Nòt, spécialisé dans les programmes universitaires en Haïti (Droit, Médecine, Sciences Économiques, Sciences Informatiques, Génie, Agronomie, Lettres, etc.).
+
+Le texte brut ou document ci-dessous est un plan de cours / syllabus universitaire.
+Ta tâche est de le structurer rigoureusement en un découpage chronologique clair, précis et hautement exploitable par l'étudiant pour ses révisions.
+
+RÈGLES STRICTES DE STRUCTURATION :
+1. DÉCOUPAGE CHRONOLOGIQUE ET COHÉRENT EN UNITÉS / CHAPITRES :
+   - Extrais tous les chapitres ou unités dans l'ordre pédagogique exact (ex: Chapitre 1, Chapitre 2, ...).
+   - Chaque unité doit comporter :
+     * "title" : Titre académique clair (ex: "Chapitre 1 : Les sources constitutionnelles du droit").
+     * "description" : Synthèse substantielle des thèmes abordés (3 à 5 lignes détaillant les notions clés).
+     * "objectives" : 2 à 4 compétences précises que l'étudiant doit maîtriser à la fin de cette unité.
+     * "keywords" : 4 à 8 termes techniques, concepts ou noms d'auteurs fondamentaux de cette unité.
+     * "planned_week" : Numéro de semaine estimé (1, 2, 3...).
+     * "weight" : Poids estimé en pourcentage pour l'examen (le total des unités doit avoisiner 100).
+
+2. LIVRES ET CODES DE RÉFÉRENCE :
+   - Isole tous les ouvrages, codes juridiques, manuels médicaux ou références cités dans le syllabus.
+
+3. ÉVALUATIONS & OBJECTIFS GLOBAUX :
+   - Résume avec exactitude les modalités d'évaluation (Intra, Devoirs/TP, Examen Final avec pourcentages).
+   - Dégage les grands objectifs d'apprentissage du cours.
+
+Langue demandée : ${language === 'fr' ? 'Français académique soigné' : 'Kreyòl ayisyen natirèl e klè (ak tèm teknik franse yo si nesesè)'}.
 
 Retourne STRICTEMENT ce JSON :
 {
   "course_title": "Titre exact du cours",
-  "professor": "Nom de l'enseignant si présent",
-  "objectives": ["Objectif général 1", "Objectif 2"],
-  "evaluation": "Résumé clair du poids des évaluations (ex : Intra 30 %, TP 20 %, Final 50 %)",
-  "recommended_books": ["Livre ou code juridique recommandé 1", "Livre 2"],
-  "study_order": ["Titre unité 1", "Titre unité 2"],
+  "professor": "Nom complet de l'enseignant ou professeur si présent",
+  "objectives": ["Objectif général 1", "Objectif général 2", "Objectif général 3"],
+  "evaluation": "Modalités d'évaluation (ex: Examen Intra 30%, TP/Devoirs 20%, Examen Final 50%)",
+  "recommended_books": ["Titre livre/code 1", "Titre livre 2"],
+  "study_order": ["Chapitre 1", "Chapitre 2", "Chapitre 3"],
   "units": [
     {
-      "title": "Titre du chapitre / de l'unité",
-      "description": "Résumé court du contenu",
-      "objectives": ["Objectif spécifique 1", "Objectif 2"],
-      "keywords": ["mot-clé 1", "mot-clé 2", "mot-clé 3"],
+      "title": "Titre du chapitre / unité",
+      "description": "Description détaillée des concepts et sous-thèmes abordés",
+      "objectives": ["Objectif spécifique 1", "Objectif spécifique 2"],
+      "keywords": ["terme 1", "terme 2", "terme 3", "terme 4"],
       "planned_week": 1,
       "weight": 15
     }

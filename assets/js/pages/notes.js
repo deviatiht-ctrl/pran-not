@@ -5,7 +5,7 @@
 import '../supabase.js';
 import { requireAuth } from '../auth.js';
 import { initAppChrome, setTutorContext } from '../navbar.js';
-import { t, formatRelative } from '../i18n.js';
+import { t, formatRelative, formatDate } from '../i18n.js';
 import {
   icons, icon, esc, emptyState, debounce, animateIn, pageEnter, handleError, confirmDialog, openModal, toast, setLoading, htmlToText,
 } from '../utils.js';
@@ -29,6 +29,15 @@ function renderList(append = false) {
   const cFilter = document.getElementById('notes-course-filter').value;
   const mFilter = document.getElementById('notes-mode-filter').value;
   const sFilter = document.getElementById('notes-status-filter')?.value || '';
+  const dFilter = document.getElementById('notes-date-filter')?.value || '';
+  const customDateVal = document.getElementById('notes-custom-date')?.value || '';
+
+  const now = new Date();
+  const todayStr = now.toISOString().slice(0, 10);
+  const yesterdayObj = new Date(Date.now() - 86400000);
+  const yesterdayStr = yesterdayObj.toISOString().slice(0, 10);
+  const sevenDaysAgo = Date.now() - 7 * 86400000;
+  const thirtyDaysAgo = Date.now() - 30 * 86400000;
 
   const filtered = allNotes.filter((n) => {
     if (cFilter && n.course_id !== cFilter) return false;
@@ -38,6 +47,16 @@ function renderList(append = false) {
       const isDraftLike = noteStatus === 'draft' || noteStatus === 'queued' || n.is_local_draft || n.is_local_pending;
       if (sFilter === 'ready' && isDraftLike) return false;
       if (sFilter === 'draft' && !isDraftLike) return false;
+    }
+    if (dFilter) {
+      const noteDate = new Date(n.created_at || n.updated_at || Date.now());
+      const noteDateStr = !isNaN(noteDate) ? noteDate.toISOString().slice(0, 10) : '';
+      const noteTime = !isNaN(noteDate) ? noteDate.getTime() : 0;
+      if (dFilter === 'today' && noteDateStr !== todayStr) return false;
+      if (dFilter === 'yesterday' && noteDateStr !== yesterdayStr) return false;
+      if (dFilter === 'last7' && noteTime < sevenDaysAgo) return false;
+      if (dFilter === 'last30' && noteTime < thirtyDaysAgo) return false;
+      if (dFilter === 'custom' && customDateVal && noteDateStr !== customDateVal) return false;
     }
     if (q) {
       const courseName = coursesMap.get(n.course_id)?.name || '';
@@ -110,7 +129,9 @@ function renderList(append = false) {
         </button>
         <div class="row" style="gap:6px;">
           ${n.is_local_draft ? `<a href="${esc(n.draft_target || './note-capture.html')}" class="badge badge-xs badge-outline" style="text-decoration:none;">Klike pou kontinye</a>` : ''}
-          <span>${esc(formatRelative(n.updated_at || n.created_at))}</span>
+          <span class="text-xs" title="${esc(new Date(n.created_at || n.updated_at).toLocaleString())}">
+            <strong style="color:var(--c-text);">${esc(formatDate(n.created_at || n.updated_at))}</strong> · ${esc(formatRelative(n.updated_at || n.created_at))}
+          </span>
         </div>
       </div>
     </article>`;
@@ -603,6 +624,22 @@ async function fetchNotes(reset = true) {
   document.getElementById('notes-course-filter').addEventListener('change', () => renderList());
   document.getElementById('notes-mode-filter').addEventListener('change', () => renderList());
   document.getElementById('notes-status-filter')?.addEventListener('change', () => renderList());
+
+  const dateFilter = document.getElementById('notes-date-filter');
+  const customDateInput = document.getElementById('notes-custom-date');
+  dateFilter?.addEventListener('change', () => {
+    if (dateFilter.value === 'custom') {
+      if (customDateInput) customDateInput.style.display = 'inline-block';
+    } else {
+      if (customDateInput) {
+        customDateInput.style.display = 'none';
+        customDateInput.value = '';
+      }
+    }
+    renderList();
+  });
+  customDateInput?.addEventListener('change', () => renderList());
+
   document.getElementById('load-more-btn').addEventListener('click', () => {
     page++;
     fetchNotes(false);

@@ -40,28 +40,32 @@ Deno.serve(async (req) => {
 
     const prompt = `${langDirective}
 
-MISSION CRUCIALE D'EXTRACTION & DE PURIFICATION PÉDAGOGIQUE :
-Tu es l'analyste académique d'élite de Pran Nòt. Le texte brut ci-dessous est issu d'une prise de notes ou d'une transcription audio en direct de la classe d'un professeur d'université.
-Ce texte brut contient des bruits parasites, des interruptions, des phrases inachevées, des digressions inutiles, ou des hallucinations de transcription vocale.
+MISSION CRUCIALE : NETTOYAGE ET STRUCTURATION ACADÉMIQUE DE HAUTE FIDÉLITÉ
+Tu es l'analyste académique d'élite de Pran Nòt. Le texte brut ci-dessous est issu d'une prise de notes ou d'une transcription audio en amphithéâtre d'un professeur d'université en Haïti.
 
-TES OBLIGATIONS STRICTES DE STRUCTURATION :
-1. PURIFICATION RADICALE DU BRUIT & SÉPARATION INTELLIGENTE :
-   - Écarte TOTALEMENT les bruits parasites, les bavardages, les phrases sans queue ni tête et les hésitations.
-   - Si le professeur a parlé en kreyòl avec des expressions de tous les jours ou approximatives, ne les retranscris JAMAIS de manière brute ou informe ! Transforme-les en explications limpides, structurées et pédagogiques.
-2. SYNTHÈSE PUISSANTE & POINT PAR POINT ("content_html") :
-   - Ne produis JAMAIS un gros bloc de texte indigeste ou un simple paragraphe au kilomètre.
-   - Structure le contenu avec des sections titrées claires :
-     * <h2>Introduction & Notions Clés</h2>
-     * <h2>Développements & Explications Approfondies</h2> avec des sous-titres <h3>
-     * <h2>Points Essentiels à Retenir pour les Examens</h2> sous forme de listes à puces <ul><li><strong>Concept</strong> : explication...</li></ul>
-     * <h2>Exemples & Cas Concrets du Professeur</h2> (mets en valeur les exemples donnés en classe avec des <blockquote> ou <em>)
-3. POINTS CLÉS POUR EXAMEN ("takeaways") :
-   - Liste au moins 3 à 6 points cruciaux indispensables à retenir pour réussir l'examen sur ce cours.
-4. RÉSUMÉ EXÉCUTIF ("summary") :
-   - Rédige un résumé percutant, clair et complet en 4 à 6 phrases synthétisant exactement la thèse et les leçons principales de la séance.
-5. DEVOIRS & MOTS-CLÉS :
-   - Remplis rigoureusement "homework" si un travail a été annoncé.
-   - Isole les termes techniques exacts dans "keywords".
+RÈGLES STRICTES DE FIDÉLITÉ ET D'EXHAUSTIVITÉ :
+1. CONSERVATION INTÉGRALE DES NOMS PROPRES ET PERSONNES CITÉES (RÈGLE ABSOLUE) :
+   - Conserve et restitue rigoureusement TOUS les noms propres de personnes citées par le professeur (auteurs, professeurs, juristes, médecins, scientifiques, philosophes, personnalités historiques ou contemporaines haïtiennes et internationales).
+   - Ne supprime JAMAIS le nom d'une personne sous prétexte que tu n'es pas sûr ou qu'il était légèrement mal transcrit : restitue son nom avec son orthographe académique exacte et intègre-le avec son apport au cours.
+   - Conserve tous les articles de lois, numéros de décrets, formules scientifiques/médicales, dates et concepts techniques.
+
+2. TRAITEMENT NATUREL ET RESPECTUEUX DU CRÉOLE AYISYEN & DU FRANÇAIS :
+   - Comprends parfaitement le créole ayisyen, les expressions universitaires et le code-switching naturel en Haïti.
+   - Ne considère JAMAIS une explication en créole comme un déchet ou du bruit à éliminer ! Restitue la totalité des concepts expliqués avec clarté, élégance et précision académique.
+
+3. EXHAUSTIVITÉ DU COURS ("content_html") :
+   - Ne réduis PAS le cours à un squelette ou un court résumé minimaliste. L'étudiant doit pouvoir réviser l'intégralité du cours pour ses examens.
+   - Structure le contenu avec un HTML riche et aéré :
+     * <h2>1. Introduction & Contexte du Cours</h2>
+     * <h2>2. Développements Principaux & Notions Clés</h2> avec des sous-sections <h3>
+     * <h2>3. Auteurs, Textes & Références Cités par le Professeur</h2> (cite nommément chaque auteur et sa doctrine)
+     * <h2>4. Exemples Pratiques & Cas Concrets</h2> (mets en valeur les anecdotes ou cas cités)
+     * <h2>5. Points Essentiels à Maîtriser pour l'Examen</h2> avec des puces <ul><li><strong>Concept</strong> : explication</li></ul>
+
+4. SYNTHÈSE & POINTS D'EXAMEN :
+   - "summary" : résumé complet en 4 à 6 phrases fidèles au cours.
+   - "takeaways" : au moins 4 à 6 points cruciaux indispensables pour l'examen.
+   - "keywords" : liste exhaustive des termes techniques et noms d'auteurs clés.
 
 Cours existants de l'étudiant : ${JSON.stringify(courses.map((c: { id: string; name: string }) => ({ id: c.id, name: c.name })))}
 
