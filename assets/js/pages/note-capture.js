@@ -9,7 +9,8 @@
 import '../supabase.js';
 import { requireAuth, recordActivity, awardXp, appUrl } from '../auth.js';
 import { initAppChrome, setTutorContext } from '../navbar.js';
-import { t } from '../i18n.js';
+import { t, getLang } from '../i18n.js';
+const currentLang = () => (typeof getLang === 'function' ? getLang() : (localStorage.getItem('prannot.lang') || 'ht'));
 import {
   icons, icon, esc, toast, handleError, setLoading, getParam, uid,
   compressImage, blobToBase64, checkFileSize, extractPdfText, renderPdfPageToBlob,
