@@ -12,7 +12,7 @@ import {
   toast, handleError, setLoading, getParam, isUuid, pageEnter, promptDialog,
   htmlToText, uid,
 } from '../utils.js';
-import { generateFlashcards, generateTest, explainText, processNote, askTutor } from '../ai.js';
+import { generateFlashcards, generateTest, explainText, processNote, askTutor, correctRawTextSense, generateProfessorQuestions } from '../ai.js';
 import { exportNotePdf, exportNoteDocx, exportNoteMarkdown } from '../export.js';
 import {
   cacheSet, cacheGet, cacheEntriesByPrefix, isDataSaver, enqueue,
@@ -41,6 +41,31 @@ async function renderNote() {
   const homework = Array.isArray(st.homework) ? st.homework : [];
   const researchTopics = Array.isArray(st.research_topics) ? st.research_topics : [];
   const verbatimRaw = st.verbatim_raw || '';
+  const profQuestions = Array.isArray(st.questions_for_professor) ? st.questions_for_professor : (Array.isArray(note.questions_for_professor) ? note.questions_for_professor : []);
+
+  const getFullNoteContent = () => {
+    const parts = [];
+    if (note.title) parts.push(`Tit: ${note.title}`);
+    if (note.summary) parts.push(`Rezime: ${note.summary}`);
+    if (note.content_text) {
+      parts.push(note.content_text);
+    } else if (note.content_html) {
+      parts.push(htmlToText(note.content_html));
+    }
+    if (note.raw_text && note.raw_text !== note.content_text) {
+      parts.push(`Tèks brit:\n${note.raw_text}`);
+    }
+    return parts.join('\n\n').trim();
+  };
+
+  // Bay kontèks nòt la an tan reyèl bay tuteur IA nan ba navigasyon an
+  window.__getLiveNoteContext = () => ({
+    text: getFullNoteContent(),
+    title: note?.title || t('notes.untitled'),
+    contextType: 'note',
+    contextId: note?.id,
+    courseId: note?.course_id || null,
+  });
 
   root.innerHTML = `
     <div class="page-head">
@@ -108,11 +133,15 @@ async function renderNote() {
     <div class="row-wrap mb-4">
       <button type="button" class="btn btn-primary" id="btn-gen-cards">${icon('layers')}<span>${esc(t('notes.btn_flashcards'))}</span></button>
       <button type="button" class="btn btn-dark" id="btn-gen-quiz">${icon('check-circle-2')}<span>${esc(t('notes.btn_quiz'))}</span></button>
+      <button type="button" class="btn btn-secondary" id="btn-prof-questions" title="Jenere kesyon pètinan pou poze pwofesè a">
+        ${icon('help-circle')}<span>Kesyon pou Pwofesè a</span>
+      </button>
       <button type="button" class="btn btn-secondary" id="btn-points-summary" title="${esc(t('notes.bullet_summary_title'))}">
         ${icon('list-checks')}<span>${esc(t('notes.btn_points_summary'))}</span>
       </button>
       <button type="button" class="btn btn-secondary" id="btn-simpler">${icon('sparkles')}<span>${esc(t('notes.btn_simpler'))}</span></button>
       <button type="button" class="btn btn-secondary" id="btn-ask-tutor">${icon('message-square')}<span>${esc(t('notes.btn_tutor'))}</span></button>
+      ${note.raw_text ? `<button type="button" class="btn btn-secondary" id="btn-fix-raw-sense">${icon('wand-2')}<span>Kore sans tèks la</span></button>` : ''}
       ${!note.structured && note.raw_text ? `<button type="button" class="btn btn-secondary" id="btn-ai-clean">${icon('wand-2')}<span>${esc(t('capture.structure_ai'))}</span></button>` : ''}
     </div>
 
@@ -257,6 +286,29 @@ async function renderNote() {
             <ul class="mt-2 mb-0" style="padding-left:1.3em;">
               ${implied.map((item) => `<li>${esc(item)}</li>`).join('')}
             </ul>
+          </section>` : ''}
+
+        ${profQuestions.length ? `
+          <section class="card mb-4" style="border-left:4px solid var(--c-primary);background:var(--c-surface);">
+            <div class="row-between mb-3">
+              <h2 class="card-title mb-0" style="font-size:1.05rem;">${icon('help-circle')} <span style="margin-left:6px;">Kesyon pou poze Pwofesè a</span></h2>
+              <span class="badge badge-primary font-bold">${profQuestions.length} kesyon</span>
+            </div>
+            <div class="stack" style="gap:10px;">
+              ${profQuestions.map((pq, idx) => `
+                <div class="card p-3" style="background:var(--c-bg);border:1px solid var(--c-border);">
+                  <div class="row-between mb-1">
+                    <span class="text-xs font-bold text-accent">#${idx + 1}</span>
+                    <button type="button" class="btn btn-xs btn-ghost" data-copy-prof-q="${esc(pq.question)}">
+                      ${icon('copy')}<span>Kopye</span>
+                    </button>
+                  </div>
+                  <p class="font-bold mb-1" style="font-size:0.95rem;color:var(--c-text);">${esc(pq.question)}</p>
+                  ${pq.purpose ? `<p class="text-xs muted mb-1"><strong>Objektif :</strong> ${esc(pq.purpose)}</p>` : ''}
+                  ${pq.hint ? `<p class="text-xs text-accent mb-0"><strong>Sa pou w koute :</strong> ${esc(pq.hint)}</p>` : ''}
+                </div>
+              `).join('')}
+            </div>
           </section>` : ''}
 
         ${sources.length ? `
@@ -740,6 +792,109 @@ function bindActions() {
       location.href = appUrl(`pages/test-session.html?id=${testRow.id}`);
     } catch (err) {
       handleError(err);
+      setLoading(btn, false);
+    }
+  });
+
+  root.querySelectorAll('[data-copy-prof-q]').forEach((b) => {
+    b.addEventListener('click', () => {
+      navigator.clipboard?.writeText(b.dataset.copyProfQ || '');
+      toast('Kesyon kopye !', 'success');
+    });
+  });
+
+  document.getElementById('btn-prof-questions')?.addEventListener('click', async (e) => {
+    const btn = e.currentTarget;
+    setLoading(btn, true);
+    try {
+      const fullText = getFullNoteContent();
+      const res = await generateProfessorQuestions({
+        content: fullText,
+        title: note.title,
+        faculty: profileRef?.faculty_id,
+        level: profileRef?.level,
+        language: getLang(),
+      });
+      if (!res.ok || !res.questions?.length) {
+        throw new Error('Echèk jenerasyon kesyon pou pwofesè a');
+      }
+
+      if (!note.structured) note.structured = {};
+      note.structured.questions_for_professor = res.questions;
+      if (navigator.onLine && isUuid(note.id)) {
+        await db.from('pran_not_notes').update({
+          structured: note.structured,
+          updated_at: new Date().toISOString(),
+        }).eq('id', note.id);
+      }
+      await cacheSet(`note_${note.id}`, note);
+
+      renderProfQuestionsModal(res.questions, note.title, async (qText) => {
+        const insertionHtml = `<div class="card card-sm card-muted mt-3 mb-3" style="border-left:4px solid var(--c-primary,#F97316);background:var(--c-surface-2);">
+          <h4 class="text-xs font-bold text-uppercase muted mb-1">Kesyon pou Pwofesè a</h4>
+          <p class="text-sm font-bold mb-0">${esc(qText)}</p>
+        </div>`;
+        note.content_html = (note.content_html || '') + insertionHtml;
+        note.content_text = (note.content_text || '') + `\n\n### Kesyon pou Pwofesè a :\n- ${qText}\n`;
+        if (navigator.onLine && isUuid(note.id)) {
+          await db.from('pran_not_notes').update({
+            content_html: note.content_html,
+            content_text: note.content_text,
+            updated_at: new Date().toISOString(),
+          }).eq('id', note.id);
+        }
+        await cacheSet(`note_${note.id}`, note);
+        toast('Kesyon ajoute nan nòt la !', 'success');
+        renderNote();
+      });
+      renderNote();
+    } catch (err) {
+      handleError(err);
+    } finally {
+      setLoading(btn, false);
+    }
+  });
+
+  document.getElementById('btn-fix-raw-sense')?.addEventListener('click', async (e) => {
+    const btn = e.currentTarget;
+    const textToFix = (note.raw_text || getFullNoteContent()).trim();
+    if (!textToFix) {
+      toast('Pa gen tèks brit nan nòt sa a.', 'info');
+      return;
+    }
+    setLoading(btn, true);
+    try {
+      const res = await correctRawTextSense({
+        rawText: textToFix,
+        language: getLang(),
+        faculty: profileRef?.faculty_id,
+        level: profileRef?.level,
+      });
+      if (!res.ok || !res.correctedText) {
+        throw new Error('Echèk koreksyon sans la');
+      }
+
+      const m = openModal({
+        title: 'Koreksyon & Clarifikasyon Sans Tèks la',
+        body: `
+          <div class="stack py-2">
+            <p class="text-sm muted mb-3">Men tèks nòt la rann klè, lojik ak fraz byen estriktire pandan tout non ak konsèp yo konsève :</p>
+            <div class="card p-3" style="max-height:280px;overflow-y:auto;background:var(--c-surface);font-size:0.95rem;line-height:1.6;white-space:pre-wrap;">${esc(res.correctedText)}</div>
+          </div>
+        `,
+        footer: `
+          <button type="button" class="btn btn-secondary" data-close>${esc(t('common.close'))}</button>
+          <button type="button" class="btn btn-primary" id="btn-copy-corrected-raw">${icon('copy')}<span>Kopye tèks korije a</span></button>
+        `,
+      });
+
+      m.el.querySelector('#btn-copy-corrected-raw')?.addEventListener('click', () => {
+        navigator.clipboard?.writeText(res.correctedText);
+        toast('Tèks korije a kopye !', 'success');
+      });
+    } catch (err) {
+      handleError(err);
+    } finally {
       setLoading(btn, false);
     }
   });
@@ -1399,7 +1554,7 @@ function bindActions() {
           courseId: note.course_id || null,
           contextType: 'note',
           contextId: note.id,
-          contextText: `Nòt : ${note.title || ''}\n${note.summary || ''}\n${(note.content_text || '').slice(0, 2000)}`,
+          contextText: getFullNoteContent(),
         });
 
         const reply = res?.reply || '';
@@ -1495,6 +1650,66 @@ function bindActions() {
       }
     });
   }
+}
+
+function renderProfQuestionsModal(questions = [], title = '', onInsertCallback) {
+  const m = openModal({
+    title: `Kesyon pou poze pwofesè a - ${title || ''}`,
+    body: `
+      <div class="stack py-2">
+        <p class="text-sm muted mb-3">Men kesyon akademik ki pi pètinan e estratejik ou ka poze pwofesè a nan klas oswa nan fen kou a pou klarifye pwen ki difisil yo epi prepare egzamen an :</p>
+        <div class="stack" style="gap:12px;">
+          ${questions.map((q, idx) => `
+            <div class="card p-3" style="background:var(--c-surface);border:1px solid var(--c-border);border-left:4px solid var(--c-primary);">
+              <div class="row-between mb-2">
+                <span class="badge badge-primary font-bold">Kesyon #${idx + 1}</span>
+                <button type="button" class="btn btn-xs btn-ghost" data-copy-q="${esc(q.question)}">
+                  ${icon('copy')}<span>Kopye</span>
+                </button>
+              </div>
+              <h3 class="text-base font-bold mb-2" style="color:var(--c-text);">${esc(q.question)}</h3>
+              ${q.purpose ? `<p class="text-xs muted mb-1"><strong>Objektif :</strong> ${esc(q.purpose)}</p>` : ''}
+              ${q.hint ? `<p class="text-xs text-accent mb-0"><strong>Sa pou w koute :</strong> ${esc(q.hint)}</p>` : ''}
+              <div class="row-wrap mt-2" style="gap:6px;">
+                ${onInsertCallback ? `
+                  <button type="button" class="btn btn-xs btn-outline" data-insert-q="${esc(q.question)}">
+                    ${icon('plus')}<span>Mete nan nòt la</span>
+                  </button>
+                ` : ''}
+                <button type="button" class="btn btn-xs btn-secondary" data-ask-tutor-q="${esc(q.question)}">
+                  ${icon('message-square')}<span>Mande Tuteur IA</span>
+                </button>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `,
+    footer: `<button type="button" class="btn btn-primary" data-close>${esc(t('common.close') || 'Fèmen')}</button>`,
+  });
+
+  m.el.querySelectorAll('[data-copy-q]').forEach((b) => {
+    b.addEventListener('click', () => {
+      navigator.clipboard?.writeText(b.dataset.copyQ || '');
+      toast('Kesyon kopye !', 'success');
+    });
+  });
+
+  if (onInsertCallback) {
+    m.el.querySelectorAll('[data-insert-q]').forEach((b) => {
+      b.addEventListener('click', () => {
+        onInsertCallback(b.dataset.insertQ);
+        m.close();
+      });
+    });
+  }
+
+  m.el.querySelectorAll('[data-ask-tutor-q]').forEach((b) => {
+    b.addEventListener('click', () => {
+      m.close();
+      toggleTutorDrawer(true, `Eksplike m an detay repons pwofesè a gen chans bay sou kesyon sa a : "${b.dataset.askTutorQ}"`);
+    });
+  });
 }
 
 function formatDraftToNote(id, d, target) {

@@ -231,7 +231,9 @@ export async function transcribeAudio({
 
 /** Structuration complète d'une note brute + suggestion de cours. */
 export async function processNote({ rawText, language, faculty, level, courses = [], noteId, mode = 'standard' } = {}) {
-  const chosenLang = language || getLang();
+  // En université en Haïti, les notes structurées de révision sont obligatoirement rédigées en Français académique par défaut,
+  // sauf si l'étudiant a expressément sélectionné le créole ('ht'). Les explications créoles sont accessibles via le bouton d'explication.
+  const chosenLang = language === 'ht' ? 'ht' : 'fr';
   try {
     const res = await callEdge('process-note', {
       rawText,
@@ -251,41 +253,50 @@ export async function processNote({ rawText, language, faculty, level, courses =
 
   // Repli robuste vers l'IA tuteur en direct pour structuration pédagogique approfondie
   try {
-    const langLabel = chosenLang === 'fr' ? 'Français académique soigné' : 'Kreyòl Ayisyen klè, akademik e natirèl';
-    const courseListHint = courses.length ? `Kou ki egziste deja : ${JSON.stringify(courses.map(c => ({ id: c.id, name: c.name })))}` : '';
+    const isHt = chosenLang === 'ht';
+    const langLabel = isHt ? 'Kreyòl Ayisyen' : 'Français académique universitaire soigné et rigoureux';
+    const courseListHint = courses.length ? `Cours existants : ${JSON.stringify(courses.map(c => ({ id: c.id, name: c.name })))}` : '';
 
-    const fallbackPrompt = `Tu es l'analyste académique d'élite de Pran Nòt pou etidyan inivèsitè an Ayiti.
-MISYON CRUCIALE :
-Analize tèks brit sa a ki soti nan yon kou an dirèk oswa yon dikte vokal. Tèks la ka gen bri, mo ki manke, fraz kreyòl oswa franse ki pa fin lojik oswa ki koupe.
-Ou dwe :
-1. Analize CHAK mo ak CHAK lide nan tèks la san w pa koupe l kout. Pa fè yon rezime twò kout !
-2. Si gen fraz ki pa lojik, refè lojik la pou l vin klè, inivèsitè, e byen eksplike.
-3. Rekonstwi yon kou konplè, rich, byen devlope avèk seksyon tit klè.
+    const fallbackPrompt = `Tu es l'analyste académique d'élite de Pran Nòt pour les étudiants universitaires en Haïti.
+MISSION CRUCIALE :
+Analyse et structure ce cours fidèlement.
+RÈGLE FONDAMENTALE DE LANGUE : Rédige TOUTES les sections (titre, résumé, contenu_html, takeaways, homework, questions_for_professor) STRICTEMENT en ${langLabel}.
+Même si le texte brut contient du créole, du code-switching ou des tournures orales, restitue la totalité du savoir, des concepts et des explications du professeur avec la plus grande élégance et rigueur académique en ${langLabel}.
+Conserve absolument TOUS les noms propres d'auteurs, juristes, médecins, scientifiques cités par le professeur, les articles de lois, les formules et les dates.
 
-LANGUE EXIGÉE : ${langLabel}.
+Génère également 3 à 4 questions pertinentes et stimulantes ("questions_for_professor") que l'étudiant peut poser au professeur pour approfondir le cours.
+
 ${courseListHint}
 
-ESTRIKTI OBLIGATWA POU "content_html" :
-- <h2>1. Entwodiksyon & Konsèp Kle</h2> (mete kontèks la ak gwo definisyon yo)
-- <h2>2. Devlopman & Eksplikasyon Detaye</h2> (itilize <h3> pou chak gwo lide, <p> byen ekri, definisyon konplè)
-- <h2>3. Pwen Esansyèl pou Egzamen</h2> (anba fòm lis <ul><li><strong>Mo/Pwen</strong> : Eksplikasyon detaye...</li></ul>)
-- <h2>4. Egzanp Konkrè Pwofesè a</h2> (itilize <blockquote> pou ilistrasyon oswa ka pratik)
+STRUCTURE OBLIGATOIRE POUR "content_html" :
+- <h2>1. Introduction & Contexte du Cours</h2> (pose le cadre et les définitions majeures)
+- <h2>2. Développements Principaux & Notions Clés</h2> (utilise <h3> pour chaque grand axe, paragraphes clairs, définitions complètes)
+- <h2>3. Auteurs, Doctrines & Textes de Référence</h2> (cite nommément chaque auteur et sa contribution)
+- <h2>4. Points Essentiels pour l'Examen</h2> (liste à puces <ul><li><strong>Notion</strong> : Explication précise...</li></ul>)
+- <h2>5. Exemples Pratiques & Cas Concrets</h2> (utilise <blockquote> pour les illustrations ou cas pratiques cités par l'enseignant)
 
-Retounen STRICTEMENT yon sèl objè JSON valide san okenn lòt tèks oswa kòd deyò a :
+Retourne STRICTEMENT un seul objet JSON valide sans texte additionnel :
 {
-  "title": "Tit presi ak akademik pou kou a",
-  "summary": "Rezime konplè ak pècutan an 4 a 6 fraz sou tout sa k te di nan kou a",
-  "content_html": "HTML rich ak pwòp ki gen <h2>, <h3>, <p>, <ul>, <li>, <strong>, <blockquote>",
-  "content_text": "Tout tèks kou a devlope san baliz HTML",
-  "takeaways": ["Pwen kle 1 pou egzamen", "Pwen kle 2", "Pwen kle 3", "Pwen kle 4"],
-  "keywords": ["Tèm 1", "Tèm 2", "Tèm 3", "Tèm 4"],
+  "title": "Titre académique précis du cours",
+  "summary": "Résumé complet et percutant en 4 à 6 phrases",
+  "content_html": "HTML riche et propre contenant <h2>, <h3>, <p>, <ul>, <li>, <strong>, <blockquote>",
+  "content_text": "Texte intégral rédigé sans balises HTML",
+  "takeaways": ["Point clé d'examen 1", "Point clé 2", "Point clé 3", "Point clé 4"],
+  "keywords": ["Terme 1", "Terme 2", "Terme 3", "Terme 4"],
   "homework": [
-    { "title": "Travay oswa devwa", "description": "Detay sou devwa a si pwofesè a te bay li" }
+    { "title": "Travail ou devoir", "description": "Consignes données" }
+  ],
+  "questions_for_professor": [
+    {
+      "question": "Question académique précise à poser au professeur",
+      "purpose": "Pourquoi cette question éclaire un point subtil",
+      "hint": "Ce qu'il faut écouter dans la réponse"
+    }
   ],
   "suggested_course_id": null
 }
 
-Tèks brit kou a :
+Texte brut du cours :
 ${String(rawText || '').slice(0, 24000)}`;
 
     const tutorRes = await askTutor({
@@ -315,14 +326,147 @@ ${String(rawText || '').slice(0, 24000)}`;
   const paragraphs = safeText.split(/\n\s*\n/).filter(Boolean).map((p) => `<p>${p.trim()}</p>`).join('');
   return {
     ok: true,
-    title: safeText.slice(0, 50) || 'Nòt Kou',
+    title: safeText.slice(0, 50) || 'Notes de Cours',
     summary: safeText.slice(0, 240),
-    content_html: `<h2>Nòt Kou</h2>${paragraphs || `<p>${safeText}</p>`}`,
+    content_html: `<h2>Notes de Cours</h2>${paragraphs || `<p>${safeText}</p>`}`,
     content_text: safeText,
     takeaways: [],
     keywords: [],
     homework: [],
+    questions_for_professor: [],
     suggested_course_id: null,
+  };
+}
+
+/**
+ * Analyse le texte brut d'une prise de notes / transcription et corrige automatiquement
+ * la cohérence, la syntaxe, le sens des phrases coupées ou mal comprises par l'audio.
+ */
+export async function correctRawTextSense({ rawText, language = 'fr', faculty, level } = {}) {
+  const safeText = String(rawText || '').trim();
+  if (!safeText) return { ok: false, message: 'Texte vide' };
+
+  try {
+    const isHt = language === 'ht';
+    const prompt = `Tu es le correcteur et clarificateur académique en temps réel de Pran Nòt en Haïti.
+Un étudiant est en train de prendre des notes ou d'enregistrer son cours en amphithéâtre.
+Le texte brut ci-dessous provient de frappes rapides ou d'une transcription audio (créole haïtien et/ou français). Il peut comporter des mots coupés, des contresens phonétiques, des phrases incomplètes ou des transitions manquantes.
+
+TA MISSION :
+1. Analyse minutieusement le texte brut ci-dessous.
+2. Rétablis la fluidité, la cohérence et le sens logique de chaque phrase.
+3. Corrige les fautes de frappe et les transcriptions phonétiques erronées (restitue les termes techniques exacts en droit, médecine, sciences, économie ou ingénierie).
+4. Préserve scrupuleusement 100% des faits, noms de personnes, dates, lois et concepts mentionnés par le professeur.
+5. Reste au plus près des paroles originales sans faire de résumé abstrait : c'est le texte brut de l'étudiant clarifié, rendu parfaitement fluide, lisible et logique.
+6. Rédige le résultat en ${isHt ? 'Kreyòl Ayisyen klè' : 'Français soigné et clair'}.
+
+Texte brut :
+${safeText.slice(0, 16000)}`;
+
+    const res = await askTutor({
+      message: prompt,
+      mode: 'simple',
+      scope: 'global',
+      contextType: 'general',
+      faculty,
+      level,
+      language: isHt ? 'ht' : 'fr',
+    });
+
+    const corrected = (res?.reply || '').trim();
+    if (corrected) {
+      return { ok: true, correctedText: corrected, provider: res?.provider || 'ai' };
+    }
+  } catch (err) {
+    console.warn('[ai] correctRawTextSense failed:', err);
+  }
+
+  // Repli local en cas d'absence de réseau
+  return {
+    ok: true,
+    correctedText: safeText
+      .replace(/\s{2,}/g, ' ')
+      .replace(/([.!?])\s*([a-zàéèêëîïôöùûüç])/g, (_, p, c) => `${p} ${c.toUpperCase()}`),
+    provider: 'local',
+  };
+}
+
+/**
+ * Génère des questions intelligentes, ciblées et respectueuses à poser au professeur
+ * basées sur le cours et les potentielles zones d'ombre ou approfondissements d'examen.
+ */
+export async function generateProfessorQuestions({ content, title, faculty, level, language = 'fr' } = {}) {
+  const safeTitle = String(title || 'Kou a').trim();
+  const safeContent = String(content || '').trim() || safeTitle;
+  const isHt = language === 'ht';
+
+  try {
+    const prompt = `Tu es le conseiller méthodologique universitaire de Pran Nòt en Haïti.
+À partir du cours ci-dessous (titre : "${safeTitle.replace(/"/g, "'")}"), identifie 3 à 5 questions particulièrement intelligentes, pertinentes et respectueuses qu'un étudiant peut poser à son professeur à la fin du cours ou pendant la séance.
+
+Chaque question doit :
+1. Éclaircir une ambiguïté réelle ou un cas limite (piège d'examen).
+2. Illustrer une application concrète (ex: contexte juridique, médical, économique ou technique en Haïti).
+3. Montrer que l'étudiant a bien suivi et pousse la réflexion plus loin.
+
+Retourne STRICTEMENT et UNIQUEMENT ce JSON valide :
+{
+  "questions": [
+    {
+      "question": "Énoncé exact de la question prêt à être lu au professeur",
+      "purpose": "Pourquoi poser cette question (ce que cela clarifie pour l'examen)",
+      "hint": "Ce qu'il faut écouter attentivement dans la réponse du professeur"
+    }
+  ]
+}
+
+Cours :
+${safeContent.slice(0, 15000)}`;
+
+    const res = await askTutor({
+      message: prompt,
+      mode: 'simple',
+      scope: 'global',
+      faculty,
+      level,
+      language: isHt ? 'ht' : 'fr',
+    });
+
+    const parsed = cleanAndParseJsonClient(res?.reply || res?.text || '');
+    if (Array.isArray(parsed?.questions) && parsed.questions.length > 0) {
+      return { ok: true, questions: parsed.questions, provider: res?.provider || 'ai' };
+    }
+  } catch (err) {
+    console.warn('[ai] generateProfessorQuestions failed:', err);
+  }
+
+  // Repli local intelligent
+  return {
+    ok: true,
+    questions: [
+      {
+        question: isHt
+          ? `Pwofesè, ki pi gwo pyèj oswa konfizyon etidyan yo konn fè nan egzamen sou konsèp "${safeTitle}" la ?`
+          : `Professeur, quel est le piège ou l'erreur la plus fréquente commise par les étudiants à l'examen sur le thème "${safeTitle}" ?`,
+        purpose: isHt ? 'Pèmèt ou konnen egzakteman sou kisa pwofesè a pral egzije plis rigè.' : 'Permet d\'anticiper les critères d\'évaluation stricts de l\'enseignant.',
+        hint: isHt ? 'Koute atantivman nuans ak eksepsyon li site yo.' : 'Écouter les nuances, exceptions et subtilités méthodologiques.',
+      },
+      {
+        question: isHt
+          ? `Èske nou ka aplike prensip sa a dirèkteman nan reyalite ak kontèks peyi Dayiti jodi a ?`
+          : `Comment ce principe s'articule-t-il concrètement avec la réalité et la pratique en Haïti aujourd'hui ?`,
+        purpose: isHt ? 'Montre ou konprann enpak pratik kou a sou teren an.' : 'Démontre une capacité d\'analyse critique et contextualisée.',
+        hint: isHt ? 'Gade si gen lwa, dekrè oswa egzanp lokal li site.' : 'Noter les références juridiques, médicales ou institutionnelles locales.',
+      },
+      {
+        question: isHt
+          ? `Si yon ka pratik prezante yon eksepsyon sou pwen sa a, ki metòd nou dwe itilize pou rezoud li ?`
+          : `En cas de situation contradictoire ou de cas limite sur cette notion, quelle démarche d'analyse préconisez-vous ?`,
+        purpose: isHt ? 'Mete aksan sou metodoloji rezolisyon ka pratik pou egzamen.' : 'Clarifier la méthodologie de résolution attendue lors des épreuves.',
+        hint: isHt ? 'Koute lòd etap ak agiman pwofesè a bay yo.' : 'Mémoriser l\'ordre des étapes d\'argumentation recommandées.',
+      },
+    ],
+    provider: 'local-resilient',
   };
 }
 

@@ -285,6 +285,10 @@ async function callGemini(
       if (req.expectJson) {
         generationConfig.responseMimeType = 'application/json';
       }
+      // Pour les tâches interactives rapides (tuteur, clarifikasyon, repons dirèk), désactiver le temps de pensée étendu pour répondre à la seconde
+      if (req.task === 'tutor' || req.task === 'clarify' || req.task === 'quick_ai' || req.task === 'grade_answer') {
+        generationConfig.thinkingConfig = { thinkingBudget: 0 };
+      }
 
       const res = await fetch(url, {
         method: 'POST',

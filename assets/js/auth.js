@@ -29,6 +29,28 @@ export function go(path) {
 }
 
 export async function getSession() {
+  // Repli hors-ligne ultra rapid (< 1 ms) san tann rezo Supabase
+  if (!navigator.onLine) {
+    try {
+      const rawUser = localStorage.getItem('prannot.last_user');
+      if (rawUser) {
+        return {
+          user: JSON.parse(rawUser),
+          access_token: 'offline_token',
+          is_offline_guest: false,
+        };
+      }
+      const guestUser = localStorage.getItem('prannot.offline_guest');
+      if (guestUser) {
+        return {
+          user: JSON.parse(guestUser),
+          access_token: 'offline_guest_token',
+          is_offline_guest: true,
+        };
+      }
+    } catch { /* ignore */ }
+  }
+
   try {
     const { data, error } = await db.auth.getSession();
     if (!error && data?.session) return data.session;

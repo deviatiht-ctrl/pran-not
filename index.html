@@ -16,7 +16,37 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
-  <script>(function(){try{var s=localStorage.getItem('prannot.theme_vars');if(!s)return;var p=JSON.parse(s),r=document.documentElement;if(p.mode)r.setAttribute('data-theme-mode',p.mode);if(p.cardStyle)r.setAttribute('data-card-style',p.cardStyle);if(p.vars){for(var k in p.vars)r.style.setProperty(k,p.vars[k]);}if(p.fontHref){var l=document.createElement('link');l.id='prannot-custom-fonts';l.rel='stylesheet';l.href=p.fontHref;document.head.appendChild(l);}if(p.themeColor){var m=document.querySelector('meta[name="theme-color"]');if(m)m.setAttribute('content',p.themeColor);}}catch(e){}})();</script>
+  <script>
+    (function(){
+      try {
+        var params = new URLSearchParams(window.location.search);
+        if (!params.has('landing') && !params.has('logout')) {
+          var hasUser = localStorage.getItem('prannot.last_user') || localStorage.getItem('prannot.profile');
+          if (hasUser) {
+            window.location.replace('./pages/dashboard.html');
+            return;
+          }
+        }
+        var s = localStorage.getItem('prannot.theme_vars');
+        if (!s) return;
+        var p = JSON.parse(s), r = document.documentElement;
+        if (p.mode) r.setAttribute('data-theme-mode', p.mode);
+        if (p.cardStyle) r.setAttribute('data-card-style', p.cardStyle);
+        if (p.vars) { for (var k in p.vars) r.style.setProperty(k, p.vars[k]); }
+        if (p.fontHref) {
+          var l = document.createElement('link');
+          l.id = 'prannot-custom-fonts';
+          l.rel = 'stylesheet';
+          l.href = p.fontHref;
+          document.head.appendChild(l);
+        }
+        if (p.themeColor) {
+          var m = document.querySelector('meta[name="theme-color"]');
+          if (m) m.setAttribute('content', p.themeColor);
+        }
+      } catch(e) {}
+    })();
+  </script>
   <link rel="stylesheet" href="./assets/css/variables.css">
   <link rel="stylesheet" href="./assets/css/main.css">
   <link rel="stylesheet" href="./assets/css/navbar.css">

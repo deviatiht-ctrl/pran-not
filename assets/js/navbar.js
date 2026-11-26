@@ -668,6 +668,22 @@ async function sendTutorMessage(text, mode = 'standard') {
 
   try {
     const isGlobal = tutorScope === 'global';
+
+    // Récupérer le contexte en temps réel le plus frais possible (texte brut, notes en cours d'écriture ou affichées)
+    let liveText = currentContext.contextText || '';
+    if (typeof window.__getLiveNoteContext === 'function') {
+      try {
+        const live = window.__getLiveNoteContext();
+        if (live && live.text) {
+          liveText = live.text;
+          if (live.title) currentContext.contextTitle = live.title;
+          if (live.contextType) currentContext.contextType = live.contextType;
+          if (live.contextId) currentContext.contextId = live.contextId;
+          if (live.courseId) currentContext.courseId = live.courseId;
+        }
+      } catch { /* ignore */ }
+    }
+
     const res = await askTutor({
       conversationId: tutorConvId,
       message: text,
@@ -675,7 +691,7 @@ async function sendTutorMessage(text, mode = 'standard') {
       scope: tutorScope,
       contextType: currentContext.contextType,
       contextId: currentContext.contextId,
-      contextText: currentContext.contextText,
+      contextText: liveText,
       courseId: currentContext.courseId,
       faculty: isGlobal ? 'general' : (currentProfile?.faculty_id || 'general'),
       level: currentProfile?.level || 'L1',

@@ -134,31 +134,38 @@ Deno.serve(async (req) => {
       contextSnippets.length ? `CONTEXTE DE L'ÉTUDIANT (à utiliser en priorité) :\n${contextSnippets.join('\n\n')}` : '',
     ].filter(Boolean).join('\n\n');
 
-    // Gérer la conversation persistante
+    // Gérer la conversation persistante (uniquement pour les échanges tuteur suivis, pas pour les questions rapides)
+    const shouldSaveHistory = body.saveHistory !== false && mode !== 'simple';
+    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const safeContextId = (contextId && UUID_RE.test(String(contextId))) ? String(contextId) : null;
+    const safeCourseId = (courseId && UUID_RE.test(String(courseId))) ? String(courseId) : null;
+
     let conversationId = body.conversationId || null;
-    if (!conversationId) {
-      const { data: conv } = await auth.admin
-        .from('pran_not_tutor_conversations')
-        .insert({
-          user_id: auth.user.id,
-          course_id: courseId,
-          context_type: ['general','note','course','card','deck','test','assignment','unit','book'].includes(contextType) ? contextType : 'general',
-          context_id: contextId,
-          title: message.slice(0, 70),
-        })
-        .select('id')
-        .single();
-      conversationId = conv?.id || null;
+    if (shouldSaveHistory && !conversationId) {
+      try {
+        const { data: conv } = await auth.admin
+          .from('pran_not_tutor_conversations')
+          .insert({
+            user_id: auth.user.id,
+            course_id: safeCourseId,
+            context_type: ['general','note','course','card','deck','test','assignment','unit','book'].includes(contextType) ? contextType : 'general',
+            context_id: safeContextId,
+            title: message.slice(0, 70),
+          })
+          .select('id')
+          .single();
+        conversationId = conv?.id || null;
+      } catch { /* optionnel */ }
     }
 
     if (conversationId) {
-      await auth.admin.from('pran_not_tutor_messages').insert({
+      auth.admin.from('pran_not_tutor_messages').insert({
         conversation_id: conversationId,
         user_id: auth.user.id,
         role: 'user',
         content: message,
         mode,
-      });
+      }).catch(() => {});
     }
 
     const history = Array.isArray(body.history)

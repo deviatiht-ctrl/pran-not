@@ -252,10 +252,18 @@
 
           <textarea class="textarea" id="raw-text" rows="8" placeholder="Tèks tablo, transkripsyon oswa nòt rapid ou a ap parèt la..." data-i18n-placeholder="capture.raw_text_placeholder"></textarea>
 
-          <div class="row-wrap mt-4">
+          <div class="row-wrap mt-4" style="gap:8px;">
             <button type="button" class="btn btn-primary" id="ai-structure-btn">
               <i data-lucide="sparkles" aria-hidden="true"></i>
               <span data-i18n="capture.structure_ai">Netwaye epi estriktire ak IA</span>
+            </button>
+            <button type="button" class="btn btn-secondary" id="btn-fix-raw-sense" title="Analize tèks la epi repare fraz ki pa fin klè oswa ki koupe yo">
+              <i data-lucide="wand-2" aria-hidden="true"></i>
+              <span>Kore sans & koerans</span>
+            </button>
+            <button type="button" class="btn btn-secondary" id="btn-capture-prof-questions" title="Jenere kesyon pètinan pou poze pwofesè a">
+              <i data-lucide="help-circle" aria-hidden="true"></i>
+              <span>Kesyon pou Pwofesè a</span>
             </button>
             <button type="button" class="btn btn-secondary" id="ai-ht-btn" data-i18n="capture.harmonize_ht">Amelyore an Kreyòl</button>
             <button type="button" class="btn btn-secondary" id="ai-fr-btn" data-i18n="capture.harmonize_fr">Amonize an Fransè</button>
@@ -288,6 +296,8 @@
           </div>
 
           <div class="row-wrap mb-2" style="gap:6px;" id="note-quick-ai-chips">
+            <button type="button" class="btn btn-xs btn-outline font-semibold" data-quick-action="fix_sense" title="Analize epi korije sans nòt la"><i data-lucide="wand-2" aria-hidden="true"></i><span>Kore sans nòt la</span></button>
+            <button type="button" class="btn btn-xs btn-outline font-semibold" data-quick-action="prof_questions" title="Jenere kesyon pou poze pwofesè a"><i data-lucide="help-circle" aria-hidden="true"></i><span>Kesyon pou pwofesè a</span></button>
             <button type="button" class="btn btn-xs btn-outline" data-quick-prompt="Defini byen klè epi bay yon egzanp konkrè : " data-i18n="capture.chip_def_example">Definisyon + Egzanp</button>
             <button type="button" class="btn btn-xs btn-outline" data-quick-prompt="Eksplike nosyon sa a senpleman an 2 fraz : " data-i18n="capture.chip_short_explain">Eksplikasyon kout</button>
             <button type="button" class="btn btn-xs btn-outline" data-quick-prompt="Bay fòmil, prensip oswa atik lwa ki gen rapò ak : " data-i18n="capture.chip_formula_law">Fòmil / Lwa</button>
@@ -344,9 +354,9 @@
           <div class="field">
             <label for="note-lang" data-i18n="capture.note_lang_label">Lang nòt la</label>
             <select class="select" id="note-lang">
+              <option value="fr" selected data-i18n="capture.lang_fr">Fransè akademik (Nòt kou inivèsitè)</option>
               <option value="mix" data-i18n="capture.lang_mix">Kreyòl + Fransè (melanje)</option>
-              <option value="ht" data-i18n="capture.lang_ht">Kreyòl ayisyen</option>
-              <option value="fr" data-i18n="capture.lang_fr">Français</option>
+              <option value="ht" data-i18n="capture.lang_ht">Kreyòl ayisyen sèlman</option>
             </select>
           </div>
 
@@ -362,6 +372,6 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/lucide@0.468.0/dist/umd/lucide.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
-  <script type="module" src="../assets/js/pages/note-capture.js?v=20261124c"></script>
+  <script type="module" src="../assets/js/pages/note-capture.js?v=20261126a"></script>
 </body>
 </html>

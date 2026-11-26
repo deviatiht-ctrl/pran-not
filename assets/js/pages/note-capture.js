@@ -15,10 +15,10 @@ import {
   icons, icon, esc, toast, handleError, setLoading, getParam, uid,
   compressImage, blobToBase64, checkFileSize, extractPdfText, renderPdfPageToBlob,
   loadScript, loadStyle, CDN, sanitizeHtml, htmlToText, promptDialog, formatDuration, pageEnter, debounce,
-  renderMarkdown,
+  renderMarkdown, openModal, confirmDialog,
 } from '../utils.js';
-import { ocrBoard, transcribeAudio, processNote, askTutor } from '../ai.js';
-import { enqueue, isDataSaver, cacheGet, cacheSet, isNetworkError } from '../offline.js';
+import { ocrBoard, transcribeAudio, processNote, askTutor, correctRawTextSense, generateProfessorQuestions } from '../ai.js';
+import { enqueue, isDataSaver, cacheGet, cacheSet, cacheDel, isNetworkError } from '../offline.js';
 
 const db = window.db;
 const SEGMENT_ROTATE_SECONDS = 45;
@@ -76,6 +76,124 @@ function mimeToExt(mime = '') {
 const DRAFT_STORAGE_KEY = 'prannot_note_capture_draft';
 let isNoteSaved = false;
 
+// Gestion du WakeLock pour garder l'écran allumé pendant l'enregistrement d'un cours
+let wakeLockSentinel = null;
+async function acquireWakeLock() {
+  try {
+    if ('wakeLock' in navigator && !wakeLockSentinel) {
+      wakeLockSentinel = await navigator.wakeLock.request('screen');
+      wakeLockSentinel.addEventListener('release', () => {
+        wakeLockSentinel = null;
+      });
+    }
+  } catch { /* ignore */ }
+}
+
+function releaseWakeLock() {
+  try {
+    wakeLockSentinel?.release();
+    wakeLockSentinel = null;
+  } catch { /* ignore */ }
+}
+
+/** Sauvegarde tous les clips audio en IndexedDB pour ne jamais perdre un segment */
+async function persistAudioClipsToStorage() {
+  if (isNoteSaved) return;
+  try {
+    if (!audioChunksBlobs.length) {
+      await cacheDel('prannot_audio_draft_clips');
+      return;
+    }
+    const serializable = audioChunksBlobs.map((c) => ({
+      id: c.id,
+      blob: c.blob,
+      mime: c.mime,
+      ext: c.ext,
+      duration: c.duration,
+      status: c.status,
+      transcript: c.transcript,
+      liveDraft: c.liveDraft,
+      provider: c.provider,
+      error: c.error,
+    }));
+    await cacheSet('prannot_audio_draft_clips', serializable);
+  } catch (err) {
+    console.warn('[audio] persistAudioClipsToStorage failed:', err);
+  }
+}
+
+/** Restaure les clips audio sauvegardés en IndexedDB si l'étudiant avait quitté la page */
+async function restoreAudioDraftFromStorage() {
+  try {
+    const savedClips = await cacheGet('prannot_audio_draft_clips');
+    if (Array.isArray(savedClips) && savedClips.length > 0) {
+      audioChunksBlobs.length = 0;
+      for (const sc of savedClips) {
+        if (sc.blob) {
+          audioChunksBlobs.push({
+            id: sc.id || uid(),
+            blob: sc.blob,
+            url: URL.createObjectURL(sc.blob),
+            mime: sc.mime || 'audio/webm',
+            ext: sc.ext || 'webm',
+            duration: sc.duration || 1,
+            status: sc.status || 'pending',
+            transcript: sc.transcript || '',
+            liveDraft: sc.liveDraft || '',
+            provider: sc.provider || '',
+            error: sc.error || '',
+          });
+        }
+      }
+      renderAudioClips();
+      const chunksBadge = document.getElementById('rec-chunks-badge');
+      if (chunksBadge) {
+        chunksBadge.textContent = t('capture.segment_count', { count: audioChunksBlobs.length }) || `${audioChunksBlobs.length} segman`;
+      }
+      return true;
+    }
+  } catch (err) {
+    console.warn('[audio] restoreAudioDraftFromStorage failed:', err);
+  }
+  return false;
+}
+
+/** Extrait l'intégralité du texte en direct (titre, texte brut, notes saisies, audio transcrit, OCR) */
+function getLiveNoteText() {
+  const title = document.getElementById('note-title')?.value || '';
+  const rawText = document.getElementById('raw-text')?.value || '';
+  const quillText = quill ? htmlToText(quill.root.innerHTML).trim() : '';
+  const audioTexts = audioChunksBlobs
+    .map((c, i) => c.transcript ? `[Segman ${i + 1}] ${c.transcript}` : (c.liveDraft ? `[Segman ${i + 1} an dirèk] ${c.liveDraft}` : ''))
+    .filter(Boolean)
+    .join('\n');
+  const photoTexts = photoBlobs
+    .map((p, i) => p.ocrText ? `[Foto ${i + 1}] ${p.ocrText}` : '')
+    .filter(Boolean)
+    .join('\n');
+
+  const parts = [];
+  if (title) parts.push(`Tit kou a : ${title}`);
+  if (rawText) parts.push(`Tèks nòt brit :\n${rawText}`);
+  if (quillText && quillText !== rawText) parts.push(`Nòt estriktire :\n${quillText}`);
+  if (audioTexts) parts.push(`Transkripsyon odyo kou a :\n${audioTexts}`);
+  if (photoTexts) parts.push(`Tèks ekstrè nan foto tablo yo :\n${photoTexts}`);
+
+  return parts.join('\n\n').trim();
+}
+
+/** Synchronise le tuteur IA avec le texte en temps réel */
+function syncLiveTutorContext() {
+  const liveText = getLiveNoteText();
+  const title = document.getElementById('note-title')?.value || t('capture.page_title');
+  setTutorContext({
+    contextType: 'note_draft',
+    contextTitle: title,
+    contextText: liveText,
+    courseId: document.getElementById('note-course')?.value || null,
+  });
+}
+
 function saveDraftToStorage() {
   if (isNoteSaved) return;
   try {
@@ -84,12 +202,13 @@ function saveDraftToStorage() {
     const quillHtml = quill?.root?.innerHTML || '';
     const courseId = document.getElementById('note-course')?.value || '';
     const unitId = document.getElementById('note-unit')?.value || '';
-    const lang = document.getElementById('note-lang')?.value || 'ht';
+    const lang = document.getElementById('note-lang')?.value || 'fr';
 
     // Si tout vid, pa bezwen sove anyen
     const hasText = title.trim() || rawText.trim() || htmlToText(quillHtml).trim();
-    if (!hasText && !structuredData) {
+    if (!hasText && !structuredData && !audioChunksBlobs.length) {
       localStorage.removeItem(DRAFT_STORAGE_KEY);
+      cacheDel('prannot_audio_draft_clips').catch(() => {});
       return;
     }
 
@@ -105,6 +224,8 @@ function saveDraftToStorage() {
       savedAt: Date.now(),
     };
     localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(payload));
+    persistAudioClipsToStorage();
+    syncLiveTutorContext();
   } catch (e) {
     /* ignore storage quota */
   }
@@ -124,6 +245,7 @@ function clearDraftStorage() {
       } catch {}
     }
     localStorage.removeItem(DRAFT_STORAGE_KEY);
+    cacheDel('prannot_audio_draft_clips').catch(() => {});
   } catch { /* ignore */ }
 }
 
@@ -916,6 +1038,9 @@ async function startRecording() {
       }
     }
   }, 1000);
+
+  // Garder l'écran et le processus actifs
+  acquireWakeLock();
 }
 
 function togglePauseRecording() {
@@ -938,6 +1063,7 @@ function stopRecording() {
   clearInterval(recTimerId);
   cancelAnimationFrame(meterRafId);
   stopLiveSpeechPreview();
+  releaseWakeLock();
 
   const streamToStop = rawMicStream;
   const ctxToClose = audioCtx;
@@ -1467,6 +1593,166 @@ function insertTextIntoRaw(text) {
   }
 }
 
+/** Correction et harmonisation du sens du texte brut */
+async function triggerFixRawSense() {
+  const rawEl = document.getElementById('raw-text');
+  const textToFix = (rawEl?.value || '').trim() || audioChunksBlobs.map(c => c.transcript || c.liveDraft || '').filter(Boolean).join('\n').trim();
+  if (!textToFix) {
+    toast('Tape oswa anrejistre kèk nòt anvan pou IA a ka analize epi korije sans lan.', 'warning');
+    rawEl?.focus();
+    return;
+  }
+
+  const btn = document.getElementById('btn-fix-raw-sense');
+  if (btn) setLoading(btn, true);
+
+  try {
+    const lang = document.getElementById('note-lang')?.value || 'fr';
+    const res = await correctRawTextSense({
+      rawText: textToFix,
+      language: lang,
+      faculty: profileRef?.faculty_id,
+      level: profileRef?.level,
+    });
+
+    if (!res.ok || !res.correctedText) {
+      throw new Error(res.message || 'Echèk koreksyon sans la');
+    }
+
+    const m = openModal({
+      title: 'Koreksyon & Clarifikasyon Sans Tèks la',
+      body: `
+        <div class="stack py-2">
+          <p class="text-sm muted mb-3">IA a analize nòt ou yo, li repare fraz ki te koupe oswa mal fòmile yo, epi li fè tout lide yo vin klè e lojik pandan li konsève tout non moun ak konsèp yo.</p>
+          <div class="field mb-3">
+            <label class="label font-bold text-xs uppercase text-muted">Tèks korije e klè</label>
+            <div class="card p-3" style="max-height:280px;overflow-y:auto;background:var(--c-surface);font-size:0.95rem;line-height:1.6;white-space:pre-wrap;" id="corrected-sense-preview">${esc(res.correctedText)}</div>
+          </div>
+        </div>
+      `,
+      footer: `
+        <button type="button" class="btn btn-secondary" data-close>${esc(t('common.cancel'))}</button>
+        <button type="button" class="btn btn-primary" id="btn-apply-corrected-sense">
+          ${icon('check')}<span>${esc('Aplike nan tèks brit la')}</span>
+        </button>
+      `,
+    });
+
+    m.el.querySelector('#btn-apply-corrected-sense')?.addEventListener('click', () => {
+      if (rawEl) {
+        rawEl.value = res.correctedText;
+        rawEl.dispatchEvent(new Event('input'));
+        saveDraftToStorage();
+        updateRawWordCount();
+      }
+      m.close();
+      toast('Tèks la korije avèk siksè !', 'success');
+    });
+  } catch (err) {
+    handleError(err);
+  } finally {
+    if (btn) setLoading(btn, false);
+  }
+}
+
+/** Génération de questions stratégiques pour le professeur */
+async function triggerGenerateProfQuestions() {
+  const liveText = getLiveNoteText();
+  const title = document.getElementById('note-title')?.value || t('capture.page_title');
+  if (!liveText && !title) {
+    toast('Tape oswa anrejistre kèk nòt anvan pou IA ka jenere kesyon pou pwofesè a.', 'warning');
+    return;
+  }
+
+  const btn = document.getElementById('btn-capture-prof-questions');
+  if (btn) setLoading(btn, true);
+
+  try {
+    const lang = document.getElementById('note-lang')?.value || 'fr';
+    const res = await generateProfessorQuestions({
+      content: liveText,
+      title,
+      faculty: profileRef?.faculty_id,
+      level: profileRef?.level,
+      language: lang,
+    });
+
+    if (!res.ok || !res.questions?.length) {
+      throw new Error('Echèk jenerasyon kesyon pou pwofesè a');
+    }
+
+    renderProfQuestionsModal(res.questions, title);
+  } catch (err) {
+    handleError(err);
+  } finally {
+    if (btn) setLoading(btn, false);
+  }
+}
+
+function renderProfQuestionsModal(questions = [], title = '') {
+  const m = openModal({
+    title: `Kesyon pou poze pwofesè a — ${title}`,
+    body: `
+      <div class="stack py-2">
+        <p class="text-sm muted mb-3">Men kesyon akademik ki pi pètinan e estratejik ou ka poze pwofesè a nan klas oswa nan fen kou a pou klarifye pwen ki difisil yo epi prepare egzamen an :</p>
+        <div class="stack" style="gap:12px;">
+          ${questions.map((q, idx) => `
+            <div class="card p-3" style="background:var(--c-surface);border:1px solid var(--c-border);border-left:4px solid var(--c-primary);">
+              <div class="row-between mb-2">
+                <span class="badge badge-primary font-bold">Kesyon #${idx + 1}</span>
+                <button type="button" class="btn btn-xs btn-ghost" data-copy-q="${esc(q.question)}">
+                  ${icon('copy')}<span>Kopye</span>
+                </button>
+              </div>
+              <h3 class="text-base font-bold mb-2" style="color:var(--c-text);">${esc(q.question)}</h3>
+              ${q.purpose ? `<p class="text-xs muted mb-1"><strong>Poukisa poze l :</strong> ${esc(q.purpose)}</p>` : ''}
+              ${q.hint ? `<p class="text-xs text-accent mb-0"><strong>Sa pou w koute :</strong> ${esc(q.hint)}</p>` : ''}
+              <div class="row-wrap mt-2" style="gap:6px;">
+                <button type="button" class="btn btn-xs btn-outline" data-insert-q="${esc(q.question)}">
+                  ${icon('plus')}<span>Mete nan nòt la</span>
+                </button>
+                <button type="button" class="btn btn-xs btn-secondary" data-ask-tutor-q="${esc(q.question)}">
+                  ${icon('message-square')}<span>Mande Tuteur IA</span>
+                </button>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `,
+    footer: `<button type="button" class="btn btn-primary" data-close>${esc(t('common.close') || 'Fèmen')}</button>`,
+  });
+
+  m.el.querySelectorAll('[data-copy-q]').forEach((b) => {
+    b.addEventListener('click', () => {
+      navigator.clipboard?.writeText(b.dataset.copyQ);
+      toast('Kesyon kopye !', 'success');
+    });
+  });
+
+  m.el.querySelectorAll('[data-insert-q]').forEach((b) => {
+    b.addEventListener('click', () => {
+      const qText = `\n\n### Kesyon pou Pwofesè a :\n- ${b.dataset.insertQ}\n`;
+      const rawEl = document.getElementById('raw-text');
+      if (rawEl) {
+        rawEl.value = (rawEl.value ? rawEl.value + '\n' : '') + qText;
+        rawEl.dispatchEvent(new Event('input'));
+        saveDraftToStorage();
+      }
+      toast('Ajoute nan nòt la !', 'success');
+    });
+  });
+
+  m.el.querySelectorAll('[data-ask-tutor-q]').forEach((b) => {
+    b.addEventListener('click', () => {
+      m.close();
+      import('../navbar.js').then(({ toggleTutorDrawer }) => {
+        toggleTutorDrawer(true, `Eksplike m an detay repons pwofesè a gen chans bay sou kesyon sa a : "${b.dataset.askTutorQ}"`);
+      });
+    });
+  });
+}
+
 function initQuickAiModule() {
   const card = document.getElementById('note-quick-ai-card');
   if (!card) return;
@@ -1509,6 +1795,17 @@ function initQuickAiModule() {
     toast(t('tutor.scope_switched_faculty'), 'info');
   });
 
+  chipsContainer?.querySelectorAll('[data-quick-action]').forEach((chip) => {
+    chip.addEventListener('click', () => {
+      const act = chip.dataset.quickAction;
+      if (act === 'fix_sense') {
+        triggerFixRawSense();
+      } else if (act === 'prof_questions') {
+        triggerGenerateProfQuestions();
+      }
+    });
+  });
+
   chipsContainer?.querySelectorAll('[data-quick-prompt]').forEach((chip) => {
     chip.addEventListener('click', () => {
       const prefix = chip.dataset.quickPrompt || '';
@@ -1537,9 +1834,10 @@ function initQuickAiModule() {
     `;
 
     try {
-      const lang = document.getElementById('note-lang')?.value || profileRef?.language || 'ht';
+      const lang = document.getElementById('note-lang')?.value || profileRef?.language || 'fr';
       const courseId = document.getElementById('note-course')?.value || null;
       const effectiveFaculty = currentScope === 'global' ? 'general' : (profileRef?.faculty_id || 'general');
+      const liveText = getLiveNoteText();
 
       const res = await askTutor({
         message: q,
@@ -1549,6 +1847,9 @@ function initQuickAiModule() {
         level: profileRef?.level || 'L1',
         language: lang,
         courseId,
+        contextType: 'note_draft',
+        contextTitle: document.getElementById('note-title')?.value || t('capture.page_title'),
+        contextText: liveText,
       });
 
       const reply = res?.reply || '';
@@ -1739,10 +2040,15 @@ function initQuickAiModule() {
   document.getElementById('import-input').addEventListener('change', (e) => handleImportFiles(e.target.files));
 
   // Texte brut & IA
-  document.getElementById('raw-text').addEventListener('input', updateRawWordCount);
+  document.getElementById('raw-text').addEventListener('input', () => {
+    updateRawWordCount();
+    syncLiveTutorContext();
+  });
   document.getElementById('ai-structure-btn').addEventListener('click', (e) => runStructureAi('standard', e.currentTarget));
   document.getElementById('ai-ht-btn').addEventListener('click', (e) => runStructureAi('harmonize_ht', e.currentTarget));
   document.getElementById('ai-fr-btn').addEventListener('click', (e) => runStructureAi('harmonize_fr', e.currentTarget));
+  document.getElementById('btn-fix-raw-sense')?.addEventListener('click', triggerFixRawSense);
+  document.getElementById('btn-capture-prof-questions')?.addEventListener('click', triggerGenerateProfQuestions);
 
   document.getElementById('confirm-course-btn').addEventListener('click', () => {
     if (suggestedCourseId) {
@@ -1758,14 +2064,23 @@ function initQuickAiModule() {
   document.getElementById('editor-save-note-btn')?.addEventListener('click', saveNote);
   document.body.dataset.captureReady = '1';
 
+  // Fournir le contexte en temps réel au tuteur dans la barre de navigation
+  window.__getLiveNoteContext = () => ({
+    text: getLiveNoteText(),
+    title: document.getElementById('note-title')?.value || t('capture.page_title'),
+    contextType: 'note_draft',
+    courseId: document.getElementById('note-course')?.value || null,
+  });
+
   // Inisyalize Asistan IA Kou & Definisyon Rapid
   initQuickAiModule();
 
   // Charger l'éditeur Quill et la liste des cours en parallèle sans bloquer la capture vocale/photo
-  initQuill().then(() => {
-    // Si yon draft te egziste nan localStorage, restore l
+  initQuill().then(async () => {
+    // Si yon draft te egziste nan localStorage oswa kach odyo, restore l
     const didRestore = restoreDraftFromStorage();
-    if (didRestore) {
+    const didRestoreAudio = await restoreAudioDraftFromStorage();
+    if (didRestore || didRestoreAudio) {
       const banner = document.getElementById('draft-alert-banner');
       if (banner) {
         banner.hidden = false;
@@ -1773,13 +2088,17 @@ function initQuickAiModule() {
       }
       toast(t('notes.draft_restored') || 'Bwouyon nòt ou t ap pran an retabli otomatikman !', 'info');
     }
+    syncLiveTutorContext();
   }).catch(() => {});
 
   document.getElementById('discard-draft-btn')?.addEventListener('click', () => startFreshNote(false));
   document.getElementById('header-new-note-btn')?.addEventListener('click', () => startFreshNote(false));
 
   // Otoprezèvasyon / Sauvegarde automatique bwouyon an (Debounce chak 1.5s sou saisie epi sou pagehide/visibilitychange)
-  const autoSaveHandler = debounce(saveDraftToStorage, 1500);
+  const autoSaveHandler = debounce(() => {
+    saveDraftToStorage();
+    syncLiveTutorContext();
+  }, 1500);
   document.getElementById('note-title')?.addEventListener('input', autoSaveHandler);
   document.getElementById('raw-text')?.addEventListener('input', autoSaveHandler);
   document.getElementById('note-course')?.addEventListener('change', autoSaveHandler);
@@ -1787,11 +2106,18 @@ function initQuickAiModule() {
   document.getElementById('note-lang')?.addEventListener('change', autoSaveHandler);
 
   // Sou mobil oswa òdinatè si etidyan an soti sou paj la oswa minimize navigatè a
+  const handlePageExit = () => {
+    if (mediaRecorder && mediaRecorder.state === 'recording') {
+      try { mediaRecorder.requestData(); } catch { /* ignore */ }
+    }
+    saveDraftToStorage();
+    persistAudioClipsToStorage();
+  };
   window.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'hidden') saveDraftToStorage();
+    if (document.visibilityState === 'hidden') handlePageExit();
   });
-  window.addEventListener('pagehide', saveDraftToStorage);
-  window.addEventListener('beforeunload', saveDraftToStorage);
+  window.addEventListener('pagehide', handlePageExit);
+  window.addEventListener('beforeunload', handlePageExit);
 
   try {
     const cSel = document.getElementById('note-course');

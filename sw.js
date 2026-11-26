@@ -7,7 +7,7 @@
    - Déclenchement synchronisation Background Sync
    ===================================================================== */
 
-const CACHE_NAME = 'prannot-shell-v37';
+const CACHE_NAME = 'prannot-shell-v38';
 const PRECACHE_LOCAL = [
   './',
   './index.html',
@@ -156,26 +156,37 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 1. Navigations HTML : offline -> cache immédiat (< 5 ms), online -> timeout court 1.2 s puis cache
+  // 1. Navigations HTML : Cache-First ultra rapid (< 5 ms) pou lanse imedyatman offline ak online
   if (req.mode === 'navigate') {
     event.respondWith((async () => {
       const cache = await caches.open(CACHE_NAME);
-      if (!isOnline()) {
-        const cached = await matchCachedHtml(cache, req, url.pathname);
-        if (cached) return cached;
+      const cached = await matchCachedHtml(cache, req, url.pathname);
+      if (cached) {
+        // Rafrechi kach la an silans an aryè plan si rezo disponib
+        if (isOnline()) {
+          event.waitUntil(
+            fetchWithTimeout(req, {}, 3000)
+              .then((netRes) => {
+                if (netRes && netRes.ok) return cache.put(url.pathname, netRes);
+              })
+              .catch(() => {})
+          );
+        }
+        return cached;
       }
+
       try {
-        const netRes = await fetchWithTimeout(req, {}, 1200);
+        const netRes = await fetchWithTimeout(req, {}, 2500);
         if (netRes && netRes.ok) {
           event.waitUntil(cache.put(url.pathname, netRes.clone()));
           return netRes;
         }
-        const cached = await matchCachedHtml(cache, req, url.pathname);
-        return cached || netRes;
+        return new Response('<!DOCTYPE html><meta charset="utf-8"><title>Pran Nòt</title><body style="font-family:sans-serif;padding:24px;"><h2>Mòd san entènèt</h2><p>Paj sa a poko nan kach lokal la. Retounen sou <a href="./pages/dashboard.html">Akèy la</a>.</p></body>', {
+          status: 503,
+          headers: { 'Content-Type': 'text/html; charset=utf-8' },
+        });
       } catch {
-        const cached = await matchCachedHtml(cache, req, url.pathname);
-        if (cached) return cached;
-        return new Response('<!DOCTYPE html><meta charset="utf-8"><title>Pran Nòt</title><body style="font-family:sans-serif;padding:24px;"><h2>Mòd san entènèt</h2><p>Paj sa a poko nan kach lokal la. Retounen sou <a href="/pages/dashboard.html">Akèy la</a>.</p></body>', {
+        return new Response('<!DOCTYPE html><meta charset="utf-8"><title>Pran Nòt</title><body style="font-family:sans-serif;padding:24px;"><h2>Mòd san entènèt</h2><p>Paj sa a poko nan kach lokal la. Retounen sou <a href="./pages/dashboard.html">Akèy la</a>.</p></body>', {
           status: 503,
           headers: { 'Content-Type': 'text/html; charset=utf-8' },
         });

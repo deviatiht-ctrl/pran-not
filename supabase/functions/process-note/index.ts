@@ -34,9 +34,7 @@ Deno.serve(async (req) => {
 
     const langDirective = mode === 'harmonize_ht'
       ? 'Langue principale demandée : KREYÒL AYISYEN klè, natirèl, akademik e pedagojik (mete tèm teknik franse yo ant parantèz).'
-      : mode === 'harmonize_fr'
-        ? 'Langue principale demandée : Français universitaire soigné, clair et pédagogique.'
-        : `Langue de synthèse : ${language === 'fr' ? 'Français académique soigné' : 'Kreyòl ayisyen natirèl e klè'}.`;
+      : 'RÈGLE DE LANGUE MAJEURE : Les cours universitaires en Haïti sont évalués en Français académique. Par conséquent, rédige TOUTES les sections du cours (titre, résumé, content_html, points clés, devoirs, questions pour le professeur) STRICTEMENT en Français universitaire soigné, clair, rigoureux et pédagogique. Si le professeur s\'est exprimé en créole ou a fait du code-switching, intègre et restitue l\'intégralité du sens et des explications avec la plus haute fidélité académique en français pour que l\'étudiant puisse réussir ses examens universitaires. (Si l\'étudiant souhaite des explications orales en créole, il utilisera le bouton d\'explication créole).';
 
     const prompt = `${langDirective}
 
@@ -62,10 +60,11 @@ RÈGLES STRICTES DE FIDÉLITÉ ET D'EXHAUSTIVITÉ :
      * <h2>4. Exemples Pratiques & Cas Concrets</h2> (mets en valeur les anecdotes ou cas cités)
      * <h2>5. Points Essentiels à Maîtriser pour l'Examen</h2> avec des puces <ul><li><strong>Concept</strong> : explication</li></ul>
 
-4. SYNTHÈSE & POINTS D'EXAMEN :
+4. SYNTHÈSE & QUESTIONS PERTINENTES POUR LE PROFESSEUR :
    - "summary" : résumé complet en 4 à 6 phrases fidèles au cours.
    - "takeaways" : au moins 4 à 6 points cruciaux indispensables pour l'examen.
    - "keywords" : liste exhaustive des termes techniques et noms d'auteurs clés.
+   - "questions_for_professor" : 3 à 5 questions intelligentes, stimulantes et polies que l'étudiant peut poser au professeur pour éclaircir des zones d'ombre ou approfondir un point d'examen.
 
 Cours existants de l'étudiant : ${JSON.stringify(courses.map((c: { id: string; name: string }) => ({ id: c.id, name: c.name })))}
 
@@ -85,6 +84,13 @@ Retourne STRICTEMENT ce JSON :
   ],
   "research_topics": ["Thème ou ressource de droit/médecine/ingénierie/lettres à approfondir"],
   "implied_points": ["Déduction ou idée implicite formulée sobrement"],
+  "questions_for_professor": [
+    {
+      "question": "Question académique précise et stimulante à poser au professeur",
+      "purpose": "Pourquoi cette question éclaire un point subtil ou prépare l'examen",
+      "hint": "Élément clé à écouter dans l'explication du professeur"
+    }
+  ],
   "suggested_course_id": "uuid du cours le plus pertinent parmi les cours existants, ou null"
 }
 
