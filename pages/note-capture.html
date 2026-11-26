@@ -71,6 +71,23 @@
       </div>
     </div>
 
+    <!-- Banner Mòd Modifikasyon Nòt -->
+    <div class="alert alert-info mb-4 row-between" id="edit-note-banner" hidden style="border-left:4px solid var(--c-primary);background:var(--c-surface);">
+      <div class="row" style="gap:10px;align-items:center;">
+        <i data-lucide="edit-3" aria-hidden="true" style="color:var(--c-primary);width:22px;height:22px;flex-shrink:0;"></i>
+        <div>
+          <strong id="edit-note-banner-title" style="color:var(--c-text);">Mòd Modifikasyon Nòt</strong>
+          <p class="text-xs mb-0 muted" id="edit-note-banner-sub">W ap modifye yon nòt ki egziste deja. Ou ka ajoute foto tablo nèf, kontinye anrejistre kou a ak mikwo, korije tèks la oswa poze IA kesyon.</p>
+        </div>
+      </div>
+      <div class="row" style="gap:8px;flex-wrap:wrap;">
+        <a class="btn btn-sm btn-ghost" id="edit-cancel-view-btn" href="./notes.html">
+          <i data-lucide="arrow-left" aria-hidden="true"></i>
+          <span>Retounen nan nòt la</span>
+        </a>
+      </div>
+    </div>
+
     <!-- Sélecteur de mode -->
     <div class="segmented mb-6" role="tablist" id="capture-modes">
       <button type="button" role="tab" data-mode="photo" aria-selected="true"><i data-lucide="camera" aria-hidden="true"></i><span data-i18n="capture.mode_photo">Foto tablo / kaye</span></button>
@@ -118,6 +135,14 @@
               <i data-lucide="upload" aria-hidden="true"></i>
               <span data-i18n="capture.photo_gallery_btn">Téléverser depuis la galerie</span>
             </button>
+          </div>
+
+          <div id="existing-photos-box" class="mt-3 mb-3" hidden>
+            <div class="row-between mb-2">
+              <strong class="text-xs muted text-uppercase">Foto ki te deja nan nòt sa a</strong>
+              <span class="badge badge-sm" id="existing-photos-count">0 foto</span>
+            </div>
+            <div class="thumb-grid" id="existing-photo-thumbs"></div>
           </div>
 
           <div class="thumb-grid mt-4" id="photo-thumbs"></div>
@@ -372,6 +397,6 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/lucide@0.468.0/dist/umd/lucide.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
-  <script type="module" src="../assets/js/pages/note-capture.js?v=20261126a"></script>
+  <script type="module" src="../assets/js/pages/note-capture.js?v=20261126b"></script>
 </body>
 </html>

@@ -108,6 +108,9 @@ function renderList(append = false) {
               ${icon('trash-2')}
             </button>
           ` : `
+            <a href="./note-capture.html?id=${esc(encodeURIComponent(n.id))}&edit=1" class="btn-icon" aria-label="${esc(t('common.edit'))}" title="${esc(t('common.edit'))}">
+              ${icon('edit-3')}
+            </a>
             <button type="button" class="btn-icon" data-pin="${esc(n.id)}" aria-label="Pin" title="Pin">
               ${icon(n.is_pinned ? 'bookmark-check' : 'bookmark')}
             </button>

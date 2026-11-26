@@ -94,7 +94,15 @@ async function renderNote() {
         <button type="button" class="btn btn-secondary btn-sm" id="btn-translate-note" title="${esc(t('live.translate_btn'))}">
           ${icon('languages')}<span>${esc(t('notes.btn_translate'))}</span>
         </button>
-        <button type="button" class="btn btn-secondary btn-sm" id="btn-edit-note">${icon('edit-3')}<span>${esc(t('common.edit'))}</span></button>
+        <button type="button" class="btn btn-secondary btn-sm" id="btn-continue-recording" title="Kontinye anrejistre kou a nan estidyo kaptire a">
+          ${icon('mic')}<span>Kontinye anrejistre</span>
+        </button>
+        <button type="button" class="btn btn-secondary btn-sm" id="btn-add-board-photo" title="Ajoute foto tablo nan nòt sa a">
+          ${icon('camera')}<span>Ajoute foto tablo</span>
+        </button>
+        <button type="button" class="btn btn-primary btn-sm" id="btn-edit-note" title="Ouvri nan estidyo kaptire pou modifye nòt la">
+          ${icon('edit-3')}<span>${esc(t('common.edit'))}</span>
+        </button>
         <button type="button" class="btn btn-secondary btn-sm" id="btn-share-note">${icon('users')}<span>${esc(t('notes.btn_share_group'))}</span></button>
         <button type="button" class="btn btn-secondary btn-sm" id="btn-export-note">${icon('download')}<span>${esc(t('notes.btn_export'))}</span></button>
         <button type="button" class="btn btn-danger btn-sm" id="btn-delete-note">${icon('trash-2')}<span>${esc(t('common.delete'))}</span></button>
@@ -1243,79 +1251,28 @@ function bindActions() {
     });
   });
 
-  document.getElementById('btn-edit-note')?.addEventListener('click', async () => {
-    const coursesList = await loadAvailableCourses();
-    const m = openModal({
-      title: t('common.edit'),
-      size: 'lg',
-      body: `
-        <div class="field"><label>Tit</label><input class="input" id="ed-title" value="${esc(note.title || '')}"></div>
-        <div class="field">
-          <label for="ed-course">${esc(t('capture.course'))}</label>
-          <select class="select" id="ed-course">
-            <option value="">${esc(t('common.no_course'))}</option>
-            ${coursesList.map((c) => `<option value="${esc(c.id)}" ${note.course_id === c.id ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}
-          </select>
-        </div>
-        <div class="field"><label>Rezime</label><textarea class="textarea" id="ed-summary" rows="3">${esc(note.summary || '')}</textarea></div>
-        <div class="field"><label>Kontni</label><textarea class="textarea" id="ed-content" rows="10">${esc(note.content_text || '')}</textarea></div>`,
-      footer: `<button type="button" class="btn btn-secondary" data-close>${esc(t('common.cancel'))}</button>
-               <button type="button" class="btn btn-primary" id="ed-save">${esc(t('common.save'))}</button>`,
-    });
-    m.el.querySelector('#ed-save').addEventListener('click', async () => {
-      const title = m.el.querySelector('#ed-title').value.trim();
-      const courseId = m.el.querySelector('#ed-course').value || null;
-      const summary = m.el.querySelector('#ed-summary').value.trim();
-      const contentText = m.el.querySelector('#ed-content').value.trim();
-      const contentHtml = `<p>${esc(contentText).replace(/\n{2,}/g, '</p><p>').replace(/\n/g, '<br>')}</p>`;
-      const patch = { title, course_id: courseId, summary, content_text: contentText, content_html: contentHtml };
+  document.getElementById('btn-continue-recording')?.addEventListener('click', () => {
+    if (note.is_local_draft) {
+      location.href = `${note.draft_target || './note-capture.html'}?mode=audio`;
+      return;
+    }
+    location.href = `./note-capture.html?id=${encodeURIComponent(note.id)}&edit=1&mode=audio`;
+  });
 
-      const applyLocalSave = async () => {
-        note.title = title; note.course_id = courseId; note.summary = summary; note.content_text = contentText; note.content_html = contentHtml;
-        course = courseId ? coursesList.find((c) => c.id === courseId) || null : null;
-        if (note.is_local_draft) {
-          saveDraftPatchById(note.id, patch);
-        } else if (note.is_local_pending) {
-          await updateQueuedNotePayload(note.id.slice('local:'.length), patch);
-        } else {
-          await cacheSet(`note_${note.id}`, note);
-          await enqueue('note_update', { note_id: note.id, ...patch });
-        }
-        const cachedList = await cacheGet('notes_list');
-        if (Array.isArray(cachedList)) {
-          await cacheSet('notes_list', cachedList.map((x) => (x.id === note.id ? { ...x, title, course_id: courseId, summary, content_text: contentText } : x)));
-        }
-        toast(t('offline.saved_locally'), 'info');
-        m.close();
-        renderNote();
-      };
+  document.getElementById('btn-add-board-photo')?.addEventListener('click', () => {
+    if (note.is_local_draft) {
+      location.href = `${note.draft_target || './note-capture.html'}?mode=photo`;
+      return;
+    }
+    location.href = `./note-capture.html?id=${encodeURIComponent(note.id)}&edit=1&mode=photo`;
+  });
 
-      if (!navigator.onLine || note.is_local_draft || note.is_local_pending || !isUuid(note.id)) {
-        await applyLocalSave();
-        return;
-      }
-
-      try {
-        const { error } = await db.from('pran_not_notes').update(patch).eq('id', note.id);
-        if (error) throw error;
-        note.title = title; note.course_id = courseId; note.summary = summary; note.content_text = contentText; note.content_html = contentHtml;
-        course = courseId ? coursesList.find((c) => c.id === courseId) || null : null;
-        await cacheSet(`note_${note.id}`, note);
-        const cachedList = await cacheGet('notes_list');
-        if (Array.isArray(cachedList)) {
-          await cacheSet('notes_list', cachedList.map((x) => (x.id === note.id ? { ...x, title, course_id: courseId, summary, content_text: contentText } : x)));
-        }
-        toast(t('common.saved'), 'success');
-        m.close();
-        renderNote();
-      } catch (err) {
-        if (isNetworkError(err)) {
-          await applyLocalSave();
-        } else {
-          handleError(err);
-        }
-      }
-    });
+  document.getElementById('btn-edit-note')?.addEventListener('click', () => {
+    if (note.is_local_draft) {
+      location.href = note.draft_target || './note-capture.html';
+      return;
+    }
+    location.href = `./note-capture.html?id=${encodeURIComponent(note.id)}&edit=1`;
   });
 
   // Transfè an dirèk sou sit la avèk kòd 6 chif

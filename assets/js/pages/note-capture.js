@@ -31,6 +31,12 @@ let quill = null;
 let structuredData = null;
 let suggestedCourseId = null;
 
+// Eta modifikasyon nòt ki egziste deja
+let editingNoteId = null;
+let editingNoteOriginal = null;
+let isEditingExisting = false;
+let existingPhotos = [];
+
 // Fichiers originaux conservés
 const photoBlobs = []; // { blob, url, name }
 const audioChunksBlobs = []; // { id, blob, url, mime, ext, duration, status, transcript, liveDraft, provider, error }
@@ -124,6 +130,7 @@ async function persistAudioClipsToStorage() {
 
 /** Restaure les clips audio sauvegardés en IndexedDB si l'étudiant avait quitté la page */
 async function restoreAudioDraftFromStorage() {
+  if (isEditingExisting || getParam('id')) return false;
   try {
     const savedClips = await cacheGet('prannot_audio_draft_clips');
     if (Array.isArray(savedClips) && savedClips.length > 0) {
@@ -207,7 +214,11 @@ function saveDraftToStorage() {
     // Si tout vid, pa bezwen sove anyen
     const hasText = title.trim() || rawText.trim() || htmlToText(quillHtml).trim();
     if (!hasText && !structuredData && !audioChunksBlobs.length) {
-      localStorage.removeItem(DRAFT_STORAGE_KEY);
+      if (isEditingExisting && editingNoteId) {
+        localStorage.removeItem(`prannot_edit_draft_${editingNoteId}`);
+      } else {
+        localStorage.removeItem(DRAFT_STORAGE_KEY);
+      }
       cacheDel('prannot_audio_draft_clips').catch(() => {});
       return;
     }
@@ -223,7 +234,11 @@ function saveDraftToStorage() {
       structuredData: structuredData || null,
       savedAt: Date.now(),
     };
-    localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(payload));
+    if (isEditingExisting && editingNoteId) {
+      localStorage.setItem(`prannot_edit_draft_${editingNoteId}`, JSON.stringify(payload));
+    } else {
+      localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(payload));
+    }
     persistAudioClipsToStorage();
     syncLiveTutorContext();
   } catch (e) {
@@ -233,6 +248,9 @@ function saveDraftToStorage() {
 
 function clearDraftStorage() {
   try {
+    if (isEditingExisting && editingNoteId) {
+      localStorage.removeItem(`prannot_edit_draft_${editingNoteId}`);
+    }
     const existing = localStorage.getItem(DRAFT_STORAGE_KEY);
     if (existing) {
       try {
@@ -304,6 +322,27 @@ async function startFreshNote(skipConfirm = false) {
   const draftBanner = document.getElementById('draft-alert-banner');
   if (draftBanner) draftBanner.hidden = true;
 
+  // Reyajiste eta modifikasyon nòt ki egziste deja
+  isEditingExisting = false;
+  editingNoteId = null;
+  editingNoteOriginal = null;
+  existingPhotos = [];
+  const editBanner = document.getElementById('edit-note-banner');
+  if (editBanner) editBanner.hidden = true;
+  const existBox = document.getElementById('existing-photos-box');
+  if (existBox) existBox.hidden = true;
+  const hSave = document.getElementById('header-save-note-btn');
+  if (hSave?.querySelector('span')) hSave.querySelector('span').textContent = t('capture.save_note') || 'Anrejistre nòt la';
+  const mSave = document.getElementById('save-note-btn');
+  if (mSave?.querySelector('span')) mSave.querySelector('span').textContent = t('capture.save_note') || 'Anrejistre nòt la';
+  try {
+    const cleanUrl = new URL(window.location.href);
+    cleanUrl.searchParams.delete('id');
+    cleanUrl.searchParams.delete('edit');
+    cleanUrl.searchParams.set('new', '1');
+    window.history.replaceState({}, '', cleanUrl.toString());
+  } catch {}
+
   setTimeout(() => {
     isNoteSaved = false;
   }, 100);
@@ -312,6 +351,7 @@ async function startFreshNote(skipConfirm = false) {
 }
 
 function restoreDraftFromStorage() {
+  if (isEditingExisting || getParam('id')) return false;
   try {
     const restoreParam = getParam('restoreDraft');
     if (!restoreParam && (getParam('new') === '1' || getParam('reset') === '1')) {
@@ -402,6 +442,158 @@ function restoreDraftFromStorage() {
     return restored;
   } catch {
     return false;
+  }
+}
+
+/**
+ * Chaje yon nòt ki te deja egziste pou pèmèt etidyan an modifye l,
+ * kontinye anrejistre odyo kou a, ajoute nouvo foto tablo, oswa poze IA kesyon.
+ */
+async function loadExistingNoteForEditing(noteId) {
+  if (!noteId) return;
+  try {
+    let noteData = await cacheGet(`note_${noteId}`);
+    if (!noteData && navigator.onLine && isUuid(noteId)) {
+      const { data, error } = await db.from('pran_not_notes').select('*').eq('id', noteId).single();
+      if (!error && data) {
+        noteData = data;
+        await cacheSet(`note_${noteId}`, data);
+      }
+    }
+
+    if (!noteData) {
+      console.warn('[note-capture] Note to edit not found in cache or DB:', noteId);
+      return;
+    }
+
+    isEditingExisting = true;
+    editingNoteId = noteId;
+    editingNoteOriginal = noteData;
+
+    // Ranpli chan debaz yo
+    const titleInput = document.getElementById('note-title');
+    if (titleInput) titleInput.value = noteData.title || '';
+
+    const rawEl = document.getElementById('raw-text');
+    if (rawEl) {
+      rawEl.value = noteData.raw_text || noteData.content_text || '';
+      updateRawWordCount();
+    }
+
+    if (noteData.course_id) {
+      const courseSel = document.getElementById('note-course');
+      if (courseSel) {
+        courseSel.value = noteData.course_id;
+        courseSel.dispatchEvent(new Event('change'));
+      }
+    }
+
+    if (noteData.unit_id) {
+      setTimeout(() => {
+        const unitSel = document.getElementById('note-unit');
+        if (unitSel) unitSel.value = noteData.unit_id;
+      }, 400);
+    }
+
+    if (noteData.language) {
+      const langSel = document.getElementById('note-lang');
+      if (langSel) langSel.value = noteData.language;
+    }
+
+    if (noteData.structured) {
+      structuredData = noteData.structured;
+      renderStructuredExtras(structuredData);
+    }
+
+    if (quill?.root) {
+      if (noteData.content_html) {
+        quill.root.innerHTML = sanitizeHtml(noteData.content_html);
+      } else if (noteData.content_text) {
+        quill.setText(noteData.content_text);
+      }
+    }
+
+    // Afiche banner modifikasyon
+    const editBanner = document.getElementById('edit-note-banner');
+    if (editBanner) {
+      editBanner.hidden = false;
+      const bTitle = document.getElementById('edit-note-banner-title');
+      if (bTitle) bTitle.textContent = `Mòd Modifikasyon : ${noteData.title || t('notes.untitled')}`;
+      const cancelBtn = document.getElementById('edit-cancel-view-btn');
+      if (cancelBtn) cancelBtn.href = `./note-view.html?id=${encodeURIComponent(noteId)}`;
+      icons(editBanner);
+    }
+
+    // Chanje tèks bouton anrejistre yo
+    const headerSaveBtn = document.getElementById('header-save-note-btn');
+    if (headerSaveBtn) {
+      const sp = headerSaveBtn.querySelector('span');
+      if (sp) sp.textContent = 'Mete nòt la a jou';
+    }
+    const mainSaveBtn = document.getElementById('save-note-btn');
+    if (mainSaveBtn) {
+      const sp = mainSaveBtn.querySelector('span');
+      if (sp) sp.textContent = 'Mete nòt la a jou';
+    }
+
+    // Kache banner bwouyon nòmal la
+    const draftBanner = document.getElementById('draft-alert-banner');
+    if (draftBanner) draftBanner.hidden = true;
+
+    // Chaje foto ki te deja anrejistre nan nòt sa a
+    loadExistingSources(noteId);
+
+    // Chwazi mòd ki mande nan URL la oswa mòd nòt la
+    const requestedMode = getParam('mode');
+    if (requestedMode) {
+      switchMode(requestedMode);
+    } else if (noteData.capture_mode) {
+      switchMode(noteData.capture_mode);
+    }
+
+    syncLiveTutorContext();
+    toast(`Nòt "${noteData.title || ''}" pare pou modifikasyon !`, 'info');
+  } catch (err) {
+    console.warn('[note-capture] loadExistingNoteForEditing error:', err);
+  }
+}
+
+/** Chaje sous foto ki te deja nan nòt la */
+async function loadExistingSources(noteId) {
+  try {
+    let sources = [];
+    if (navigator.onLine && isUuid(noteId)) {
+      const { data } = await db.from('pran_not_note_sources').select('*').eq('note_id', noteId);
+      if (Array.isArray(data)) sources = data;
+    }
+    const imageSources = sources.filter((s) => s.kind === 'image');
+    if (!imageSources.length) return;
+
+    existingPhotos = imageSources;
+    const box = document.getElementById('existing-photos-box');
+    const thumbsGrid = document.getElementById('existing-photo-thumbs');
+    const countBadge = document.getElementById('existing-photos-count');
+
+    if (box && thumbsGrid) {
+      box.hidden = false;
+      if (countBadge) countBadge.textContent = `${imageSources.length} foto`;
+      thumbsGrid.innerHTML = imageSources.map((s, idx) => {
+        let srcUrl = s.storage_path;
+        if (s.storage_path && !s.storage_path.startsWith('http') && !s.storage_path.startsWith('data:')) {
+          const { data } = db.storage.from('pran-not-note-images').getPublicUrl(s.storage_path);
+          srcUrl = data?.publicUrl || s.storage_path;
+        }
+        return `
+          <div class="thumb" title="Foto #${idx + 1}" style="position:relative;">
+            <img src="${esc(srcUrl)}" alt="Foto tablo #${idx + 1}" loading="lazy">
+            <span class="badge badge-xs" style="position:absolute;bottom:4px;left:4px;background:rgba(0,0,0,0.65);color:#fff;">#${idx + 1}</span>
+          </div>
+        `;
+      }).join('');
+      icons(box);
+    }
+  } catch (err) {
+    console.warn('[note-capture] loadExistingSources error:', err);
   }
 }
 
@@ -1384,6 +1576,143 @@ async function saveNote() {
   setLoading(btn, true);
   const clientId = uid();
 
+  const targetNoteId = (isEditingExisting && isUuid(editingNoteId)) ? editingNoteId : null;
+
+  if (targetNoteId) {
+    const updatePayload = {
+      course_id: courseId,
+      unit_id: unitId,
+      title,
+      content_html: finalHtml,
+      content_text: finalText,
+      raw_text: rawText || null,
+      structured: structuredData || editingNoteOriginal?.structured || null,
+      summary: structuredData?.summary || finalText.slice(0, 260),
+      ai_course_suggestion: !courseId ? suggestedCourseId : null,
+      language: lang,
+      capture_mode: currentMode,
+      updated_at: new Date().toISOString(),
+    };
+
+    if (navigator.onLine) {
+      try {
+        const { error: upErr } = await db.from('pran_not_notes').update(updatePayload).eq('id', targetNoteId);
+        if (upErr) throw upErr;
+
+        // Upload nouvo foto si etidyan an te ajoute pandan modifikasyon an
+        for (let i = 0; i < photoBlobs.length; i++) {
+          const p = photoBlobs[i];
+          const rawMime = p.mime || p.blob.type || 'image/jpeg';
+          const cleanMime = rawMime.split(';')[0].trim() || 'image/jpeg';
+          const ext = cleanMime.includes('png') ? 'png' : cleanMime.includes('webp') ? 'webp' : 'jpg';
+          const path = `${userRef.id}/${targetNoteId}/photo-${Date.now()}-${i}.${ext}`;
+          let storagePath = path;
+          let uploadSuccess = false;
+          try {
+            const { error: imgUpErr } = await db.storage.from('pran-not-note-images').upload(path, p.blob, {
+              contentType: cleanMime,
+              upsert: true,
+            });
+            if (!imgUpErr) uploadSuccess = true;
+          } catch {}
+          if (!uploadSuccess) {
+            try {
+              const b64 = await blobToBase64(p.blob);
+              if (b64) storagePath = `data:${cleanMime};base64,${b64}`;
+            } catch {}
+          }
+          await db.from('pran_not_note_sources').insert({
+            user_id: userRef.id,
+            note_id: targetNoteId,
+            kind: 'image',
+            storage_path: storagePath,
+            mime: cleanMime,
+            size_bytes: p.blob.size || 0,
+            chunk_index: existingPhotos.length + i,
+            ocr_text: p.ocrText || null,
+            status: 'done',
+          }).catch(() => {});
+        }
+
+        // Upload nouvo odyo si etidyan an te kontinye anrejistre pandan modifikasyon an
+        for (let i = 0; i < audioChunksBlobs.length; i++) {
+          const clip = audioChunksBlobs[i];
+          const baseMime = (clip.mime || 'audio/webm').split(';')[0].trim() || 'audio/webm';
+          const ext = clip.ext || mimeToExt(baseMime);
+          const path = `${userRef.id}/${targetNoteId}/audio-${Date.now()}-${i}.${ext}`;
+          const cleanBlob = new Blob([clip.blob], { type: baseMime });
+          const { error: audUpErr } = await db.storage.from('pran-not-note-audio').upload(path, cleanBlob, { contentType: baseMime });
+          if (!audUpErr) {
+            await db.from('pran_not_note_sources').insert({
+              user_id: userRef.id,
+              note_id: targetNoteId,
+              kind: 'audio',
+              storage_path: path,
+              mime: baseMime,
+              size_bytes: clip.blob.size,
+              chunk_index: i,
+              duration_seconds: clip.duration || null,
+              transcript: clip.transcript || null,
+              status: 'done',
+            }).catch(() => {});
+          }
+        }
+
+        // Upload nouvo dokiman PDF si genyen
+        for (let i = 0; i < importedFiles.length; i++) {
+          const imp = importedFiles[i];
+          const path = `${userRef.id}/${targetNoteId}/doc-${Date.now()}-${i}.pdf`;
+          const { error: pdfUpErr } = await db.storage.from('pran-not-syllabi').upload(path, imp.file, { contentType: 'application/pdf' });
+          if (!pdfUpErr) {
+            await db.from('pran_not_note_sources').insert({
+              user_id: userRef.id,
+              note_id: targetNoteId,
+              kind: 'pdf',
+              storage_path: path,
+              mime: 'application/pdf',
+              size_bytes: imp.file.size,
+              chunk_index: i,
+              status: 'done',
+            }).catch(() => {});
+          }
+        }
+
+        const mergedNote = { ...(editingNoteOriginal || {}), ...updatePayload, id: targetNoteId };
+        await cacheSet(`note_${targetNoteId}`, mergedNote);
+        const cachedList = await cacheGet('notes_list');
+        if (Array.isArray(cachedList)) {
+          await cacheSet('notes_list', cachedList.map((x) => (x.id === targetNoteId ? { ...x, ...updatePayload } : x)));
+        }
+        localStorage.removeItem(`prannot_edit_draft_${targetNoteId}`);
+        await recordActivity();
+        isNoteSaved = true;
+        toast('Nòt la mete a jou avèk siksè !', 'success');
+        location.href = appUrl(`pages/note-view.html?id=${targetNoteId}`);
+        return;
+      } catch (err) {
+        if (!isNetworkError(err)) {
+          handleError(err);
+          setLoading(btn, false);
+          return;
+        }
+      }
+    }
+
+    // Offline update fallback
+    const mergedNote = { ...(editingNoteOriginal || {}), ...updatePayload, id: targetNoteId };
+    await cacheSet(`note_${targetNoteId}`, mergedNote);
+    const cachedList = await cacheGet('notes_list');
+    if (Array.isArray(cachedList)) {
+      await cacheSet('notes_list', cachedList.map((x) => (x.id === targetNoteId ? { ...x, ...updatePayload } : x)));
+    }
+    await enqueue('note_update', { id: targetNoteId, ...updatePayload });
+    localStorage.removeItem(`prannot_edit_draft_${targetNoteId}`);
+    isNoteSaved = true;
+    toast(t('offline.saved_locally') || 'Nòt la mete a jou lokalman (offline) !', 'success');
+    location.href = appUrl(`pages/note-view.html?id=${targetNoteId}`);
+    return;
+  }
+
   const saveLocallyToQueue = async () => {
     const files = [
       ...photoBlobs.map((p) => ({ kind: 'image', blob: p.blob, mime: 'image/jpeg', ext: 'jpg' })),
@@ -2077,16 +2406,26 @@ function initQuickAiModule() {
 
   // Charger l'éditeur Quill et la liste des cours en parallèle sans bloquer la capture vocale/photo
   initQuill().then(async () => {
-    // Si yon draft te egziste nan localStorage oswa kach odyo, restore l
-    const didRestore = restoreDraftFromStorage();
-    const didRestoreAudio = await restoreAudioDraftFromStorage();
-    if (didRestore || didRestoreAudio) {
-      const banner = document.getElementById('draft-alert-banner');
-      if (banner) {
-        banner.hidden = false;
-        icons(banner);
+    if (isEditingExisting && editingNoteOriginal) {
+      if (quill?.root) {
+        if (editingNoteOriginal.content_html) {
+          quill.root.innerHTML = sanitizeHtml(editingNoteOriginal.content_html);
+        } else if (editingNoteOriginal.content_text) {
+          quill.setText(editingNoteOriginal.content_text);
+        }
       }
-      toast(t('notes.draft_restored') || 'Bwouyon nòt ou t ap pran an retabli otomatikman !', 'info');
+    } else {
+      // Si yon draft te egziste nan localStorage oswa kach odyo, restore l
+      const didRestore = restoreDraftFromStorage();
+      const didRestoreAudio = await restoreAudioDraftFromStorage();
+      if (didRestore || didRestoreAudio) {
+        const banner = document.getElementById('draft-alert-banner');
+        if (banner) {
+          banner.hidden = false;
+          icons(banner);
+        }
+        toast(t('notes.draft_restored') || 'Bwouyon nòt ou t ap pran an retabli otomatikman !', 'info');
+      }
     }
     syncLiveTutorContext();
   }).catch(() => {});
@@ -2169,4 +2508,10 @@ function initQuickAiModule() {
     }
     if (preCourse) await loadUnits(preCourse);
   } catch { /* hors-ligne */ }
+
+  // Si etidyan an ouvri yon nòt ki egziste deja pou modifikasyon
+  const urlNoteId = getParam('id');
+  if (urlNoteId) {
+    await loadExistingNoteForEditing(urlNoteId);
+  }
 })();

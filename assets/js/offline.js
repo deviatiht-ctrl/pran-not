@@ -412,19 +412,24 @@ async function syncSessionItem(db, userId, payload) {
 
 /** Synchronise la modification d'une note existante hors-ligne. */
 async function syncNoteUpdateItem(db, userId, payload) {
-  if (!payload?.note_id) return;
+  const noteId = payload?.note_id || payload?.id;
+  if (!noteId) return;
   const patch = {};
   if ('title' in payload) patch.title = payload.title;
   if ('summary' in payload) patch.summary = payload.summary;
   if ('content_text' in payload) patch.content_text = payload.content_text;
   if ('content_html' in payload) patch.content_html = payload.content_html;
+  if ('raw_text' in payload) patch.raw_text = payload.raw_text;
+  if ('structured' in payload) patch.structured = payload.structured;
+  if ('language' in payload) patch.language = payload.language;
   if ('course_id' in payload) patch.course_id = payload.course_id || null;
   if ('unit_id' in payload) patch.unit_id = payload.unit_id || null;
+  patch.updated_at = payload?.updated_at || new Date().toISOString();
   if (!Object.keys(patch).length) return;
   const { error } = await db
     .from('pran_not_notes')
     .update(patch)
-    .eq('id', payload.note_id)
+    .eq('id', noteId)
     .eq('user_id', userId);
   if (error) throw error;
 }
