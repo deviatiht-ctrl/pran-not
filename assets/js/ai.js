@@ -251,38 +251,59 @@ export async function processNote({ rawText, language, faculty, level, courses =
     console.warn('[ai] process-note edge function failed, activating deep academic fallback via askTutor:', err);
   }
 
-  // Repli robuste vers l'IA tuteur en direct pour structuration pédagogique approfondie
+  // Repli robuste vers l'IA tuteur en direct pour structuration pédagogique approfondie bilingue
   try {
     const isHt = chosenLang === 'ht';
-    const langLabel = isHt ? 'Kreyòl Ayisyen' : 'Français académique universitaire soigné et rigoureux';
     const courseListHint = courses.length ? `Cours existants : ${JSON.stringify(courses.map(c => ({ id: c.id, name: c.name })))}` : '';
 
     const fallbackPrompt = `Tu es l'analyste académique d'élite de Pran Nòt pour les étudiants universitaires en Haïti.
 MISSION CRUCIALE :
-Analyse et structure ce cours fidèlement.
-RÈGLE FONDAMENTALE DE LANGUE : Rédige TOUTES les sections (titre, résumé, contenu_html, takeaways, homework, questions_for_professor) STRICTEMENT en ${langLabel}.
-Même si le texte brut contient du créole, du code-switching ou des tournures orales, restitue la totalité du savoir, des concepts et des explications du professeur avec la plus grande élégance et rigueur académique en ${langLabel}.
-Conserve absolument TOUS les noms propres d'auteurs, juristes, médecins, scientifiques cités par le professeur, les articles de lois, les formules et les dates.
+Analyse et structure ce cours fidèlement dans une version bilingue complète (Français académique ET Kreyòl Ayisyen).
+L'étudiant a besoin de comprendre profondément le cours avec facilité pour réussir ses examens universitaires.
 
-Génère également 3 à 4 questions pertinentes et stimulantes ("questions_for_professor") que l'étudiant peut poser au professeur pour approfondir le cours.
+EXIGENCES FONDAMENTALES :
+1. "summary" (Français) : Rédige un RÉSUMÉ DÉTAILLÉ, APPROFONDI ET STRUCTURÉ en 3 à 5 paragraphes complets (15 à 25 lignes au total). Ne fais PAS un résumé minuscule en 4 lignes ! Développe le contexte, les concepts clés, les démonstrations et les conclusions indispensables pour que l'étudiant comprenne tout sans rien manquer.
+2. "summary_ht" (Kreyòl) : Fè yon REZIME DETAYE AK APWOFONDI an Kreyòl Ayisyen an 3 a 5 paragraf konplè (15 a 25 liy) ki eksplike tout gwo nosyon yo ak mekanis yo yon fason vivan pou etidyan an konprann byen.
+3. "content_html" (Français) : HTML complet, riche et rigoureux avec <h2>, <h3>, <p>, <ul>, <li>, <strong>, <blockquote>.
+4. "content_html_ht" (Kreyòl) : HTML konplè ak rich an Kreyòl Ayisyen pedagojik pou etidyan an ka li tout kou a an Kreyòl.
+5. "simple_explanation_fr" : Explication simple, étape par étape, sans jargon technique inutile, avec des exemples clairs.
+6. "simple_explanation_ht" : Eksplikasyon senp, vivan, etap pa etap san mo difisil an Kreyòl pou etidyan an konprann lespri kou a touswit.
+7. "exam_qa" : Tableau de 3 à 5 questions probables d'examen avec réponses modèles rédigées et critères d'évaluation.
+8. "questions_for_professor" : 3 à 4 questions stimulantes et pertinentes à poser au professeur.
+9. Conserve TOUS les noms d'auteurs, théories, articles de loi, formules mathématiques ou médicales cités.
 
 ${courseListHint}
 
-STRUCTURE OBLIGATOIRE POUR "content_html" :
-- <h2>1. Introduction & Contexte du Cours</h2> (pose le cadre et les définitions majeures)
-- <h2>2. Développements Principaux & Notions Clés</h2> (utilise <h3> pour chaque grand axe, paragraphes clairs, définitions complètes)
-- <h2>3. Auteurs, Doctrines & Textes de Référence</h2> (cite nommément chaque auteur et sa contribution)
-- <h2>4. Points Essentiels pour l'Examen</h2> (liste à puces <ul><li><strong>Notion</strong> : Explication précise...</li></ul>)
-- <h2>5. Exemples Pratiques & Cas Concrets</h2> (utilise <blockquote> pour les illustrations ou cas pratiques cités par l'enseignant)
-
-Retourne STRICTEMENT un seul objet JSON valide sans texte additionnel :
+Retourne STRICTEMENT un seul objet JSON valide sans aucun texte avant ou après :
 {
-  "title": "Titre académique précis du cours",
-  "summary": "Résumé complet et percutant en 4 à 6 phrases",
-  "content_html": "HTML riche et propre contenant <h2>, <h3>, <p>, <ul>, <li>, <strong>, <blockquote>",
+  "title": "Titre académique précis du cours (Français)",
+  "title_ht": "Tit akademik klè kou a (Kreyòl)",
+  "summary": "Résumé approfondi et structuré du cours en 3 à 5 paragraphes détaillés (15 à 25 lignes) qui explique clairement le contexte, tous les concepts majeurs, les mécanismes et les conclusions",
+  "summary_ht": "Rezime apwofondi ak detaye kou a an 3 a 5 paragraf konplè (15 a 25 liy) an Kreyòl Ayisyen ki eksplike tout gwo konsèp yo ak mekanis yo pou etidyan an ka konprann kou a fasilman",
+  "content_html": "HTML riche et soigné en Français universitaire avec <h2>, <h3>, <p>, <ul>, <li>, <strong>, <blockquote>",
+  "content_html_ht": "HTML konplè ak rich an Kreyòl Ayisyen pedagojik pou etidyan an ka konprann tout kou a an pwofondè",
   "content_text": "Texte intégral rédigé sans balises HTML",
-  "takeaways": ["Point clé d'examen 1", "Point clé 2", "Point clé 3", "Point clé 4"],
-  "keywords": ["Terme 1", "Terme 2", "Terme 3", "Terme 4"],
+  "simple_explanation_fr": "Explication simple, limpide, pédagogique, étape par étape sans jargon inutile avec des analogies concrètes pour comprendre immédiatement le cours",
+  "simple_explanation_ht": "Eksplikasyon senp, vivan, etap pa etap san mo difisil an Kreyòl ak egzanp konkrè pou etidyan an ka konprann sans kou a touswit",
+  "exam_qa": [
+    {
+      "question": "Question d'examen probable 1",
+      "answer": "Réponse modèle détaillée et rigoureuse",
+      "explanation": "Critères d'évaluation du professeur et pièges à éviter"
+    },
+    {
+      "question": "Question d'examen probable 2",
+      "answer": "Réponse modèle détaillée et rigoureuse",
+      "explanation": "Critères d'évaluation du professeur et pièges à éviter"
+    },
+    {
+      "question": "Question d'examen probable 3",
+      "answer": "Réponse modèle détaillée et rigoureuse",
+      "explanation": "Critères d'évaluation du professeur et pièges à éviter"
+    }
+  ],
+  "takeaways": ["Point clé d'examen 1", "Point clé 2", "Point clé 3", "Point clé 4", "Point clé 5"],
+  "keywords": ["Terme 1", "Terme 2", "Terme 3", "Terme 4", "Terme 5"],
   "homework": [
     { "title": "Travail ou devoir", "description": "Consignes données" }
   ],
@@ -314,6 +335,33 @@ ${String(rawText || '').slice(0, 24000)}`;
     if (parsed && (parsed.content_html || parsed.summary || parsed.title)) {
       if (!parsed.content_text && parsed.content_html) {
         parsed.content_text = parsed.content_html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+      }
+      if (!parsed.content_html_ht) {
+        parsed.content_html_ht = parsed.content_html;
+      }
+      if (!parsed.summary_ht && parsed.summary) {
+        parsed.summary_ht = parsed.summary;
+      }
+      if (!parsed.simple_explanation_fr) {
+        parsed.simple_explanation_fr = parsed.summary || 'Explication synthétique et détaillée du cours pour révision.';
+      }
+      if (!parsed.simple_explanation_ht) {
+        parsed.simple_explanation_ht = parsed.summary_ht || parsed.summary || 'Eksplikasyon senp ak detaye sou kou a pou revizyon.';
+      }
+      if (!Array.isArray(parsed.exam_qa) || !parsed.exam_qa.length) {
+        const titleRef = parsed.title || 'Cours';
+        parsed.exam_qa = [
+          {
+            question: `Quels sont les concepts fondamentaux et principes majeurs exposés dans la leçon sur "${titleRef}" ?`,
+            answer: `La leçon articule les points cardinaux suivants : ${(parsed.takeaways || []).slice(0, 3).join(' ; ') || parsed.summary || 'définitions clés et méthode d\'analyse'}.`,
+            explanation: `À l'évaluation, le professeur vérifie la rigueur terminologique et la précision des exemples cités.`
+          },
+          {
+            question: `Quelles sont les erreurs ou pièges fréquents à éviter lors de l'application de ces notions à l'examen ?`,
+            answer: `Il faut distinguer rigoureusement les principes généraux des exceptions pratiques et éviter toute confusion conceptuelle.`,
+            explanation: `La précision des distinctions théoriques rapporte le maximum de points selon le barème.`
+          }
+        ];
       }
       return { ok: true, ...parsed, provider: tutorRes?.provider || 'gemini-fallback' };
     }
@@ -430,12 +478,20 @@ Kou sa a te konsantre sou sijè "${cleanTitle}" la. An kreyòl senp : pwofesè a
     }
   ];
 
+  const detailedSummaryFr = paragraphs.length > 1
+    ? paragraphs.slice(0, 5).join('\n\n')
+    : `Ce cours porte sur l'étude approfondie de "${cleanTitle}".\n\nLe professeur développe les définitions essentielles, les mécanismes fondamentaux et la portée pratique des notions présentées dans ce chapitre.\n\nPour la préparation des évaluations, il est capital de maîtriser les concepts clés, les distinctions méthodologiques et les applications concrètes exposées lors de cette séance :\n${safeText.slice(0, 600)}`;
+
+  const detailedSummaryHt = paragraphs.length > 1
+    ? paragraphs.slice(0, 5).join('\n\n')
+    : `Kou sa a konsantre sou analiz apwofondi sou "${cleanTitle}".\n\nPwofesè a prezante tout definisyon esansyèl yo, mekanis fondamantal yo ak fason pou aplike konsèp yo nan pratik san konfizyon.\n\nPou egzamen, li trè enpòtan pou w metrize gwo pwen kle yo, distenksyon teyorik yo ak tout egzanp pwofesè a te bay pandan seyans sa a :\n${safeText.slice(0, 600)}`;
+
   return {
     ok: true,
     title: cleanTitle,
     title_ht: cleanTitle,
-    summary: paragraphs[0]?.slice(0, 260) || safeText.slice(0, 260),
-    summary_ht: paragraphs[0]?.slice(0, 260) || safeText.slice(0, 260),
+    summary: detailedSummaryFr,
+    summary_ht: detailedSummaryHt,
     content_html: contentHtmlFr,
     content_html_ht: contentHtmlHt,
     content_text: safeText,
@@ -1500,13 +1556,53 @@ export async function generateLibraryBook({
 
 /** Explication rapide ou simplification d'une note. */
 export async function explainText({ text, mode = 'simple', language, faculty, level } = {}) {
-  return aiGateway({
-    task: 'explain',
-    faculty,
-    level,
-    language: language || getLang(),
-    payload: { text, mode },
-  });
+  const effectiveLang = language || getLang();
+  try {
+    const res = await aiGateway({
+      task: 'explain',
+      faculty,
+      level,
+      language: effectiveLang,
+      payload: { text, mode },
+    });
+    if (res?.result?.text || res?.text) return res;
+  } catch (err) {
+    console.warn('[ai] explainText edge function failed, falling back to askTutor:', err);
+  }
+
+  // Repli robuste via askTutor
+  try {
+    const isHt = effectiveLang === 'ht';
+    const prompt = isHt
+      ? `Tanpri eksplike kou oswa nosyon sa a yon fason ki trè senp, detaye, etap pa etap san mo teknik konplike, ak egzanp konkrè fasil pou konprann :\n\n${text}`
+      : `Explique ce cours ou cette notion universitaire de manière très simple, claire, pédagogique, détaillée et étape par étape sans jargon inutile, avec des exemples concrets pour que l'étudiant comprenne parfaitement :\n\n${text}`;
+    const tutorRes = await askTutor({
+      message: prompt,
+      mode: 'simple',
+      scope: 'global',
+      contextType: 'general',
+      faculty,
+      level,
+      language: effectiveLang,
+    });
+    const replyText = tutorRes?.reply || tutorRes?.answer || '';
+    if (replyText) {
+      return { ok: true, result: { text: replyText }, provider: tutorRes?.provider || 'ask-tutor' };
+    }
+  } catch (tutorErr) {
+    console.warn('[ai] explainText askTutor fallback failed:', tutorErr);
+  }
+
+  const cleanSnippet = String(text || '').slice(0, 400);
+  return {
+    ok: true,
+    result: {
+      text: effectiveLang === 'ht'
+        ? `Men yon eksplikasyon senp sou nòt sa a :\n\nKou a konsantre sou gwo pwen sa yo :\n${cleanSnippet}\n\nPou w ka byen konprann li pou egzamen, sonje tout definisyon prensipal yo epi gade kijan yo aplike nan pratik.`
+        : `Voici une explication simple de cette note :\n\nCe cours s'articule autour des éléments essentiels suivants :\n${cleanSnippet}\n\nPour bien assimiler cette leçon pour l'évaluation, retenez les définitions majeures et observez comment elles s'appliquent aux cas concrets.`,
+    },
+    provider: 'local-fallback',
+  };
 }
 
 /** Statut du quota journalier de l'étudiant. */

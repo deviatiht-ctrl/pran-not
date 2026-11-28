@@ -29,6 +29,22 @@ let sources = [];
 let profileRef = null;
 let userRef = null;
 
+function getFullNoteContent() {
+  if (!note) return '';
+  const parts = [];
+  if (note.title) parts.push(`Tit: ${note.title}`);
+  if (note.summary) parts.push(`Rezime: ${note.summary}`);
+  if (note.content_text) {
+    parts.push(note.content_text);
+  } else if (note.content_html) {
+    parts.push(htmlToText(note.content_html));
+  }
+  if (note.raw_text && note.raw_text !== note.content_text) {
+    parts.push(`Tèks brit:\n${note.raw_text}`);
+  }
+  return parts.join('\n\n').trim();
+}
+
 async function renderNote() {
   const root = document.getElementById('note-root');
   if (!note) return;
@@ -143,7 +159,10 @@ async function renderNote() {
 
     <!-- Barre d'actions IA sur la note -->
     <div class="row-wrap mb-4">
-      <button type="button" class="btn btn-primary" id="btn-gen-cards">${icon('layers')}<span>${esc(t('notes.btn_flashcards'))}</span></button>
+      <button type="button" class="btn btn-primary" id="btn-view-re-structure" title="${isFr ? 'Générer la version bilingue complète avec explications simples et Q&R' : 'Mete nòt la an biling konplè ak eksplikasyon senp ak Q&A'}">
+        ${icon('sparkles')}<span>${isFr ? 'Structurer en Bilingue (FR + HT + Q&R)' : 'Estriktire an Biling (FR + HT + Q&A)'}</span>
+      </button>
+      <button type="button" class="btn btn-secondary" id="btn-gen-cards">${icon('layers')}<span>${esc(t('notes.btn_flashcards'))}</span></button>
       <button type="button" class="btn btn-dark" id="btn-gen-quiz">${icon('check-circle-2')}<span>${esc(t('notes.btn_quiz'))}</span></button>
       <button type="button" class="btn btn-secondary" id="btn-prof-questions" title="${esc(t('notes.prof_questions_btn_title') || 'Jenere kesyon pètinan pou poze pwofesè a')}">
         ${icon('help-circle')}<span>${esc(t('notes.prof_questions_btn') || 'Kesyon pou Pwofesè a')}</span>
@@ -717,6 +736,66 @@ async function finalizeDraftNote(draft) {
 }
 
 function bindActions() {
+  const root = document.getElementById('note-root') || document;
+  const isFr = getLang() === 'fr';
+
+  document.getElementById('btn-view-re-structure')?.addEventListener('click', async (e) => {
+    const btn = e.currentTarget;
+    setLoading(btn, true);
+    try {
+      const srcText = (typeof getFullNoteContent === 'function' ? getFullNoteContent() : '') || note.content_text || note.raw_text || '';
+      if (!srcText) {
+        toast(t('errors.required'), 'warning');
+        return;
+      }
+      const res = await processNote({
+        rawText: srcText,
+        language: 'mix',
+        mode: 'bilingual',
+        faculty: profileRef?.faculty_id || 'autre',
+        level: profileRef?.level || 'L1',
+        noteId: note.id,
+      });
+
+      if (!res || (!res.content_html && !res.summary)) {
+        throw new Error(isFr ? 'Échec de la structuration bilingue' : 'Echèk estriktirasyon biling la');
+      }
+
+      note.title = res.title || note.title;
+      note.summary = res.summary || note.summary;
+      note.content_html = res.content_html || note.content_html;
+      note.content_text = res.content_text || note.content_text;
+      note.structured = {
+        ...(note.structured || {}),
+        ...res,
+        content_html_ht: res.content_html_ht || '',
+        simple_explanation_fr: res.simple_explanation_fr || '',
+        simple_explanation_ht: res.simple_explanation_ht || '',
+        exam_qa: Array.isArray(res.exam_qa) ? res.exam_qa : [],
+        questions_for_professor: Array.isArray(res.questions_for_professor) ? res.questions_for_professor : [],
+      };
+
+      if (navigator.onLine && isUuid(note.id)) {
+        await db.from('pran_not_notes').update({
+          title: note.title,
+          summary: note.summary,
+          content_html: note.content_html,
+          content_text: note.content_text,
+          structured: note.structured,
+          updated_at: new Date().toISOString(),
+        }).eq('id', note.id);
+      }
+      await cacheSet(`note_${note.id}`, note);
+
+      toast(isFr ? 'Note parfaitement structurée en format bilingue avec explications !' : 'Nòt la byen estriktire an fòma biling ak tout eksplikasyon ak Q&A !', 'success');
+      await renderNote();
+    } catch (err) {
+      handleError(err);
+    } finally {
+      setLoading(btn, false);
+    }
+  });
+
   const onFinalizeClick = async (e) => {
     const btn = e.currentTarget;
     setLoading(btn, true);
@@ -770,7 +849,7 @@ function bindActions() {
         unitId: isUuid(note.unit_id) ? note.unit_id : null,
         noteId: isUuid(note.id) ? note.id : null,
       });
-      toast(`${res.cards?.length || 0} kat memwa kreye.`, 'success', {
+      toast(isFr ? `${res.cards?.length || 0} cartes mémoire créées.` : `${res.cards?.length || 0} kat memwa kreye.`, 'success', {
         action: {
           label: t('nav.review'),
           onClick: () => { location.href = appUrl(`pages/flashcards.html?deck=${res.deckId || ''}`); },
@@ -883,7 +962,7 @@ function bindActions() {
   root.querySelectorAll('[data-copy-prof-q]').forEach((b) => {
     b.addEventListener('click', () => {
       navigator.clipboard?.writeText(b.dataset.copyProfQ || '');
-      toast('Kesyon kopye !', 'success');
+      toast(isFr ? 'Question copiée !' : 'Kesyon kopye !', 'success');
     });
   });
 
@@ -928,7 +1007,7 @@ function bindActions() {
           }).eq('id', note.id);
         }
         await cacheSet(`note_${note.id}`, note);
-        toast('Kesyon ajoute nan nòt la !', 'success');
+        toast(isFr ? 'Question ajoutée à la note !' : 'Kesyon ajoute nan nòt la !', 'success');
         renderNote();
       });
       renderNote();
@@ -943,7 +1022,7 @@ function bindActions() {
     const btn = e.currentTarget;
     const textToFix = (note.raw_text || getFullNoteContent()).trim();
     if (!textToFix) {
-      toast('Pa gen tèks brit nan nòt sa a.', 'info');
+      toast(isFr ? 'Aucun texte brut dans cette note.' : 'Pa gen tèks brit nan nòt sa a.', 'info');
       return;
     }
     setLoading(btn, true);
@@ -955,26 +1034,26 @@ function bindActions() {
         level: profileRef?.level,
       });
       if (!res.ok || !res.correctedText) {
-        throw new Error('Echèk koreksyon sans la');
+        throw new Error(isFr ? 'Échec de la correction du texte' : 'Echèk koreksyon sans la');
       }
 
       const m = openModal({
-        title: 'Koreksyon & Clarifikasyon Sans Tèks la',
+        title: isFr ? 'Correction & Clarification du Sens' : 'Koreksyon & Clarifikasyon Sans Tèks la',
         body: `
           <div class="stack py-2">
-            <p class="text-sm muted mb-3">Men tèks nòt la rann klè, lojik ak fraz byen estriktire pandan tout non ak konsèp yo konsève :</p>
+            <p class="text-sm muted mb-3">${isFr ? 'Voici le texte de la note rendu clair, logique avec des phrases bien structurées tout en préservant tous les noms et concepts :' : 'Men tèks nòt la rann klè, lojik ak fraz byen estriktire pandan tout non ak konsèp yo konsève :'}</p>
             <div class="card p-3" style="max-height:280px;overflow-y:auto;background:var(--c-surface);font-size:0.95rem;line-height:1.6;white-space:pre-wrap;">${esc(res.correctedText)}</div>
           </div>
         `,
         footer: `
           <button type="button" class="btn btn-secondary" data-close>${esc(t('common.close'))}</button>
-          <button type="button" class="btn btn-primary" id="btn-copy-corrected-raw">${icon('copy')}<span>Kopye tèks korije a</span></button>
+          <button type="button" class="btn btn-primary" id="btn-copy-corrected-raw">${icon('copy')}<span>${esc(isFr ? 'Copier le texte corrigé' : 'Kopye tèks korije a')}</span></button>
         `,
       });
 
       m.el.querySelector('#btn-copy-corrected-raw')?.addEventListener('click', () => {
         navigator.clipboard?.writeText(res.correctedText);
-        toast('Tèks korije a kopye !', 'success');
+        toast(isFr ? 'Texte corrigé copié !' : 'Tèks korije a kopye !', 'success');
       });
     } catch (err) {
       handleError(err);
@@ -1060,7 +1139,12 @@ function bindActions() {
           try {
             if (!note.structured) note.structured = {};
             note.structured.simple_explanation = explanationText;
-            const patch = { structured: note.structured };
+            if (selectedLang === 'fr') {
+              note.structured.simple_explanation_fr = explanationText;
+            } else {
+              note.structured.simple_explanation_ht = explanationText;
+            }
+            const patch = { structured: note.structured, updated_at: new Date().toISOString() };
 
             if (navigator.onLine && !note.is_local_pending && isUuid(note.id)) {
               await db.from('pran_not_notes').update(patch).eq('id', note.id);
@@ -1068,9 +1152,9 @@ function bindActions() {
               await updateQueuedNotePayload(note.id.slice('local:'.length), patch);
             }
             await cacheSet(`note_${note.id}`, note);
-            toast('Eksplikasyon senp lan ajoute nan nòt la!', 'success');
+            toast(isFr ? 'Explication simple ajoutée à la note !' : 'Eksplikasyon senp lan ajoute nan nòt la !', 'success');
             m.close();
-            renderNote();
+            await renderNote();
           } catch (err) {
             handleError(err);
           } finally {
@@ -1170,9 +1254,9 @@ function bindActions() {
               await updateQueuedNotePayload(note.id.slice('local:'.length), patch);
             }
             await cacheSet(`note_${note.id}`, note);
-            toast('Rezime pa pwen an ajoute nan nòt la!', 'success');
+            toast(isFr ? 'Résumé par points ajouté à la note !' : 'Rezime pa pwen an ajoute nan nòt la!', 'success');
             m.close();
-            renderNote();
+            await renderNote();
           } catch (err) {
             handleError(err);
           } finally {
@@ -1205,7 +1289,7 @@ function bindActions() {
         await updateQueuedNotePayload(note.id.slice('local:'.length), patch);
       }
       await cacheSet(`note_${note.id}`, note);
-      toast('Rezime pa pwen retire nan nòt la.', 'info');
+      toast(isFr ? 'Résumé par points retiré de la note.' : 'Rezime pa pwen retire nan nòt la.', 'info');
       renderNote();
     } catch (err) {
       handleError(err);
@@ -1215,13 +1299,15 @@ function bindActions() {
   // Retire eksplikasyon senp lan si etidyan an vle
   document.getElementById('btn-remove-simple-exp')?.addEventListener('click', async () => {
     const ok = await confirmDialog({
-      title: 'Retire eksplikasyon senp',
-      message: 'Èske ou vle retire seksyon eksplikasyon senp lan nan nòt la ?',
+      title: isFr ? 'Retirer l\'explication simple' : 'Retire eksplikasyon senp',
+      message: isFr ? 'Voulez-vous retirer la section explication simple de cette note ?' : 'Èske ou vle retire seksyon eksplikasyon senp lan nan nòt la ?',
     });
     if (!ok) return;
     try {
       if (note.structured) {
         delete note.structured.simple_explanation;
+        delete note.structured.simple_explanation_fr;
+        delete note.structured.simple_explanation_ht;
       }
       const patch = { structured: note.structured || null };
       if (navigator.onLine && !note.is_local_pending && isUuid(note.id)) {
@@ -1230,7 +1316,7 @@ function bindActions() {
         await updateQueuedNotePayload(note.id.slice('local:'.length), patch);
       }
       await cacheSet(`note_${note.id}`, note);
-      toast('Eksplikasyon retire nan nòt la.', 'info');
+      toast(isFr ? 'Explication retirée de la note.' : 'Eksplikasyon retire nan nòt la.', 'info');
       renderNote();
     } catch (err) {
       handleError(err);
@@ -1258,32 +1344,30 @@ function bindActions() {
             </select>
           </div>
           <div class="field mb-3">
-            <label for="ai-clean-mode">Metòd tretman</label>
+            <label for="ai-clean-mode">${isFr ? 'Méthode de structuration' : 'Metòd tretman'}</label>
             <select class="select" id="ai-clean-mode">
-              <option value="standard">Estanda (Plan, definisyon, mo kle ak devwa)</option>
-              <option value="harmonize_ht">Tradui ak amonize tout nòt la an Kreyòl</option>
-              <option value="harmonize_fr">Tradui ak amonize tout nòt la an Fransè</option>
+              <option value="bilingual" selected>${isFr ? 'Bilingue complet (Français + Créole + Explications + Q&R)' : 'Biling konplè (Fransè + Kreyòl + Eksplikasyon + Q&A)'}</option>
+              <option value="harmonize_fr">${isFr ? 'Harmoniser en Français universitaire' : 'Tradui ak amonize tout nòt la an Fransè'}</option>
+              <option value="harmonize_ht">${isFr ? 'Harmoniser en Créole haïtien' : 'Tradui ak amonize tout nòt la an Kreyòl'}</option>
             </select>
           </div>
           <button type="submit" class="btn btn-primary btn-block" id="btn-start-clean">
-            ${icon('wand-2')}<span>Kòmanse analiz</span>
+            ${icon('wand-2')}<span>${isFr ? 'Lancer la structuration IA' : 'Kòmanse analiz IA'}</span>
           </button>
         </div>
       `,
     });
 
     m.el.querySelector('#btn-start-clean')?.addEventListener('click', async () => {
-      const selectedLang = m.el.querySelector('#ai-clean-lang').value || 'ht';
-      let selectedMode = m.el.querySelector('#ai-clean-mode').value || 'standard';
-      if (selectedMode === 'standard') {
-        selectedMode = selectedLang === 'fr' ? 'harmonize_fr' : 'harmonize_ht';
-      }
+      const selectedLang = m.el.querySelector('#ai-clean-lang').value || 'fr';
+      const selectedMode = m.el.querySelector('#ai-clean-mode').value || 'bilingual';
       m.close();
       setLoading(btn, true);
 
       try {
+        const srcText = getFullNoteContent() || note.content_text || note.raw_text || '';
         const res = await processNote({
-          rawText: note.raw_text || note.content_text,
+          rawText: srcText,
           language: selectedLang,
           mode: selectedMode,
           faculty: profileRef?.faculty_id,
@@ -1293,9 +1377,30 @@ function bindActions() {
         note.title = res.title || note.title;
         note.summary = res.summary || note.summary;
         note.content_html = res.content_html || note.content_html;
-        note.structured = res;
-        toast(t('common.saved'), 'success');
-        renderNote();
+        note.content_text = res.content_text || note.content_text;
+        note.structured = {
+          ...(note.structured || {}),
+          ...res,
+          content_html_ht: res.content_html_ht || '',
+          simple_explanation_fr: res.simple_explanation_fr || '',
+          simple_explanation_ht: res.simple_explanation_ht || '',
+          exam_qa: Array.isArray(res.exam_qa) ? res.exam_qa : [],
+          questions_for_professor: Array.isArray(res.questions_for_professor) ? res.questions_for_professor : [],
+        };
+
+        if (navigator.onLine && isUuid(note.id)) {
+          await db.from('pran_not_notes').update({
+            title: note.title,
+            summary: note.summary,
+            content_html: note.content_html,
+            content_text: note.content_text,
+            structured: note.structured,
+            updated_at: new Date().toISOString(),
+          }).eq('id', note.id);
+        }
+        await cacheSet(`note_${note.id}`, note);
+        toast(isFr ? 'Note mise à jour avec succès !' : 'Nòt la mete a jou avèk siksè !', 'success');
+        await renderNote();
       } catch (err) {
         handleError(err);
       } finally {
@@ -1474,25 +1579,25 @@ function bindActions() {
     try {
       const { data: groups } = await db.from('pran_not_study_groups').select('id, name');
       if (!groups?.length) {
-        toast('Kreye oswa antre nan yon gwoup etid anvan nan Planifikatè.', 'info', {
+        toast(isFr ? 'Créez ou rejoignez d\'abord un groupe d\'étude dans le Planificateur.' : 'Kreye oswa antre nan yon gwoup etid anvan nan Planifikatè.', 'info', {
           action: { label: t('nav.planner'), onClick: () => { location.href = appUrl('pages/planner.html'); } },
         });
         return;
       }
       const m = openModal({
-        title: 'Pataje nòt la nan yon gwoup',
+        title: isFr ? 'Partager la note dans un groupe' : 'Pataje nòt la nan yon gwoup',
         body: `
-          <div class="field"><label>Gwoup etid</label>
+          <div class="field"><label>${isFr ? 'Groupe d\'étude' : 'Gwoup etid'}</label>
             <select class="select" id="sh-group">${groups.map((g) => `<option value="${esc(g.id)}">${esc(g.name)}</option>`).join('')}</select>
           </div>
-          <div class="field"><label>Pèmisyon</label>
+          <div class="field"><label>${isFr ? 'Permissions' : 'Pèmisyon'}</label>
             <select class="select" id="sh-perm">
-              <option value="copy">Li + Kopye nan nòt pa yo</option>
-              <option value="view">Li sèlman</option>
+              <option value="copy">${isFr ? 'Lecture + Copie dans leurs notes' : 'Li + Kopye nan nòt pa yo'}</option>
+              <option value="view">${isFr ? 'Lecture seule' : 'Li sèlman'}</option>
             </select>
           </div>`,
         footer: `<button type="button" class="btn btn-secondary" data-close>${esc(t('common.cancel'))}</button>
-                 <button type="button" class="btn btn-primary" id="sh-ok">Pataje</button>`,
+                 <button type="button" class="btn btn-primary" id="sh-ok">${esc(isFr ? 'Partager' : 'Pataje')}</button>`,
       });
       m.el.querySelector('#sh-ok').addEventListener('click', async () => {
         const groupId = m.el.querySelector('#sh-group').value;
@@ -1685,9 +1790,9 @@ function bindActions() {
         nvResult.querySelector('#nv-ai-copy-btn')?.addEventListener('click', async () => {
           try {
             await navigator.clipboard.writeText(reply);
-            toast(t('common.copied') || 'Kopye !', 'success');
+            toast(t('common.copied') || (isFr ? 'Copié !' : 'Kopye !'), 'success');
           } catch {
-            toast('Kopye echwe', 'error');
+            toast(isFr ? 'Échec de la copie' : 'Kopye echwe', 'error');
           }
         });
 
@@ -1751,8 +1856,8 @@ function renderProfQuestionsModal(questions = [], title = '', onInsertCallback) 
 
   m.el.querySelectorAll('[data-copy-q]').forEach((b) => {
     b.addEventListener('click', () => {
-      navigator.clipboard?.writeText(b.dataset.copyQ || '');
-      toast('Kesyon kopye !', 'success');
+      navigator.clipboard?.writeText(b.dataset.copyProfQ || b.dataset.copyQ || '');
+      toast(isFr ? 'Question copiée !' : 'Kesyon kopye !', 'success');
     });
   });
 

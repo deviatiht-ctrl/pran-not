@@ -72,23 +72,40 @@
     </div>
 
     <!-- Banner Mòd Modifikasyon Nòt -->
-    <div class="alert alert-info mb-4 row-between" id="edit-note-banner" hidden style="border-left:4px solid var(--c-primary);background:var(--c-surface);">
-      <div class="row" style="gap:10px;align-items:center;">
-        <i data-lucide="edit-3" aria-hidden="true" style="color:var(--c-primary);width:22px;height:22px;flex-shrink:0;"></i>
-        <div>
-          <strong id="edit-note-banner-title" style="color:var(--c-text);">Mòd Modifikasyon Nòt</strong>
-          <p class="text-xs mb-0 muted" id="edit-note-banner-sub">W ap modifye yon nòt ki egziste deja. Ou ka ajoute foto tablo nèf, kontinye anrejistre kou a ak mikwo, korije tèks la oswa poze IA kesyon.</p>
+    <div class="alert alert-info mb-4" id="edit-note-banner" hidden style="border-left:4px solid var(--c-primary);background:var(--c-surface);">
+      <div class="row-between mb-2" style="flex-wrap:wrap;gap:10px;align-items:center;">
+        <div class="row" style="gap:10px;align-items:center;">
+          <i data-lucide="edit-3" aria-hidden="true" style="color:var(--c-primary);width:22px;height:22px;flex-shrink:0;"></i>
+          <div>
+            <strong id="edit-note-banner-title" style="color:var(--c-text);">Mòd Modifikasyon Nòt</strong>
+            <p class="text-xs mb-0 muted" id="edit-note-banner-sub">W ap modifye yon nòt ki egziste deja. Ou ka ajoute foto tablo nèf, kontinye anrejistre kou a ak mikwo, korije tèks la oswa poze IA kesyon.</p>
+          </div>
+        </div>
+        <div class="row" style="gap:8px;flex-wrap:wrap;">
+          <button type="button" class="btn btn-sm btn-primary" id="btn-re-structure-banner" data-i18n-title="capture.re_structure_bilingual_title" title="Mete nòt sa a nan fòma biling konplè (Fransè + Kreyòl + Q&A Egzamen)">
+            <i data-lucide="sparkles" aria-hidden="true"></i>
+            <span data-i18n="capture.re_structure_bilingual">Mete l an Biling + Q&A</span>
+          </button>
+          <a class="btn btn-sm btn-ghost" id="edit-cancel-view-btn" href="./notes.html">
+            <i data-lucide="arrow-left" aria-hidden="true"></i>
+            <span data-i18n="common.back">Retounen nan nòt la</span>
+          </a>
         </div>
       </div>
-      <div class="row" style="gap:8px;flex-wrap:wrap;">
-        <button type="button" class="btn btn-sm btn-primary" id="btn-re-structure-banner" data-i18n-title="capture.re_structure_bilingual_title" title="Mete nòt sa a nan fòma biling konplè (Fransè + Kreyòl + Q&A Egzamen)">
-          <i data-lucide="sparkles" aria-hidden="true"></i>
-          <span data-i18n="capture.re_structure_bilingual">Mete l an Biling + Q&A</span>
+      <!-- Raccourcis directs de modification -->
+      <div class="row-wrap pt-2 mt-2" style="border-top:1px dashed var(--c-border);gap:6px;">
+        <button type="button" class="btn btn-xs btn-outline" id="banner-btn-switch-audio">
+          <i data-lucide="mic" aria-hidden="true"></i>
+          <span data-i18n="capture.continue_recording">Kontinye anrejistre</span>
         </button>
-        <a class="btn btn-sm btn-ghost" id="edit-cancel-view-btn" href="./notes.html">
-          <i data-lucide="arrow-left" aria-hidden="true"></i>
-          <span data-i18n="common.back">Retounen nan nòt la</span>
-        </a>
+        <button type="button" class="btn btn-xs btn-outline" id="banner-btn-switch-photo">
+          <i data-lucide="camera" aria-hidden="true"></i>
+          <span data-i18n="capture.add_board_photo">Ajoute foto tablo</span>
+        </button>
+        <button type="button" class="btn btn-xs btn-outline" id="banner-btn-ask-ai">
+          <i data-lucide="help-circle" aria-hidden="true"></i>
+          <span data-i18n="capture.quick_ai_ask_btn">Poze IA kesyon</span>
+        </button>
       </div>
     </div>
 
@@ -282,13 +299,13 @@
           <textarea class="textarea" id="raw-text" rows="8" placeholder="Tèks tablo, transkripsyon oswa nòt rapid ou a ap parèt la..." data-i18n-placeholder="capture.raw_text_placeholder"></textarea>
 
           <div class="row-wrap mt-4" style="gap:8px;">
-            <button type="button" class="btn btn-primary" id="ai-structure-btn">
+            <button type="button" class="btn btn-primary" id="ai-structure-btn" data-i18n-title="capture.structure_bilingual_title" title="Jenere vèsyon Fransè ak Kreyòl konplè, ak eksplikasyon senp ak kesyon/repons egzamen">
               <i data-lucide="sparkles" aria-hidden="true"></i>
-              <span data-i18n="capture.structure_ai">Netwaye epi estriktire ak IA</span>
+              <span data-i18n="capture.structure_bilingual">Netwaye & Estriktire ak IA (Biling Fransè + Kreyòl + Q&A)</span>
             </button>
-            <button type="button" class="btn btn-accent" id="btn-structure-bilingual" data-i18n-title="capture.structure_bilingual_title" title="Jenere vèsyon Fransè ak Kreyòl konplè, ak eksplikasyon senp ak kesyon/repons egzamen">
+            <button type="button" class="btn btn-accent" id="btn-structure-bilingual" style="display:none;" data-i18n-title="capture.structure_bilingual_title">
               <i data-lucide="languages" aria-hidden="true"></i>
-              <span data-i18n="capture.structure_bilingual">Estriktire Biling (Fransè + Kreyòl + Q&A)</span>
+              <span data-i18n="capture.structure_bilingual">Netwaye & Estriktire ak IA (Biling Fransè + Kreyòl + Q&A)</span>
             </button>
             <button type="button" class="btn btn-secondary" id="btn-fix-raw-sense" data-i18n-title="capture.fix_raw_sense_title" title="Analize tèks la epi repare fraz ki pa fin klè oswa ki koupe yo">
               <i data-lucide="wand-2" aria-hidden="true"></i>
@@ -405,6 +422,6 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/lucide@0.468.0/dist/umd/lucide.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
-  <script type="module" src="../assets/js/pages/note-capture.js?v=20261128c"></script>
+  <script type="module" src="../assets/js/pages/note-capture.js?v=20261128e"></script>
 </body>
 </html>

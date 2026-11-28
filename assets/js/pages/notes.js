@@ -707,7 +707,8 @@ async function fetchNotes(reset = true) {
     updateBatchUI();
     renderList();
     if (isBatchMode) {
-      toast('Mòd seleksyon aktive : klike sou kaz nòt ou vle enprime yo.', 'info');
+      const isFr = getLang() === 'fr';
+      toast(isFr ? 'Mode sélection activé : cochez les notes que vous souhaitez imprimer.' : 'Mòd seleksyon aktive : klike sou kaz nòt ou vle enprime yo.', 'info');
     }
   });
 
@@ -731,12 +732,13 @@ async function fetchNotes(reset = true) {
   });
 
   document.getElementById('btn-batch-print')?.addEventListener('click', () => {
+    const isFr = getLang() === 'fr';
     if (!selectedNoteIds.size) {
-      toast('Tanpri chwazi omwen yon nòt pou w ka enprime !', 'warning');
+      toast(isFr ? 'Veuillez sélectionner au moins une note à imprimer !' : 'Tanpri chwazi omwen yon nòt pou w ka enprime !', 'warning');
       return;
     }
     const selectedNotes = allNotes.filter((n) => selectedNoteIds.has(n.id));
-    toast(`Preparasyon ${selectedNotes.length} nòt pou enpresyon / PDF...`, 'info');
+    toast(isFr ? `Préparation de ${selectedNotes.length} note(s) pour impression / PDF...` : `Preparasyon ${selectedNotes.length} nòt pou enpresyon / PDF...`, 'info');
     batchPrintNotes(selectedNotes, coursesMap, currentProfileRef);
   });
 

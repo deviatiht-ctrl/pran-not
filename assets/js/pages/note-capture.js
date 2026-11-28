@@ -1209,7 +1209,7 @@ async function startRecording() {
       };
     });
   } catch {
-    toast('Otorize mikwofòn nan nan navigatè ou pou anrejistre.', 'error');
+    toast(currentLang() === 'fr' ? 'Autorisez le microphone dans votre navigateur pour enregistrer.' : 'Otorize mikwofòn nan nan navigatè ou pou anrejistre.', 'error');
     return;
   }
 
@@ -1376,7 +1376,7 @@ export async function autoRetryPendingTranscriptions() {
   if (!pendingClips.length) return;
 
   isAutoRetryingTranscriptions = true;
-  toast('Koneksyon retounen : retranskripsyon segman odyo yo ap relanse otomatikman...', 'info');
+  toast(currentLang() === 'fr' ? 'Connexion rétablie : la retranscription des segments audio se relance automatiquement...' : 'Koneksyon retounen : retranskripsyon segman odyo yo ap relanse otomatikman...', 'info');
 
   try {
     for (const clip of pendingClips) {
@@ -1453,7 +1453,7 @@ async function transcribeClip(clip, isRetry = false) {
         updateRawWordCount();
       }
       saveDraftToStorage();
-      toast('Transkripsyon lokal rekipere pou pa pèdi nòt la.', 'info');
+      toast(currentLang() === 'fr' ? 'Transcription locale récupérée pour ne pas perdre la note.' : 'Transkripsyon lokal rekipere pou pa pèdi nòt la.', 'info');
     } else {
       handleError(err);
     }
@@ -1546,7 +1546,7 @@ async function handleImportFiles(fileList) {
 /* ------------------------------------------------------------------
    Traitement IA de la note (structuration + harmonisation bilingue)
    ------------------------------------------------------------------ */
-async function runStructureAi(mode = 'standard', btnEl = null) {
+async function runStructureAi(mode = 'bilingual', btnEl = null) {
   let raw = document.getElementById('raw-text').value.trim();
   if (!raw && quill) {
     raw = htmlToText(quill.root.innerHTML).trim();
@@ -1570,11 +1570,12 @@ async function runStructureAi(mode = 'standard', btnEl = null) {
       faculty: profileRef?.faculty_id || 'autre',
       level: profileRef?.level || 'L1',
       courses: coursesList,
-      mode: mode === 'bilingual' ? 'bilingual' : mode,
+      mode: 'bilingual',
     });
     structuredData = {
       ...res,
       content_html_ht: res.content_html_ht || '',
+      summary_ht: res.summary_ht || '',
       simple_explanation_fr: res.simple_explanation_fr || '',
       simple_explanation_ht: res.simple_explanation_ht || '',
       exam_qa: Array.isArray(res.exam_qa) ? res.exam_qa : [],
@@ -1595,9 +1596,36 @@ async function runStructureAi(mode = 'standard', btnEl = null) {
       }
     }
 
+    // Si on modifie une note existante sauvegardée, synchroniser immédiatement avec Supabase et le cache
+    if (isEditingExisting && isUuid(editingNoteId)) {
+      try {
+        const updatePayload = {
+          title: document.getElementById('note-title').value.trim() || undefined,
+          content_html: quill ? sanitizeHtml(quill.root.innerHTML) : (res.content_html || res.content_html_ht),
+          content_text: raw || htmlToText(quill ? quill.root.innerHTML : ''),
+          structured: structuredData,
+          summary: structuredData.summary || null,
+          updated_at: new Date().toISOString(),
+        };
+        await db.from('pran_not_notes').update(updatePayload).eq('id', editingNoteId);
+        if (editingNoteOriginal) {
+          Object.assign(editingNoteOriginal, updatePayload);
+          await cacheSet(`pran_not_note_${editingNoteId}`, editingNoteOriginal, 86400000);
+          await cacheSet(`note_${editingNoteId}`, editingNoteOriginal, 86400000);
+        }
+      } catch (saveErr) {
+        console.warn('[note-capture] Auto-sync structured note error:', saveErr);
+      }
+    }
+
     renderStructuredExtras(structuredData);
+    const previewEl = document.getElementById('structured-preview');
+    if (previewEl) {
+      previewEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
     saveDraftToStorage();
-    toast('Nòt la byen estriktire an fòma biling ak tout eksplikasyon ak Q&A!', 'success');
+    const isFr = currentLang() === 'fr';
+    toast(isFr ? 'Note parfaitement structurée en format bilingue avec explications et Q&R !' : 'Nòt la byen estriktire an fòma biling ak tout eksplikasyon ak Q&A!', 'success');
   } catch (err) {
     handleError(err);
   } finally {
@@ -1787,7 +1815,7 @@ async function saveNote() {
         localStorage.removeItem(`prannot_edit_draft_${targetNoteId}`);
         await recordActivity();
         isNoteSaved = true;
-        toast('Nòt la mete a jou avèk siksè !', 'success');
+        toast(currentLang() === 'fr' ? 'Note mise à jour avec succès !' : 'Nòt la mete a jou avèk siksè !', 'success');
         location.href = appUrl(`pages/note-view.html?id=${targetNoteId}`);
         return;
       } catch (err) {
@@ -2025,10 +2053,11 @@ function insertTextIntoRaw(text) {
 
 /** Correction et harmonisation du sens du texte brut */
 async function triggerFixRawSense() {
+  const isFr = currentLang() === 'fr';
   const rawEl = document.getElementById('raw-text');
   const textToFix = (rawEl?.value || '').trim() || audioChunksBlobs.map(c => c.transcript || c.liveDraft || '').filter(Boolean).join('\n').trim();
   if (!textToFix) {
-    toast('Tape oswa anrejistre kèk nòt anvan pou IA a ka analize epi korije sans lan.', 'warning');
+    toast(isFr ? 'Saisissez ou enregistrez des notes pour que l\'IA puisse analyser et corriger le sens.' : 'Tape oswa anrejistre kèk nòt anvan pou IA a ka analize epi korije sans lan.', 'warning');
     rawEl?.focus();
     return;
   }
@@ -2050,12 +2079,12 @@ async function triggerFixRawSense() {
     }
 
     const m = openModal({
-      title: 'Koreksyon & Clarifikasyon Sans Tèks la',
+      title: isFr ? 'Correction & Clarification du Sens du Texte' : 'Koreksyon & Clarifikasyon Sans Tèks la',
       body: `
         <div class="stack py-2">
-          <p class="text-sm muted mb-3">IA a analize nòt ou yo, li repare fraz ki te koupe oswa mal fòmile yo, epi li fè tout lide yo vin klè e lojik pandan li konsève tout non moun ak konsèp yo.</p>
+          <p class="text-sm muted mb-3">${isFr ? 'L\'IA a analysé vos notes, réparé les phrases coupées ou mal formulées, et clarifié la logique tout en préservant tous les noms propres et concepts.' : 'IA a analize nòt ou yo, li repare fraz ki te koupe oswa mal fòmile yo, epi li fè tout lide yo vin klè e lojik pandan li konsève tout non moun ak konsèp yo.'}</p>
           <div class="field mb-3">
-            <label class="label font-bold text-xs uppercase text-muted">Tèks korije e klè</label>
+            <label class="label font-bold text-xs uppercase text-muted">${isFr ? 'Texte corrigé et cohérent' : 'Tèks korije e klè'}</label>
             <div class="card p-3" style="max-height:280px;overflow-y:auto;background:var(--c-surface);font-size:0.95rem;line-height:1.6;white-space:pre-wrap;" id="corrected-sense-preview">${esc(res.correctedText)}</div>
           </div>
         </div>
@@ -2063,7 +2092,7 @@ async function triggerFixRawSense() {
       footer: `
         <button type="button" class="btn btn-secondary" data-close>${esc(t('common.cancel'))}</button>
         <button type="button" class="btn btn-primary" id="btn-apply-corrected-sense">
-          ${icon('check')}<span>${esc('Aplike nan tèks brit la')}</span>
+          ${icon('check')}<span>${esc(isFr ? 'Appliquer au texte brut' : 'Aplike nan tèks brit la')}</span>
         </button>
       `,
     });
@@ -2076,7 +2105,7 @@ async function triggerFixRawSense() {
         updateRawWordCount();
       }
       m.close();
-      toast('Tèks la korije avèk siksè !', 'success');
+      toast(isFr ? 'Texte corrigé avec succès !' : 'Tèks la korije avèk siksè !', 'success');
     });
   } catch (err) {
     handleError(err);
@@ -2087,10 +2116,11 @@ async function triggerFixRawSense() {
 
 /** Génération de questions stratégiques pour le professeur */
 async function triggerGenerateProfQuestions() {
+  const isFr = currentLang() === 'fr';
   const liveText = getLiveNoteText();
   const title = document.getElementById('note-title')?.value || t('capture.page_title');
   if (!liveText && !title) {
-    toast('Tape oswa anrejistre kèk nòt anvan pou IA ka jenere kesyon pou pwofesè a.', 'warning');
+    toast(isFr ? 'Saisissez ou enregistrez des notes pour que l\'IA puisse générer des questions pour le professeur.' : 'Tape oswa anrejistre kèk nòt anvan pou IA ka jenere kesyon pou pwofesè a.', 'warning');
     return;
   }
 
@@ -2120,29 +2150,30 @@ async function triggerGenerateProfQuestions() {
 }
 
 function renderProfQuestionsModal(questions = [], title = '') {
+  const isFr = currentLang() === 'fr';
   const m = openModal({
-    title: `Kesyon pou poze pwofesè a — ${title}`,
+    title: isFr ? `Questions à poser au professeur — ${title}` : `Kesyon pou poze pwofesè a — ${title}`,
     body: `
       <div class="stack py-2">
-        <p class="text-sm muted mb-3">Men kesyon akademik ki pi pètinan e estratejik ou ka poze pwofesè a nan klas oswa nan fen kou a pou klarifye pwen ki difisil yo epi prepare egzamen an :</p>
+        <p class="text-sm muted mb-3">${isFr ? 'Voici les questions académiques les plus pertinentes et stratégiques à poser en classe ou en fin de cours pour clarifier les points complexes et préparer vos examens :' : 'Men kesyon akademik ki pi pètinan e estratejik ou ka poze pwofesè a nan klas oswa nan fen kou a pou klarifye pwen ki difisil yo epi prepare egzamen an :'}</p>
         <div class="stack" style="gap:12px;">
           ${questions.map((q, idx) => `
             <div class="card p-3" style="background:var(--c-surface);border:1px solid var(--c-border);border-left:4px solid var(--c-primary);">
               <div class="row-between mb-2">
-                <span class="badge badge-primary font-bold">Kesyon #${idx + 1}</span>
+                <span class="badge badge-primary font-bold">${isFr ? `Question #${idx + 1}` : `Kesyon #${idx + 1}`}</span>
                 <button type="button" class="btn btn-xs btn-ghost" data-copy-q="${esc(q.question)}">
-                  ${icon('copy')}<span>Kopye</span>
+                  ${icon('copy')}<span>${esc(t('common.copy') || 'Kopye')}</span>
                 </button>
               </div>
               <h3 class="text-base font-bold mb-2" style="color:var(--c-text);">${esc(q.question)}</h3>
-              ${q.purpose ? `<p class="text-xs muted mb-1"><strong>Poukisa poze l :</strong> ${esc(q.purpose)}</p>` : ''}
-              ${q.hint ? `<p class="text-xs text-accent mb-0"><strong>Sa pou w koute :</strong> ${esc(q.hint)}</p>` : ''}
+              ${q.purpose ? `<p class="text-xs muted mb-1"><strong>${isFr ? 'Pourquoi la poser :' : 'Poukisa poze l :'}</strong> ${esc(q.purpose)}</p>` : ''}
+              ${q.hint ? `<p class="text-xs text-accent mb-0"><strong>${isFr ? 'Point clé à écouter :' : 'Sa pou w koute :'}</strong> ${esc(q.hint)}</p>` : ''}
               <div class="row-wrap mt-2" style="gap:6px;">
                 <button type="button" class="btn btn-xs btn-outline" data-insert-q="${esc(q.question)}">
-                  ${icon('plus')}<span>Mete nan nòt la</span>
+                  ${icon('plus')}<span>${esc(t('capture.insert_in_note') || 'Mete nan nòt la')}</span>
                 </button>
                 <button type="button" class="btn btn-xs btn-secondary" data-ask-tutor-q="${esc(q.question)}">
-                  ${icon('message-square')}<span>Mande Tuteur IA</span>
+                  ${icon('message-square')}<span>${isFr ? 'Demander au Tuteur IA' : 'Mande Tuteur IA'}</span>
                 </button>
               </div>
             </div>
@@ -2156,20 +2187,20 @@ function renderProfQuestionsModal(questions = [], title = '') {
   m.el.querySelectorAll('[data-copy-q]').forEach((b) => {
     b.addEventListener('click', () => {
       navigator.clipboard?.writeText(b.dataset.copyQ);
-      toast('Kesyon kopye !', 'success');
+      toast(isFr ? 'Question copiée !' : 'Kesyon kopye !', 'success');
     });
   });
 
   m.el.querySelectorAll('[data-insert-q]').forEach((b) => {
     b.addEventListener('click', () => {
-      const qText = `\n\n### Kesyon pou Pwofesè a :\n- ${b.dataset.insertQ}\n`;
+      const qText = isFr ? `\n\n### Questions pour le Professeur :\n- ${b.dataset.insertQ}\n` : `\n\n### Kesyon pou Pwofesè a :\n- ${b.dataset.insertQ}\n`;
       const rawEl = document.getElementById('raw-text');
       if (rawEl) {
         rawEl.value = (rawEl.value ? rawEl.value + '\n' : '') + qText;
         rawEl.dispatchEvent(new Event('input'));
         saveDraftToStorage();
       }
-      toast('Ajoute nan nòt la !', 'success');
+      toast(isFr ? 'Ajouté à la note !' : 'Ajoute nan nòt la !', 'success');
     });
   });
 
@@ -2324,9 +2355,9 @@ function initQuickAiModule() {
       resultBox.querySelector('#note-ai-copy-btn')?.addEventListener('click', async () => {
         try {
           await navigator.clipboard.writeText(reply);
-          toast(t('common.copied') || 'Kopye !', 'success');
+          toast(t('common.copied') || (currentLang() === 'fr' ? 'Copié !' : 'Kopye !'), 'success');
         } catch {
-          toast('Kopye echwe', 'error');
+          toast(currentLang() === 'fr' ? 'Échec de la copie' : 'Kopye echwe', 'error');
         }
       });
 
@@ -2474,9 +2505,25 @@ function initQuickAiModule() {
     updateRawWordCount();
     syncLiveTutorContext();
   });
-  document.getElementById('ai-structure-btn').addEventListener('click', (e) => runStructureAi('standard', e.currentTarget));
+  document.getElementById('ai-structure-btn').addEventListener('click', (e) => runStructureAi('bilingual', e.currentTarget));
   document.getElementById('btn-structure-bilingual')?.addEventListener('click', (e) => runStructureAi('bilingual', e.currentTarget));
   document.getElementById('btn-re-structure-banner')?.addEventListener('click', (e) => runStructureAi('bilingual', e.currentTarget));
+
+  document.getElementById('banner-btn-switch-audio')?.addEventListener('click', () => {
+    switchMode('audio');
+    document.getElementById('panel-audio')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+  document.getElementById('banner-btn-switch-photo')?.addEventListener('click', () => {
+    switchMode('photo');
+    document.getElementById('panel-photo')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+  document.getElementById('banner-btn-ask-ai')?.addEventListener('click', () => {
+    const aiCard = document.getElementById('note-quick-ai-card');
+    if (aiCard) {
+      aiCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      document.getElementById('note-quick-ai-input')?.focus();
+    }
+  });
   document.getElementById('ai-ht-btn').addEventListener('click', (e) => runStructureAi('harmonize_ht', e.currentTarget));
   document.getElementById('ai-fr-btn').addEventListener('click', (e) => runStructureAi('harmonize_fr', e.currentTarget));
   document.getElementById('btn-fix-raw-sense')?.addEventListener('click', triggerFixRawSense);
