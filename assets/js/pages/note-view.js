@@ -13,7 +13,7 @@ import {
   htmlToText, uid,
 } from '../utils.js';
 import { generateFlashcards, generateTest, explainText, processNote, askTutor, correctRawTextSense, generateProfessorQuestions } from '../ai.js';
-import { exportNotePdf, exportNoteDocx, exportNoteMarkdown } from '../export.js';
+import { exportNotePdf, exportNoteDocx, exportNoteMarkdown, batchPrintNotes } from '../export.js';
 import {
   cacheSet, cacheGet, cacheEntriesByPrefix, isDataSaver, enqueue,
   getQueueItems, updateQueuedNotePayload, removeQueueItem, isNetworkError,
@@ -33,6 +33,7 @@ async function renderNote() {
   const root = document.getElementById('note-root');
   if (!note) return;
 
+  const isFr = getLang() === 'fr';
   const st = note.structured || {};
   const takeaways = Array.isArray(st.takeaways) ? st.takeaways : [];
   const implied = Array.isArray(st.implied_points) ? st.implied_points : [];
@@ -94,14 +95,17 @@ async function renderNote() {
         <button type="button" class="btn btn-secondary btn-sm" id="btn-translate-note" title="${esc(t('live.translate_btn'))}">
           ${icon('languages')}<span>${esc(t('notes.btn_translate'))}</span>
         </button>
-        <button type="button" class="btn btn-secondary btn-sm" id="btn-continue-recording" title="Kontinye anrejistre kou a nan estidyo kaptire a">
-          ${icon('mic')}<span>Kontinye anrejistre</span>
+        <button type="button" class="btn btn-secondary btn-sm" id="btn-continue-recording" title="${esc(t('capture.btn_continue_rec_title') || 'Continuer à enregistrer le cours')}">
+          ${icon('mic')}<span>${esc(t('capture.continue_recording') || 'Kontinye anrejistre')}</span>
         </button>
-        <button type="button" class="btn btn-secondary btn-sm" id="btn-add-board-photo" title="Ajoute foto tablo nan nòt sa a">
-          ${icon('camera')}<span>Ajoute foto tablo</span>
+        <button type="button" class="btn btn-secondary btn-sm" id="btn-add-board-photo" title="${esc(t('capture.btn_add_board_photo_title') || 'Ajouter une photo du tableau')}">
+          ${icon('camera')}<span>${esc(t('capture.add_board_photo') || 'Ajoute foto tablo')}</span>
         </button>
-        <button type="button" class="btn btn-primary btn-sm" id="btn-edit-note" title="Ouvri nan estidyo kaptire pou modifye nòt la">
+        <button type="button" class="btn btn-primary btn-sm" id="btn-edit-note" title="${esc(t('capture.btn_edit_title') || 'Ouvri nan estidyo kaptire pou modifye nòt la')}">
           ${icon('edit-3')}<span>${esc(t('common.edit'))}</span>
+        </button>
+        <button type="button" class="btn btn-secondary btn-sm" id="btn-print-note" title="${esc(t('notes.btn_print_title') || 'Imprimer cette note (PDF)')}">
+          ${icon('printer')}<span>${esc(t('notes.btn_print') || 'Imprimer')}</span>
         </button>
         <button type="button" class="btn btn-secondary btn-sm" id="btn-share-note">${icon('users')}<span>${esc(t('notes.btn_share_group'))}</span></button>
         <button type="button" class="btn btn-secondary btn-sm" id="btn-export-note">${icon('download')}<span>${esc(t('notes.btn_export'))}</span></button>
@@ -141,15 +145,15 @@ async function renderNote() {
     <div class="row-wrap mb-4">
       <button type="button" class="btn btn-primary" id="btn-gen-cards">${icon('layers')}<span>${esc(t('notes.btn_flashcards'))}</span></button>
       <button type="button" class="btn btn-dark" id="btn-gen-quiz">${icon('check-circle-2')}<span>${esc(t('notes.btn_quiz'))}</span></button>
-      <button type="button" class="btn btn-secondary" id="btn-prof-questions" title="Jenere kesyon pètinan pou poze pwofesè a">
-        ${icon('help-circle')}<span>Kesyon pou Pwofesè a</span>
+      <button type="button" class="btn btn-secondary" id="btn-prof-questions" title="${esc(t('notes.prof_questions_btn_title') || 'Jenere kesyon pètinan pou poze pwofesè a')}">
+        ${icon('help-circle')}<span>${esc(t('notes.prof_questions_btn') || 'Kesyon pou Pwofesè a')}</span>
       </button>
       <button type="button" class="btn btn-secondary" id="btn-points-summary" title="${esc(t('notes.bullet_summary_title'))}">
         ${icon('list-checks')}<span>${esc(t('notes.btn_points_summary'))}</span>
       </button>
       <button type="button" class="btn btn-secondary" id="btn-simpler">${icon('sparkles')}<span>${esc(t('notes.btn_simpler'))}</span></button>
       <button type="button" class="btn btn-secondary" id="btn-ask-tutor">${icon('message-square')}<span>${esc(t('notes.btn_tutor'))}</span></button>
-      ${note.raw_text ? `<button type="button" class="btn btn-secondary" id="btn-fix-raw-sense">${icon('wand-2')}<span>Kore sans tèks la</span></button>` : ''}
+      ${note.raw_text ? `<button type="button" class="btn btn-secondary" id="btn-fix-raw-sense" title="${esc(t('capture.fix_raw_sense_title') || 'Kore sans tèks la')}">${icon('wand-2')}<span>${esc(t('capture.fix_raw_sense') || 'Kore sans & koerans')}</span></button>` : ''}
       ${!note.structured && note.raw_text ? `<button type="button" class="btn btn-secondary" id="btn-ai-clean">${icon('wand-2')}<span>${esc(t('capture.structure_ai'))}</span></button>` : ''}
     </div>
 
@@ -194,18 +198,18 @@ async function renderNote() {
           <div class="card card-sm mb-3" style="background:var(--c-surface-soft);border:1px solid var(--c-border);">
             <div class="row-between" style="flex-wrap:wrap;gap:8px;align-items:center;">
               <div class="row" style="gap:6px;align-items:center;">
-                <span class="badge badge-primary font-bold">${icon('languages')} <span>Vèsyon Nòt</span></span>
-                <span class="text-xs muted">Chwazi fòma w vle li a :</span>
+                <span class="badge badge-primary font-bold">${icon('languages')} <span>${esc(t('notes.note_version_title') || 'Vèsyon Nòt')}</span></span>
+                <span class="text-xs muted">${esc(t('notes.note_version_sub') || 'Chwazi fòma w vle li a :')}</span>
               </div>
               <div class="segmented" id="note-lang-toggle" style="display:inline-flex;">
                 <button type="button" class="btn btn-xs active" data-lang-view="both">
-                  ${icon('layers')}<span>Tout 2 (FR + HT)</span>
+                  ${icon('layers')}<span>${esc(t('notes.note_version_both') || 'Tout 2 (FR + HT)')}</span>
                 </button>
                 <button type="button" class="btn btn-xs" data-lang-view="fr">
-                  <span>Français</span>
+                  <span>${esc(t('notes.note_version_fr') || 'Français')}</span>
                 </button>
                 <button type="button" class="btn btn-xs" data-lang-view="ht">
-                  <span>Kreyòl</span>
+                  <span>${esc(t('notes.note_version_ht') || 'Kreyòl')}</span>
                 </button>
               </div>
             </div>
@@ -224,7 +228,7 @@ async function renderNote() {
             </section>` : ''}
 
           <article class="card prose" id="note-article-fr">
-            ${st.content_html_ht ? `<div class="mb-3 pb-2" style="border-bottom:1px solid var(--c-border);display:flex;align-items:center;gap:6px;"><span class="badge badge-primary">🇫🇷 Français Académique</span><span class="text-xs muted">Nòt ofisyèl inivèsitè</span></div>` : ''}
+            ${st.content_html_ht ? `<div class="mb-3 pb-2" style="border-bottom:1px solid var(--c-border);display:flex;align-items:center;gap:6px;"><span class="badge badge-primary">🇫🇷 Français Académique</span><span class="text-xs muted">${isFr ? 'Note universitaire officielle' : 'Nòt ofisyèl inivèsitè'}</span></div>` : ''}
             ${note.content_html ? sanitizeHtml(note.content_html) : `<p>${esc(note.content_text || note.raw_text || '')}</p>`}
           </article>
         </div>
@@ -235,7 +239,7 @@ async function renderNote() {
             ${st.summary_ht ? `
               <section class="card card-accent" style="border-left:4px solid var(--c-primary);">
                 <div class="row-between mb-1">
-                  <h2 class="card-title text-sm">Rezime Kou a (Kreyòl Ayisyen)</h2>
+                  <h2 class="card-title text-sm">${isFr ? 'Résumé du cours (Créole haïtien)' : 'Rezime Kou a (Kreyòl Ayisyen)'}</h2>
                   <span class="badge badge-xs badge-primary">HT</span>
                 </div>
                 <p class="mb-0 text-sm">${esc(st.summary_ht)}</p>
@@ -244,7 +248,7 @@ async function renderNote() {
             <article class="card prose" id="note-article-ht">
               <div class="mb-3 pb-2" style="border-bottom:1px solid var(--c-border);display:flex;align-items:center;gap:6px;">
                 <span class="badge badge-accent">🇭🇹 Kreyòl Ayisyen</span>
-                <span class="text-xs muted">Eksplikasyon ak estrikti an Kreyòl</span>
+                <span class="text-xs muted">${isFr ? 'Explications et structure en créole' : 'Eksplikasyon ak estrikti an Kreyòl'}</span>
               </div>
               ${sanitizeHtml(st.content_html_ht)}
             </article>
@@ -256,18 +260,18 @@ async function renderNote() {
           <section class="card mb-4" id="note-section-simple-exp" style="background:var(--c-surface-2);border-left:4px solid var(--c-primary,#F97316);">
             <div class="row-between mb-2">
               <h3 class="card-title mb-0 text-sm font-bold" style="color:var(--c-primary,#F97316);">
-                ${icon('sparkles')}<span>${esc(t('notes.simple_explanation_title'))} (Entegre Biling)</span>
+                ${icon('sparkles')}<span>${esc(t('notes.integrated_simple_exp_title') || (isFr ? 'Explication Simple Intégrée (Bilingue)' : 'Eksplikasyon Senp Entegre (Biling)'))}</span>
               </h3>
             </div>
             <div class="stack" style="gap:10px;">
               ${(st.simple_explanation_fr || (!st.simple_explanation_ht && st.simple_explanation)) ? `
                 <div class="p-3" style="background:var(--c-surface);border-radius:var(--r-card);border:1px solid var(--c-border);">
-                  <strong class="text-xs font-bold" style="color:var(--c-primary);">🇫🇷 En résumé simple (Français) :</strong>
+                  <strong class="text-xs font-bold" style="color:var(--c-primary);">🇫🇷 ${isFr ? 'En résumé simple (Français) :' : 'An rezime senp (Fransè) :'}</strong>
                   <div class="prose text-sm mt-1">${renderMarkdown(st.simple_explanation_fr || st.simple_explanation)}</div>
                 </div>` : ''}
               ${st.simple_explanation_ht ? `
                 <div class="p-3" style="background:var(--c-surface);border-radius:var(--r-card);border:1px solid var(--c-border);">
-                  <strong class="text-xs font-bold" style="color:var(--c-primary);">🇭🇹 Sa pwofesè a te vle di an senp (Kreyòl) :</strong>
+                  <strong class="text-xs font-bold" style="color:var(--c-primary);">🇭🇹 ${isFr ? 'Ce que le professeur a voulu dire en clair (Créole) :' : 'Sa pwofesè a te vle di an senp (Kreyòl) :'}</strong>
                   <div class="prose text-sm mt-1">${renderMarkdown(st.simple_explanation_ht)}</div>
                 </div>` : ''}
             </div>
@@ -278,23 +282,23 @@ async function renderNote() {
           <section class="card mb-4" id="note-section-exam-qa" style="background:var(--c-surface-2);border-left:4px solid #10B981;">
             <div class="row-between mb-3">
               <h3 class="card-title mb-0 text-sm font-bold" style="color:#10B981;">
-                ${icon('check-circle-2')}<span>Kesyon & Repons Modèl pou Egzamen (${st.exam_qa.length})</span>
+                ${icon('check-circle-2')}<span>${esc(t('notes.exam_qa_title') || 'Questions & Réponses Modèles d\'Examen')} (${st.exam_qa.length})</span>
               </h3>
-              <span class="badge badge-success font-bold">Q&A Egzamen</span>
+              <span class="badge badge-success font-bold">${isFr ? 'Q&R Examen' : 'Q&A Egzamen'}</span>
             </div>
             <div class="stack" style="gap:10px;">
               ${st.exam_qa.map((qa, qIdx) => `
                 <div class="card p-3" style="background:var(--c-bg);border:1px solid var(--c-border);">
                   <div class="row-between mb-1">
-                    <span class="badge badge-xs badge-success font-bold">Kesyon #${qIdx + 1}</span>
+                    <span class="badge badge-xs badge-success font-bold">${isFr ? `Question #${qIdx + 1}` : `Kesyon #${qIdx + 1}`}</span>
                   </div>
                   <p class="font-bold mb-2 text-sm" style="color:var(--c-text);">${esc(qa.question)}</p>
                   <details style="cursor:pointer;">
-                    <summary class="text-xs font-bold" style="color:#10B981;user-select:none;">Klike pou wè repons modèl la & eksplikasyon</summary>
+                    <summary class="text-xs font-bold" style="color:#10B981;user-select:none;">${esc(t('notes.exam_qa_reveal') || 'Cliquer pour voir la réponse modèle et les critères')}</summary>
                     <div class="mt-2 p-2 text-sm" style="background:var(--c-surface);border-radius:var(--r-card);border-left:3px solid #10B981;">
-                      <strong class="text-xs" style="color:var(--c-text);">Repons Modèl :</strong>
+                      <strong class="text-xs" style="color:var(--c-text);">${esc(t('notes.exam_qa_answer_label') || 'Réponse Modèle :')}</strong>
                       <p class="text-sm mt-1 mb-1">${esc(qa.answer)}</p>
-                      ${qa.explanation ? `<p class="text-xs muted mb-0"><strong>Kritè evalyasyon :</strong> ${esc(qa.explanation)}</p>` : ''}
+                      ${qa.explanation ? `<p class="text-xs muted mb-0"><strong>${esc(t('notes.exam_qa_criteria_label') || 'Critères d\'évaluation :')}</strong> ${esc(qa.explanation)}</p>` : ''}
                     </div>
                   </details>
                 </div>
@@ -371,8 +375,8 @@ async function renderNote() {
         ${profQuestions.length ? `
           <section class="card mb-4" style="border-left:4px solid var(--c-primary);background:var(--c-surface);">
             <div class="row-between mb-3">
-              <h2 class="card-title mb-0" style="font-size:1.05rem;">${icon('help-circle')} <span style="margin-left:6px;">Kesyon pou poze Pwofesè a</span></h2>
-              <span class="badge badge-primary font-bold">${profQuestions.length} kesyon</span>
+              <h2 class="card-title mb-0" style="font-size:1.05rem;">${icon('help-circle')} <span style="margin-left:6px;">${esc(t('notes.prof_questions_title') || 'Questions à poser au Professeur')}</span></h2>
+              <span class="badge badge-primary font-bold">${profQuestions.length} ${isFr ? 'questions' : 'kesyon'}</span>
             </div>
             <div class="stack" style="gap:10px;">
               ${profQuestions.map((pq, idx) => `
@@ -380,12 +384,12 @@ async function renderNote() {
                   <div class="row-between mb-1">
                     <span class="text-xs font-bold text-accent">#${idx + 1}</span>
                     <button type="button" class="btn btn-xs btn-ghost" data-copy-prof-q="${esc(pq.question)}">
-                      ${icon('copy')}<span>Kopye</span>
+                      ${icon('copy')}<span>${esc(t('notes.copy_prof_q') || 'Copier')}</span>
                     </button>
                   </div>
                   <p class="font-bold mb-1" style="font-size:0.95rem;color:var(--c-text);">${esc(pq.question)}</p>
-                  ${pq.purpose ? `<p class="text-xs muted mb-1"><strong>Objektif :</strong> ${esc(pq.purpose)}</p>` : ''}
-                  ${pq.hint ? `<p class="text-xs text-accent mb-0"><strong>Sa pou w koute :</strong> ${esc(pq.hint)}</p>` : ''}
+                  ${pq.purpose ? `<p class="text-xs muted mb-1"><strong>${isFr ? 'Objectif :' : 'Objektif :'}</strong> ${esc(pq.purpose)}</p>` : ''}
+                  ${pq.hint ? `<p class="text-xs text-accent mb-0"><strong>${isFr ? 'Ce qu\'il faut écouter :' : 'Sa pou w koute :'}</strong> ${esc(pq.hint)}</p>` : ''}
                 </div>
               `).join('')}
             </div>
@@ -1367,6 +1371,12 @@ function bindActions() {
       return;
     }
     location.href = `./note-capture.html?id=${encodeURIComponent(note.id)}&edit=1`;
+  });
+
+  document.getElementById('btn-print-note')?.addEventListener('click', () => {
+    const cMap = new Map();
+    if (course?.id) cMap.set(course.id, course);
+    batchPrintNotes([note], cMap, profileRef);
   });
 
   // Transfè an dirèk sou sit la avèk kòd 6 chif

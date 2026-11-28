@@ -37,9 +37,9 @@
           <i data-lucide="download" aria-hidden="true"></i>
           <span data-i18n="transfer.receive_submit">Resevwa nòt la</span>
         </button>
-        <button type="button" class="btn btn-outline" id="notes-batch-mode-btn" title="Chwazi plizyè nòt pou enprime oswa ekspòte yo an PDF konbine">
+        <button type="button" class="btn btn-outline" id="notes-batch-mode-btn" data-i18n-title="notes.batch_print_title" title="Chwazi plizyè nòt pou enprime oswa ekspòte yo an PDF konbine">
           <i data-lucide="printer" aria-hidden="true"></i>
-          <span>Chwazi pou Enprime</span>
+          <span data-i18n="notes.batch_print_btn">Chwazi pou Enprime</span>
         </button>
         <button type="button" class="btn btn-outline" id="notes-exam-btn" data-i18n-title="transfer.exam_revision_title">
           <i data-lucide="calendar" aria-hidden="true"></i>
@@ -76,12 +76,12 @@
           <option value="draft" data-i18n="notes.status_draft">Nòt ki poko fini (Bwouyon)</option>
         </select>
         <select class="select" id="notes-date-filter" style="width:auto;min-width:160px;">
-          <option value="">Tout dat yo</option>
-          <option value="today">Jodi a</option>
-          <option value="yesterday">Yè</option>
-          <option value="last7">7 dènye jou yo</option>
-          <option value="last30">30 dènye jou yo</option>
-          <option value="custom">Chwazi yon dat...</option>
+          <option value="" data-i18n="notes.filter_date">Tout dat yo</option>
+          <option value="today" data-i18n="notes.date_today">Jodi a</option>
+          <option value="yesterday" data-i18n="notes.date_yesterday">Yè</option>
+          <option value="last7" data-i18n="notes.date_last7">7 dènye jou yo</option>
+          <option value="last30" data-i18n="notes.date_last30">30 dènye jou yo</option>
+          <option value="custom" data-i18n="notes.date_custom">Chwazi yon dat...</option>
         </select>
         <input class="input" type="date" id="notes-custom-date" style="width:auto;min-width:145px;display:none;">
       </div>
@@ -92,17 +92,17 @@
       <div class="row-between" style="flex-wrap:wrap;gap:10px;align-items:center;">
         <div class="row" style="gap:10px;align-items:center;">
           <span class="badge badge-primary font-bold" id="batch-selected-count">0 nòt chwazi</span>
-          <button type="button" class="btn btn-xs btn-ghost" id="batch-select-all">Chwazi tout</button>
-          <button type="button" class="btn btn-xs btn-ghost" id="batch-deselect-all">Deseleksyone tout</button>
+          <button type="button" class="btn btn-xs btn-ghost" id="batch-select-all" data-i18n="notes.batch_select_all">Chwazi tout</button>
+          <button type="button" class="btn btn-xs btn-ghost" id="batch-deselect-all" data-i18n="notes.batch_deselect_all">Deseleksyone tout</button>
         </div>
         <div class="row" style="gap:8px;">
           <button type="button" class="btn btn-sm btn-primary" id="btn-batch-print" style="font-weight:700;">
             <i data-lucide="printer" aria-hidden="true"></i>
-            <span>Enprime / Jenere PDF Konbine</span>
+            <span data-i18n="notes.batch_print_submit">Enprime / Jenere PDF Konbine</span>
           </button>
           <button type="button" class="btn btn-sm btn-secondary" id="btn-batch-cancel">
             <i data-lucide="x" aria-hidden="true"></i>
-            <span>Anile</span>
+            <span data-i18n="common.cancel">Anile</span>
           </button>
         </div>
       </div>
@@ -122,6 +122,6 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/lucide@0.468.0/dist/umd/lucide.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
-  <script type="module" src="../assets/js/pages/notes.js"></script>
+  <script type="module" src="../assets/js/pages/notes.js?v=20261128c"></script>
 </body>
 </html>

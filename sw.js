@@ -7,7 +7,7 @@
    - Déclenchement synchronisation Background Sync
    ===================================================================== */
 
-const CACHE_NAME = 'prannot-shell-v38';
+const CACHE_NAME = 'prannot-shell-v40';
 const PRECACHE_LOCAL = [
   './',
   './index.html',
@@ -27,8 +27,8 @@ const PRECACHE_LOCAL = [
   './assets/css/mobile-nav.css',
   './assets/css/components.css',
   './assets/css/admin.css',
-  './assets/i18n/ht.json?v=20261119b',
-  './assets/i18n/fr.json?v=20261119b',
+  './assets/i18n/ht.json?v=20261128c',
+  './assets/i18n/fr.json?v=20261128c',
   './assets/js/supabase.js',
   './assets/js/theme.js',
   './assets/js/auth.js',
@@ -156,24 +156,25 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 1. Navigations HTML : Cache-First ultra rapid (< 5 ms) pou lanse imedyatman offline ak online
+  // 1. Navigations HTML : Network-First avec repli cache rapide (< 1.2s en ligne, < 5ms hors-ligne)
   if (req.mode === 'navigate') {
     event.respondWith((async () => {
       const cache = await caches.open(CACHE_NAME);
-      const cached = await matchCachedHtml(cache, req, url.pathname);
-      if (cached) {
-        // Rafrechi kach la an silans an aryè plan si rezo disponib
-        if (isOnline()) {
-          event.waitUntil(
-            fetchWithTimeout(req, {}, 3000)
-              .then((netRes) => {
-                if (netRes && netRes.ok) return cache.put(url.pathname, netRes);
-              })
-              .catch(() => {})
-          );
+
+      if (isOnline()) {
+        try {
+          const netRes = await fetchWithTimeout(req, {}, 1200);
+          if (netRes && netRes.ok) {
+            event.waitUntil(cache.put(url.pathname, netRes.clone()));
+            return netRes;
+          }
+        } catch {
+          /* Réseau lent ou indisponible -> repli cache immédiat */
         }
-        return cached;
       }
+
+      const cached = await matchCachedHtml(cache, req, url.pathname);
+      if (cached) return cached;
 
       try {
         const netRes = await fetchWithTimeout(req, {}, 2500);

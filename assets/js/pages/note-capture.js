@@ -12,7 +12,7 @@ import { initAppChrome, setTutorContext } from '../navbar.js';
 import { t, getLang } from '../i18n.js';
 const currentLang = () => (typeof getLang === 'function' ? getLang() : (localStorage.getItem('prannot.lang') || 'ht'));
 import {
-  icons, icon, esc, toast, handleError, setLoading, getParam, uid,
+  icons, icon, esc, toast, handleError, setLoading, getParam, uid, isUuid,
   compressImage, blobToBase64, checkFileSize, extractPdfText, renderPdfPageToBlob,
   loadScript, loadStyle, CDN, sanitizeHtml, htmlToText, promptDialog, formatDuration, pageEnter, debounce,
   renderMarkdown, openModal, confirmDialog,
@@ -453,12 +453,21 @@ async function loadExistingNoteForEditing(noteId) {
   if (!noteId) return;
   try {
     let noteData = await cacheGet(`note_${noteId}`);
-    if (!noteData && navigator.onLine && isUuid(noteId)) {
-      const { data, error } = await db.from('pran_not_notes').select('*').eq('id', noteId).single();
-      if (!error && data) {
-        noteData = data;
-        await cacheSet(`note_${noteId}`, data);
+    if (navigator.onLine && isUuid(noteId)) {
+      try {
+        const { data, error } = await db.from('pran_not_notes').select('*').eq('id', noteId).single();
+        if (!error && data) {
+          noteData = data;
+          await cacheSet(`note_${noteId}`, data);
+        }
+      } catch (dbErr) {
+        console.warn('[note-capture] DB fetch note error:', dbErr);
       }
+    }
+
+    if (!noteData) {
+      const cachedNotes = (await cacheGet(`notes_list_${userRef?.id || ''}`)) || (await cacheGet('notes_list')) || [];
+      noteData = cachedNotes.find((n) => n.id === noteId);
     }
 
     if (!noteData) {
@@ -470,13 +479,15 @@ async function loadExistingNoteForEditing(noteId) {
     editingNoteId = noteId;
     editingNoteOriginal = noteData;
 
+    const isFr = currentLang() === 'fr';
+
     // Ranpli chan debaz yo
     const titleInput = document.getElementById('note-title');
     if (titleInput) titleInput.value = noteData.title || '';
 
     const rawEl = document.getElementById('raw-text');
     if (rawEl) {
-      rawEl.value = noteData.raw_text || noteData.content_text || '';
+      rawEl.value = noteData.raw_text || noteData.content_text || htmlToText(noteData.content_html || '') || '';
       updateRawWordCount();
     }
 
@@ -518,22 +529,25 @@ async function loadExistingNoteForEditing(noteId) {
     if (editBanner) {
       editBanner.hidden = false;
       const bTitle = document.getElementById('edit-note-banner-title');
-      if (bTitle) bTitle.textContent = `Mòd Modifikasyon : ${noteData.title || t('notes.untitled')}`;
+      if (bTitle) bTitle.textContent = isFr
+        ? `Mode Modification : ${noteData.title || t('notes.untitled')}`
+        : `Mòd Modifikasyon : ${noteData.title || t('notes.untitled')}`;
       const cancelBtn = document.getElementById('edit-cancel-view-btn');
       if (cancelBtn) cancelBtn.href = `./note-view.html?id=${encodeURIComponent(noteId)}`;
       icons(editBanner);
     }
 
     // Chanje tèks bouton anrejistre yo
+    const saveLabel = isFr ? 'Mettre à jour la note' : 'Mete nòt la a jou';
     const headerSaveBtn = document.getElementById('header-save-note-btn');
     if (headerSaveBtn) {
       const sp = headerSaveBtn.querySelector('span');
-      if (sp) sp.textContent = 'Mete nòt la a jou';
+      if (sp) sp.textContent = saveLabel;
     }
     const mainSaveBtn = document.getElementById('save-note-btn');
     if (mainSaveBtn) {
       const sp = mainSaveBtn.querySelector('span');
-      if (sp) sp.textContent = 'Mete nòt la a jou';
+      if (sp) sp.textContent = saveLabel;
     }
 
     // Kache banner bwouyon nòmal la
@@ -547,12 +561,16 @@ async function loadExistingNoteForEditing(noteId) {
     const requestedMode = getParam('mode');
     if (requestedMode) {
       switchMode(requestedMode);
+    } else if (getParam('edit') === '1') {
+      switchMode('text');
     } else if (noteData.capture_mode) {
       switchMode(noteData.capture_mode);
+    } else {
+      switchMode('text');
     }
 
     syncLiveTutorContext();
-    toast(`Nòt "${noteData.title || ''}" pare pou modifikasyon !`, 'info');
+    toast(isFr ? `Note prête pour modification !` : `Nòt "${noteData.title || ''}" pare pou modifikasyon !`, 'info');
   } catch (err) {
     console.warn('[note-capture] loadExistingNoteForEditing error:', err);
   }
@@ -682,7 +700,8 @@ function switchMode(mode) {
   document.getElementById('panel-photo').hidden = currentMode !== 'photo';
   document.getElementById('panel-audio').hidden = !(currentMode === 'audio' || currentMode === 'flash');
   document.getElementById('panel-import').hidden = currentMode !== 'import';
-  document.getElementById('raw-section').hidden = currentMode === 'text';
+  const hasRawContent = Boolean(document.getElementById('raw-text')?.value?.trim());
+  document.getElementById('raw-section').hidden = (currentMode === 'text' && !isEditingExisting && !hasRawContent);
 
   const hint = document.getElementById('audio-live-hint');
   if (currentMode === 'flash') {
@@ -1590,6 +1609,7 @@ function renderStructuredExtras(st) {
   const box = document.getElementById('structured-preview');
   if (!st) { box.hidden = true; return; }
   box.hidden = false;
+  const isFr = currentLang() === 'fr';
   const takeaways = Array.isArray(st.takeaways) ? st.takeaways : [];
   const implied = Array.isArray(st.implied_points) ? st.implied_points : [];
   const keywords = Array.isArray(st.keywords) ? st.keywords : [];
@@ -1598,23 +1618,23 @@ function renderStructuredExtras(st) {
 
   box.innerHTML = `
     <div class="row-between mb-2">
-      <span class="badge badge-primary font-bold">${icon('sparkles')} <span>Nòt Estriktire Biling & Q&A</span></span>
+      <span class="badge badge-primary font-bold">${icon('sparkles')} <span>${isFr ? 'Note Structurée Bilingue & Q&R' : 'Nòt Estriktire Biling & Q&A'}</span></span>
       <span class="badge badge-accent font-bold">${esc(st.provider || 'AI')}</span>
     </div>
 
     ${st.summary ? `<div class="card card-sm card-muted"><strong>${esc(t('notes.summary'))} (Français)</strong><p class="text-sm mt-1 mb-0">${esc(st.summary)}</p></div>` : ''}
-    ${st.summary_ht ? `<div class="card card-sm card-muted mt-2" style="border-left:3px solid var(--c-primary);"><strong>Rezime an Kreyòl</strong><p class="text-sm mt-1 mb-0">${esc(st.summary_ht)}</p></div>` : ''}
+    ${st.summary_ht ? `<div class="card card-sm card-muted mt-2" style="border-left:3px solid var(--c-primary);"><strong>${isFr ? 'Résumé en créole' : 'Rezime an Kreyòl'}</strong><p class="text-sm mt-1 mb-0">${esc(st.summary_ht)}</p></div>` : ''}
 
     ${(st.simple_explanation_fr || st.simple_explanation_ht) ? `
       <div class="card card-sm mt-2" style="background:var(--c-surface-soft);border-left:4px solid var(--c-accent);">
-        <strong>💡 Eksplikasyon Senp Entegre (Fransè & Kreyòl)</strong>
+        <strong>💡 ${isFr ? 'Explication Simple Intégrée (Français & Créole)' : 'Eksplikasyon Senp Entegre (Fransè & Kreyòl)'}</strong>
         ${st.simple_explanation_fr ? `<p class="text-sm mt-1 mb-1"><strong>FR :</strong> ${esc(st.simple_explanation_fr)}</p>` : ''}
         ${st.simple_explanation_ht ? `<p class="text-sm mb-0"><strong>HT :</strong> ${esc(st.simple_explanation_ht)}</p>` : ''}
       </div>` : ''}
 
     ${examQa.length ? `
       <div class="card card-sm mt-2" style="background:var(--c-surface-soft);border-left:4px solid #10B981;">
-        <strong>📝 Kesyon & Repons Egzamen (${examQa.length})</strong>
+        <strong>📝 ${isFr ? `Questions & Réponses Examen (${examQa.length})` : `Kesyon & Repons Egzamen (${examQa.length})`}</strong>
         <ul class="text-sm mt-1 mb-0" style="padding-left:1.2em;">
           ${examQa.slice(0, 3).map(q => `<li><strong>Q :</strong> ${esc(q.question)}</li>`).join('')}
         </ul>
@@ -1622,7 +1642,7 @@ function renderStructuredExtras(st) {
 
     ${profQ.length ? `
       <div class="card card-sm mt-2" style="background:var(--c-surface-soft);border-left:4px solid var(--c-primary);">
-        <strong>❓ Kesyon pou poze Pwofesè a (${profQ.length})</strong>
+        <strong>❓ ${isFr ? `Questions à poser au Professeur (${profQ.length})` : `Kesyon pou poze Pwofesè a (${profQ.length})`}</strong>
         <ul class="text-sm mt-1 mb-0" style="padding-left:1.2em;">
           ${profQ.slice(0, 3).map(pq => `<li>${esc(pq.question)}</li>`).join('')}
         </ul>

@@ -5,7 +5,7 @@
 import '../supabase.js';
 import { requireAuth } from '../auth.js';
 import { initAppChrome, setTutorContext } from '../navbar.js';
-import { t, formatRelative, formatDate } from '../i18n.js';
+import { t, formatRelative, formatDate, getLang } from '../i18n.js';
 import {
   icons, icon, esc, emptyState, debounce, animateIn, pageEnter, handleError, confirmDialog, openModal, toast, setLoading, htmlToText,
 } from '../utils.js';
@@ -32,7 +32,13 @@ function updateBatchUI() {
   const batchBtn = document.getElementById('notes-batch-mode-btn');
 
   if (batchBar) batchBar.hidden = !isBatchMode;
-  if (countBadge) countBadge.textContent = `${selectedNoteIds.size} nòt chwazi`;
+  if (countBadge) {
+    const isFr = getLang() === 'fr';
+    const c = selectedNoteIds.size;
+    countBadge.textContent = isFr
+      ? `${c} ${c > 1 ? 'notes sélectionnées' : 'note sélectionnée'}`
+      : `${c} nòt chwazi`;
+  }
   if (batchBtn) {
     if (isBatchMode) {
       batchBtn.classList.add('btn-primary');
@@ -118,8 +124,8 @@ function renderList(append = false) {
             <input type="checkbox" class="note-batch-cb" data-batch-id="${esc(n.id)}" ${selectedNoteIds.has(n.id) ? 'checked' : ''} style="width:18px;height:18px;cursor:pointer;accent-color:var(--c-primary);">
           ` : ''}
           <span class="badge">${icon(ic)}<span>${esc(t(`capture.mode_${n.capture_mode}`) || n.capture_mode)}</span></span>
-          ${isDraft ? `<span class="badge badge-warning">${icon('file-edit')}<span>${esc(n.is_local_draft ? (t('notes.local_draft') || 'Bwouyon lokal') : 'Bwouyon')}</span></span>` : `<span class="badge badge-success">${icon('check-circle')}<span>Fini</span></span>`}
-          ${n.is_local_pending ? `<span class="badge badge-warning">${icon('wifi-off')}<span>Lokal</span></span>` : ''}
+          ${isDraft ? `<span class="badge badge-warning">${icon('file-edit')}<span>${esc(n.is_local_draft ? (t('notes.local_draft') || 'Bwouyon lokal') : (t('notes.status_draft') || 'Bwouyon'))}</span></span>` : `<span class="badge badge-success">${icon('check-circle')}<span>${esc(t('notes.status_ready') || (getLang() === 'fr' ? 'Terminée' : 'Fini'))}</span></span>`}
+          ${n.is_local_pending ? `<span class="badge badge-warning">${icon('wifi-off')}<span>${getLang() === 'fr' ? 'Local' : 'Lokal'}</span></span>` : ''}
         </div>
         <div class="row" style="gap:4px;">
           ${n.is_local_draft ? `
@@ -137,6 +143,9 @@ function renderList(append = false) {
             <a href="./note-capture.html?id=${esc(encodeURIComponent(n.id))}&edit=1" class="btn-icon" aria-label="${esc(t('common.edit'))}" title="${esc(t('common.edit'))}">
               ${icon('edit-3')}
             </a>
+            <button type="button" class="btn-icon" data-print-single="${esc(n.id)}" aria-label="${esc(t('notes.btn_print') || 'Imprimer')}" title="${esc(t('notes.btn_print_title') || 'Imprimer cette note (PDF)')}">
+              ${icon('printer')}
+            </button>
             <button type="button" class="btn-icon" data-pin="${esc(n.id)}" aria-label="Pin" title="Pin">
               ${icon(n.is_pinned ? 'bookmark-check' : 'bookmark')}
             </button>
@@ -157,7 +166,7 @@ function renderList(append = false) {
             : `${icon('folder-plus')}<span>${esc(t('notes.assign_course'))}</span>`}
         </button>
         <div class="row" style="gap:6px;">
-          ${n.is_local_draft ? `<a href="${esc(n.draft_target || './note-capture.html')}" class="badge badge-xs badge-outline" style="text-decoration:none;">Klike pou kontinye</a>` : ''}
+          ${n.is_local_draft ? `<a href="${esc(n.draft_target || './note-capture.html')}" class="badge badge-xs badge-outline" style="text-decoration:none;">${getLang() === 'fr' ? 'Cliquer pour continuer' : 'Klike pou kontinye'}</a>` : ''}
           <span class="text-xs" title="${esc(new Date(n.created_at || n.updated_at).toLocaleString())}">
             <strong style="color:var(--c-text);">${esc(formatDate(n.created_at || n.updated_at))}</strong> · ${esc(formatRelative(n.updated_at || n.created_at))}
           </span>
@@ -176,6 +185,17 @@ function renderList(append = false) {
       else selectedNoteIds.delete(id);
       updateBatchUI();
       cb.closest('article')?.classList.toggle('card-accent', cb.checked);
+    });
+  });
+
+  grid.querySelectorAll('[data-print-single]').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const id = btn.dataset.printSingle;
+      const target = allNotes.find((x) => x.id === id);
+      if (target) {
+        batchPrintNotes([target], coursesMap, currentProfileRef);
+      }
     });
   });
 

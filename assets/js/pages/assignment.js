@@ -659,69 +659,69 @@ async function renderPage() {
           <section class="card mb-4" id="asg-book-analysis-card" style="border:1.5px solid var(--c-primary);background:linear-gradient(135deg, rgba(27,42,74,0.03), rgba(224,90,43,0.05));">
             <div class="row-between mb-2 cursor-pointer" id="asg-book-toggle" style="flex-wrap:wrap;gap:8px;">
               <div class="row" style="gap:8px;align-items:center;">
-                <span class="badge badge-primary font-bold">${icon('book-open')} <span>Analiz Liv oswa Dokiman pou Devwa sa a</span></span>
-                <span class="text-xs muted">(PDF, Word, Tèks, Foto)</span>
+                <span class="badge badge-primary font-bold">${icon('book-open')} <span>${esc(t('assignments.book_analysis_title') || 'Analiz Liv oswa Dokiman pou Devwa sa a')}</span></span>
+                <span class="text-xs muted">${esc(t('assignments.book_analysis_types') || '(PDF, Word, Tèks, Foto)')}</span>
               </div>
               <span class="btn-icon" id="asg-book-toggle-icon">${icon('chevron-down')}</span>
             </div>
 
             <div id="asg-book-panel">
               <p class="text-xs muted mb-3">
-                Telechaje liv oswa dokiman pwofesè a ba ou a. IA a ap analize tèz santral la, gwoupe tèks yo ak tout fondasyon teyorik yo, fè rezime analitik chapit pa chapit, epi rezoud devwa a selon konsiy egzak ou ba li.
+                ${esc(t('assignments.book_analysis_sub') || 'Telechaje liv oswa dokiman pwofesè a ba ou a. IA a ap analize tèz santral la, gwoupe tèks yo ak tout fondasyon teyorik yo, fè rezime analitik chapit pa chapit, epi rezoud devwa a selon konsiy egzak ou ba li.')}
               </p>
 
               <!-- Dropzone Upload Fichye -->
               <div class="card card-sm mb-3" style="border:2px dashed var(--c-border);background:var(--c-surface);text-align:center;padding:16px;">
                 <div id="asg-book-file-info" hidden class="mb-2">
-                  <span class="badge badge-success font-bold" id="asg-book-name-badge">Fichye chaje</span>
+                  <span class="badge badge-success font-bold" id="asg-book-name-badge">${getLang() === 'fr' ? 'Fichier chargé' : 'Fichye chaje'}</span>
                   <div class="text-xs mt-1" id="asg-book-status-text"></div>
                 </div>
                 <label class="btn btn-secondary btn-sm" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px;">
                   ${icon('upload')}
-                  <span>Chwazi Liv la oswa Dokiman an (PDF, Word, Tèks)</span>
+                  <span>${esc(t('assignments.book_upload_btn') || 'Chwazi Liv la oswa Dokiman an (PDF, Word, Tèks)')}</span>
                   <input type="file" id="asg-book-file-input" accept=".pdf,.doc,.docx,.txt,.epub,image/*" style="display:none;">
                 </label>
-                <div class="text-xs muted mt-2">Sipòte liv PDF konplè, dokiman Word oswa foto kaye/liv.</div>
+                <div class="text-xs muted mt-2">${esc(t('assignments.book_upload_hint') || 'Sipòte liv PDF konplè, dokiman Word oswa foto kaye/liv.')}</div>
               </div>
 
               <!-- Tèks Liv ekstrè -->
               <details class="mb-3" id="asg-book-text-details" hidden>
-                <summary class="text-xs font-bold muted cursor-pointer">Gade tèks ekstrè nan liv la (<span id="asg-book-word-count">0</span> mo)</summary>
-                <textarea class="textarea mt-2 text-xs" id="asg-book-extracted-text" rows="5" placeholder="Tèks ekstrè nan liv la..."></textarea>
+                <summary class="text-xs font-bold muted cursor-pointer">${getLang() === 'fr' ? 'Voir le texte extrait de l\'ouvrage' : 'Gade tèks ekstrè nan liv la'} (<span id="asg-book-word-count">0</span> ${getLang() === 'fr' ? 'mots' : 'mo'})</summary>
+                <textarea class="textarea mt-2 text-xs" id="asg-book-extracted-text" rows="5" placeholder="${getLang() === 'fr' ? 'Texte extrait du document...' : 'Tèks ekstrè nan liv la...'}"></textarea>
               </details>
 
               <!-- Konsiy egzak pou IA sou liv sa a -->
               <div class="field mb-3">
-                <label class="text-xs font-bold muted" style="text-transform:uppercase;">Sa w vle IA an ba ou egzakteman sou liv sa a :</label>
-                <textarea class="textarea" id="asg-book-custom-prompt" rows="3" placeholder="Pa egzanp: Ekstrè tèz santral liv la, fè yon gwoupman tèks ak fondasyon teyorik otè yo, fè rezime analitik chapit pa chapit, epi rezoud kesyon devwa a..."></textarea>
+                <label class="text-xs font-bold muted" style="text-transform:uppercase;">${esc(t('assignments.book_prompt_label') || 'Sa w vle IA an ba ou egzakteman sou liv sa a :')}</label>
+                <textarea class="textarea" id="asg-book-custom-prompt" rows="3" placeholder="${esc(t('assignments.book_prompt_ph') || 'Pa egzanp: Ekstrè tèz santral liv la, fè yon gwoupman tèks ak fondasyon teyorik otè yo, fè rezime analitik chapit pa chapit, epi rezoud kesyon devwa a...')}"></textarea>
               </div>
 
               <!-- Ti bouton rapid (Chips) pou chwazi aksyon -->
               <div class="row-wrap mb-3" style="gap:6px;" id="asg-book-chips-row">
-                <button type="button" class="btn btn-xs btn-outline" data-book-chip="thesis">🔍 Tèz Santral & Fondasyon Teyorik</button>
-                <button type="button" class="btn btn-xs btn-outline" data-book-chip="doctrine">📚 Gwoupman Tèks & Doktrin</button>
-                <button type="button" class="btn btn-xs btn-outline" data-book-chip="summary">📖 Rezime Analitik pa Chapit</button>
-                <button type="button" class="btn btn-xs btn-outline" data-book-chip="solve">✍️ Rezoud Devwa a ak Liv la</button>
-                <button type="button" class="btn btn-xs btn-outline" data-book-chip="defense">🛡️ Pwen Fò pou Soutenans</button>
+                <button type="button" class="btn btn-xs btn-outline" data-book-chip="thesis">${esc(t('assignments.book_chip_thesis') || '🔍 Tèz Santral & Fondasyon Teyorik')}</button>
+                <button type="button" class="btn btn-xs btn-outline" data-book-chip="doctrine">${esc(t('assignments.book_chip_doctrine') || '📚 Gwoupman Tèks & Doktrin')}</button>
+                <button type="button" class="btn btn-xs btn-outline" data-book-chip="summary">${esc(t('assignments.book_chip_summary') || '📖 Rezime Analitik pa Chapit')}</button>
+                <button type="button" class="btn btn-xs btn-outline" data-book-chip="solve">${esc(t('assignments.book_chip_solve') || '✍️ Rezoud Devwa a ak Liv la')}</button>
+                <button type="button" class="btn btn-xs btn-outline" data-book-chip="defense">${esc(t('assignments.book_chip_defense') || '🛡️ Pwen Fò pou Soutenans')}</button>
               </div>
 
               <!-- Bouton Analize Liv la -->
               <div class="row-between" style="flex-wrap:wrap;gap:8px;align-items:center;">
                 <button type="button" class="btn btn-primary" id="btn-run-book-analysis" style="font-weight:700;">
                   ${icon('sparkles')}
-                  <span>Analize Liv la & Jenere Travay la</span>
+                  <span>${esc(t('assignments.book_run_btn') || 'Analize Liv la & Jenere Travay la')}</span>
                 </button>
-                <span class="text-xs muted" id="asg-book-engine-label">IA Pran Nòt pare pou analize</span>
+                <span class="text-xs muted" id="asg-book-engine-label">${getLang() === 'fr' ? 'IA Pran Nòt prête à analyser' : 'IA Pran Nòt pare pou analize'}</span>
               </div>
 
               <!-- Rezilta analiz liv la -->
               <div id="asg-book-output" class="ai-suggestion mt-4" hidden>
                 <div class="row-between mb-2" style="flex-wrap:wrap;gap:8px;">
-                  <div class="ai-suggestion-label">${icon('sparkles')}<span>Analiz Liv & Rezolisyon IA</span></div>
+                  <div class="ai-suggestion-label">${icon('sparkles')}<span>${esc(t('assignments.book_output_title') || 'Analiz Liv & Rezolisyon IA')}</span></div>
                   <div class="row-wrap" style="gap:6px;">
-                    <button type="button" class="btn btn-sm btn-primary" id="asg-book-insert-btn">${icon('plus')}<span>Mete nan Devwa a (Ajoute)</span></button>
-                    <button type="button" class="btn btn-sm btn-warning" id="asg-book-replace-btn">${icon('check')}<span>Ranplase tout tèks devwa a</span></button>
-                    <button type="button" class="btn btn-sm btn-secondary" id="asg-book-copy-btn">${icon('copy')}<span>Kopye</span></button>
+                    <button type="button" class="btn btn-sm btn-primary" id="asg-book-insert-btn">${icon('plus')}<span>${esc(t('assignments.book_insert_btn') || 'Mete nan Devwa a (Ajoute)')}</span></button>
+                    <button type="button" class="btn btn-sm btn-warning" id="asg-book-replace-btn">${icon('check')}<span>${esc(t('assignments.book_replace_btn') || 'Ranplase tout tèks devwa a')}</span></button>
+                    <button type="button" class="btn btn-sm btn-secondary" id="asg-book-copy-btn">${icon('copy')}<span>${esc(t('assignments.book_copy_btn') || 'Kopye')}</span></button>
                   </div>
                 </div>
                 <div class="card card-sm mb-0" style="background:var(--c-surface);"><div class="text-sm prose" id="asg-book-output-text"></div></div>
@@ -1257,22 +1257,23 @@ async function renderPage() {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    const isFr = getLang() === 'fr';
     if (bookFileInfo) bookFileInfo.hidden = false;
     if (bookNameBadge) bookNameBadge.textContent = file.name;
-    if (bookStatusText) bookStatusText.textContent = 'Ap ekstrè tèks nan dokiman an... Tanpri pasyante...';
+    if (bookStatusText) bookStatusText.textContent = isFr ? 'Extraction du texte du document en cours... Veuillez patienter...' : 'Ap ekstrè tèks nan dokiman an... Tanpri pasyante...';
 
     try {
       let extracted = '';
       if (file.type === 'application/pdf' || file.name.endsWith('.pdf')) {
         const { text, pages } = await extractPdfText(file);
         extracted = text || '';
-        if (bookStatusText) bookStatusText.textContent = `PDF analize avèk siksè : ${pages} paj rekipere !`;
+        if (bookStatusText) bookStatusText.textContent = isFr ? `PDF analysé avec succès : ${pages} pages récupérées !` : `PDF analize avèk siksè : ${pages} paj rekipere !`;
       } else if (file.type.startsWith('text/') || file.name.endsWith('.txt') || file.name.endsWith('.md')) {
         extracted = await file.text();
-        if (bookStatusText) bookStatusText.textContent = `Fichye tèks li avèk siksè !`;
+        if (bookStatusText) bookStatusText.textContent = isFr ? 'Fichier texte lu avec succès !' : 'Fichye tèks li avèk siksè !';
       } else {
-        extracted = `[Dokiman atache : ${file.name} - Gwosè : ${(file.size / 1024).toFixed(1)} Ko]`;
-        if (bookStatusText) bookStatusText.textContent = `Fichye "${file.name}" chaje pou analiz devwa a !`;
+        extracted = `[${isFr ? 'Document joint' : 'Dokiman atache'} : ${file.name} - ${(file.size / 1024).toFixed(1)} Ko]`;
+        if (bookStatusText) bookStatusText.textContent = isFr ? `Fichier "${file.name}" chargé pour l'analyse du devoir !` : `Fichye "${file.name}" chaje pou analiz devwa a !`;
       }
 
       if (bookExtractedText) bookExtractedText.value = extracted;
@@ -1281,14 +1282,16 @@ async function renderPage() {
       if (bookTextDetails) bookTextDetails.hidden = false;
 
       if (bookPrompt && !bookPrompt.value.trim()) {
-        bookPrompt.value = 'Ekstrè tèz santral liv sa a, fè yon gwoupman tèks ak tout fondasyon teyorik otè a, fè rezime analitik chapit pa chapit, epi rezoud devwa a selon konsiy pwofesè a.';
+        bookPrompt.value = isFr
+          ? 'Extraire la thèse centrale de cet ouvrage, faire un groupement des textes et de tous les fondements théoriques de l\'auteur, un résumé analytique par chapitre, et résoudre le devoir selon les consignes du professeur.'
+          : 'Ekstrè tèz santral liv sa a, fè yon gwoupman tèks ak tout fondasyon teyorik otè a, fè rezime analitik chapit pa chapit, epi rezoud devwa a selon konsiy pwofesè a.';
       }
-      toast('Liv la pare pou IA analize l !', 'success');
+      toast(isFr ? 'L\'ouvrage est prêt pour l\'analyse IA !' : 'Liv la pare pou IA analize l !', 'success');
     } catch (err) {
       console.warn('[assignment] extract book text error:', err);
-      if (bookStatusText) bookStatusText.textContent = 'Erè pandan lekti fichye a. Ou ka kopye tèks la dirèkteman anba a.';
+      if (bookStatusText) bookStatusText.textContent = isFr ? 'Erreur lors de la lecture du fichier. Vous pouvez coller le texte directement ci-dessous.' : 'Erè pandan lekti fichye a. Ou ka kopye tèks la dirèkteman anba a.';
       if (bookTextDetails) bookTextDetails.hidden = false;
-      toast('Pa ka li tout fichye a otomatikman, ou ka kole tèks la nan bwat la.', 'warning');
+      toast(isFr ? 'Impossible de lire tout le fichier, vous pouvez coller le texte dans la zone.' : 'Pa ka li tout fichye a otomatikman, ou ka kole tèks la nan bwat la.', 'warning');
     }
   });
 
@@ -1296,12 +1299,13 @@ async function renderPage() {
   document.querySelectorAll('#asg-book-chips-row [data-book-chip]').forEach((chip) => {
     chip.addEventListener('click', () => {
       const type = chip.dataset.bookChip;
+      const isFr = getLang() === 'fr';
       let textToAdd = '';
-      if (type === 'thesis') textToAdd = 'Ekstrè tèz santral liv la epi detaye tout fondasyon teyorik ak doktrinal otè a baze sou yo.';
-      else if (type === 'doctrine') textToAdd = 'Fè yon gwoupman tèks, kouran doktrinal ak atikilasyon ant diferan pati liv la.';
-      else if (type === 'summary') textToAdd = 'Fè yon rezime analitik chapit pa chapit ak tout lide esansyèl yo.';
-      else if (type === 'solve') textToAdd = 'Itilize tout kontni liv la pou rezoud devwa a nèt selon enstriksyon pwofesè a.';
-      else if (type === 'defense') textToAdd = 'Idantifye agiman ki pi fò nan liv la pou soutni devwa a devan pwofesè a ak pyèj pou evite.';
+      if (type === 'thesis') textToAdd = isFr ? 'Extraire la thèse centrale de l\'ouvrage et détailler tous les fondements théoriques et doctrinaux sur lesquels repose l\'auteur.' : 'Ekstrè tèz santral liv la epi detaye tout fondasyon teyorik ak doktrinal otè a baze sou yo.';
+      else if (type === 'doctrine') textToAdd = isFr ? 'Faire un groupement des textes, courants doctrinaux et articulations entre les différentes parties du livre.' : 'Fè yon gwoupman tèks, kouran doktrinal ak atikilasyon ant diferan pati liv la.';
+      else if (type === 'summary') textToAdd = isFr ? 'Faire un résumé analytique chapitre par chapitre avec toutes les idées essentielles.' : 'Fè yon rezime analitik chapit pa chapit ak tout lide esansyèl yo.';
+      else if (type === 'solve') textToAdd = isFr ? 'Utiliser tout le contenu de l\'ouvrage pour résoudre intégralement le devoir selon les instructions de l\'enseignant.' : 'Itilize tout kontni liv la pou rezoud devwa a nèt selon enstriksyon pwofesè a.';
+      else if (type === 'defense') textToAdd = isFr ? 'Identifier les arguments les plus solides du livre pour soutenir le devoir devant le professeur et les pièges à éviter.' : 'Idantifye agiman ki pi fò nan liv la pou soutni devwa a devan pwofesè a ak pyèj pou evite.';
 
       if (bookPrompt) {
         bookPrompt.value = bookPrompt.value ? `${bookPrompt.value}\n${textToAdd}` : textToAdd;
@@ -1311,18 +1315,19 @@ async function renderPage() {
   });
 
   btnRunBook?.addEventListener('click', async () => {
+    const isFr = getLang() === 'fr';
     const bookContent = bookExtractedText?.value?.trim() || '';
-    const userPrompt = bookPrompt?.value?.trim() || 'Analize liv la epi rezoud devwa a';
+    const userPrompt = bookPrompt?.value?.trim() || (isFr ? 'Analyser l\'ouvrage et résoudre le devoir' : 'Analize liv la epi rezoud devwa a');
     const inst = document.getElementById('asg-inst-ed')?.value?.trim() || assignment?.instructions || '';
 
     setLoading(btnRunBook, true);
-    if (bookEngineLabel) bookEngineLabel.textContent = 'IA ap analize liv la... Tanpri tann...';
+    if (bookEngineLabel) bookEngineLabel.textContent = isFr ? 'L\'IA analyse l\'ouvrage... Veuillez patienter...' : 'IA ap analize liv la... Tanpri tann...';
 
     try {
       const res = await assistAssignment({
         action: 'analyze_book',
         title: assignment?.title || 'Devwa',
-        instructions: inst ? `${inst}\n\nDemann etidyan an : ${userPrompt}` : userPrompt,
+        instructions: inst ? `${inst}\n\n${isFr ? 'Consigne de l\'étudiant' : 'Demann etidyan an'} : ${userPrompt}` : userPrompt,
         content: bookContent || inst || assignment?.title || '',
         question: userPrompt,
         scope: currentScope,
@@ -1341,11 +1346,11 @@ async function renderPage() {
         icons(bookOutput);
         bookOutput.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       }
-      if (bookEngineLabel) bookEngineLabel.textContent = `Analiz fini avèk siksè (${res?.provider || 'IA'})`;
-      toast('Analiz liv la pare ! Ou ka mete l nan devwa a kounye a.', 'success');
+      if (bookEngineLabel) bookEngineLabel.textContent = isFr ? `Analyse terminée avec succès (${res?.provider || 'IA'})` : `Analiz fini avèk siksè (${res?.provider || 'IA'})`;
+      toast(isFr ? 'L\'analyse de l\'ouvrage est prête ! Vous pouvez l\'insérer dans le devoir.' : 'Analiz liv la pare ! Ou ka mete l nan devwa a kounye a.', 'success');
     } catch (err) {
       handleError(err);
-      if (bookEngineLabel) bookEngineLabel.textContent = 'Erè pandan analiz la';
+      if (bookEngineLabel) bookEngineLabel.textContent = isFr ? 'Erreur lors de l\'analyse' : 'Erè pandan analiz la';
     } finally {
       setLoading(btnRunBook, false);
     }
