@@ -11,7 +11,7 @@ import { t, getLang, formatDate } from '../i18n.js';
 import {
   icons, icon, esc, getParam, isUuid, toast, handleError, setLoading,
   loadScript, loadStyle, CDN, sanitizeHtml, pageEnter, checkFileSize,
-  openModal,
+  openModal, extractPdfText, renderMarkdown,
 } from '../utils.js';
 import { assistAssignment, askTutor, searchLibraryWeb } from '../ai.js';
 import { exportAssignmentPdf, exportAssignmentDocx } from '../export.js';
@@ -655,6 +655,80 @@ async function renderPage() {
             </label>
           </div>
 
+          <!-- Modil Analiz Liv & Dokiman pou Devwa sa a -->
+          <section class="card mb-4" id="asg-book-analysis-card" style="border:1.5px solid var(--c-primary);background:linear-gradient(135deg, rgba(27,42,74,0.03), rgba(224,90,43,0.05));">
+            <div class="row-between mb-2 cursor-pointer" id="asg-book-toggle" style="flex-wrap:wrap;gap:8px;">
+              <div class="row" style="gap:8px;align-items:center;">
+                <span class="badge badge-primary font-bold">${icon('book-open')} <span>Analiz Liv oswa Dokiman pou Devwa sa a</span></span>
+                <span class="text-xs muted">(PDF, Word, Tèks, Foto)</span>
+              </div>
+              <span class="btn-icon" id="asg-book-toggle-icon">${icon('chevron-down')}</span>
+            </div>
+
+            <div id="asg-book-panel">
+              <p class="text-xs muted mb-3">
+                Telechaje liv oswa dokiman pwofesè a ba ou a. IA a ap analize tèz santral la, gwoupe tèks yo ak tout fondasyon teyorik yo, fè rezime analitik chapit pa chapit, epi rezoud devwa a selon konsiy egzak ou ba li.
+              </p>
+
+              <!-- Dropzone Upload Fichye -->
+              <div class="card card-sm mb-3" style="border:2px dashed var(--c-border);background:var(--c-surface);text-align:center;padding:16px;">
+                <div id="asg-book-file-info" hidden class="mb-2">
+                  <span class="badge badge-success font-bold" id="asg-book-name-badge">Fichye chaje</span>
+                  <div class="text-xs mt-1" id="asg-book-status-text"></div>
+                </div>
+                <label class="btn btn-secondary btn-sm" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px;">
+                  ${icon('upload')}
+                  <span>Chwazi Liv la oswa Dokiman an (PDF, Word, Tèks)</span>
+                  <input type="file" id="asg-book-file-input" accept=".pdf,.doc,.docx,.txt,.epub,image/*" style="display:none;">
+                </label>
+                <div class="text-xs muted mt-2">Sipòte liv PDF konplè, dokiman Word oswa foto kaye/liv.</div>
+              </div>
+
+              <!-- Tèks Liv ekstrè -->
+              <details class="mb-3" id="asg-book-text-details" hidden>
+                <summary class="text-xs font-bold muted cursor-pointer">Gade tèks ekstrè nan liv la (<span id="asg-book-word-count">0</span> mo)</summary>
+                <textarea class="textarea mt-2 text-xs" id="asg-book-extracted-text" rows="5" placeholder="Tèks ekstrè nan liv la..."></textarea>
+              </details>
+
+              <!-- Konsiy egzak pou IA sou liv sa a -->
+              <div class="field mb-3">
+                <label class="text-xs font-bold muted" style="text-transform:uppercase;">Sa w vle IA an ba ou egzakteman sou liv sa a :</label>
+                <textarea class="textarea" id="asg-book-custom-prompt" rows="3" placeholder="Pa egzanp: Ekstrè tèz santral liv la, fè yon gwoupman tèks ak fondasyon teyorik otè yo, fè rezime analitik chapit pa chapit, epi rezoud kesyon devwa a..."></textarea>
+              </div>
+
+              <!-- Ti bouton rapid (Chips) pou chwazi aksyon -->
+              <div class="row-wrap mb-3" style="gap:6px;" id="asg-book-chips-row">
+                <button type="button" class="btn btn-xs btn-outline" data-book-chip="thesis">🔍 Tèz Santral & Fondasyon Teyorik</button>
+                <button type="button" class="btn btn-xs btn-outline" data-book-chip="doctrine">📚 Gwoupman Tèks & Doktrin</button>
+                <button type="button" class="btn btn-xs btn-outline" data-book-chip="summary">📖 Rezime Analitik pa Chapit</button>
+                <button type="button" class="btn btn-xs btn-outline" data-book-chip="solve">✍️ Rezoud Devwa a ak Liv la</button>
+                <button type="button" class="btn btn-xs btn-outline" data-book-chip="defense">🛡️ Pwen Fò pou Soutenans</button>
+              </div>
+
+              <!-- Bouton Analize Liv la -->
+              <div class="row-between" style="flex-wrap:wrap;gap:8px;align-items:center;">
+                <button type="button" class="btn btn-primary" id="btn-run-book-analysis" style="font-weight:700;">
+                  ${icon('sparkles')}
+                  <span>Analize Liv la & Jenere Travay la</span>
+                </button>
+                <span class="text-xs muted" id="asg-book-engine-label">IA Pran Nòt pare pou analize</span>
+              </div>
+
+              <!-- Rezilta analiz liv la -->
+              <div id="asg-book-output" class="ai-suggestion mt-4" hidden>
+                <div class="row-between mb-2" style="flex-wrap:wrap;gap:8px;">
+                  <div class="ai-suggestion-label">${icon('sparkles')}<span>Analiz Liv & Rezolisyon IA</span></div>
+                  <div class="row-wrap" style="gap:6px;">
+                    <button type="button" class="btn btn-sm btn-primary" id="asg-book-insert-btn">${icon('plus')}<span>Mete nan Devwa a (Ajoute)</span></button>
+                    <button type="button" class="btn btn-sm btn-warning" id="asg-book-replace-btn">${icon('check')}<span>Ranplase tout tèks devwa a</span></button>
+                    <button type="button" class="btn btn-sm btn-secondary" id="asg-book-copy-btn">${icon('copy')}<span>Kopye</span></button>
+                  </div>
+                </div>
+                <div class="card card-sm mb-0" style="background:var(--c-surface);"><div class="text-sm prose" id="asg-book-output-text"></div></div>
+              </div>
+            </div>
+          </section>
+
           <div class="ai-suggestion mb-4" id="asg-ai-output" ${assignment.plan ? '' : 'hidden'}></div>
 
           <div class="field mb-0">
@@ -1149,6 +1223,142 @@ async function renderPage() {
   });
   document.getElementById('asg-docx-btn')?.addEventListener('click', async () => {
     await exportAssignmentDocx({ ...assignment, ...gatherState() }, profileRef, course);
+  });
+
+  // -------------------------------------------------------------
+  // Modil Analiz Liv & Dokiman pou Devwa sa a
+  // -------------------------------------------------------------
+  const bookToggle = document.getElementById('asg-book-toggle');
+  const bookPanel = document.getElementById('asg-book-panel');
+  const bookToggleIcon = document.getElementById('asg-book-toggle-icon');
+  bookToggle?.addEventListener('click', () => {
+    if (!bookPanel) return;
+    const isClosed = bookPanel.hidden;
+    bookPanel.hidden = !isClosed;
+    if (bookToggleIcon) bookToggleIcon.innerHTML = isClosed ? icon('chevron-down') : icon('chevron-right');
+  });
+
+  const bookFileInput = document.getElementById('asg-book-file-input');
+  const bookFileInfo = document.getElementById('asg-book-file-info');
+  const bookNameBadge = document.getElementById('asg-book-name-badge');
+  const bookStatusText = document.getElementById('asg-book-status-text');
+  const bookTextDetails = document.getElementById('asg-book-text-details');
+  const bookExtractedText = document.getElementById('asg-book-extracted-text');
+  const bookWordCount = document.getElementById('asg-book-word-count');
+  const bookPrompt = document.getElementById('asg-book-custom-prompt');
+  const btnRunBook = document.getElementById('btn-run-book-analysis');
+  const bookOutput = document.getElementById('asg-book-output');
+  const bookOutputText = document.getElementById('asg-book-output-text');
+  const bookEngineLabel = document.getElementById('asg-book-engine-label');
+
+  let rawBookProposal = '';
+
+  bookFileInput?.addEventListener('change', async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (bookFileInfo) bookFileInfo.hidden = false;
+    if (bookNameBadge) bookNameBadge.textContent = file.name;
+    if (bookStatusText) bookStatusText.textContent = 'Ap ekstrè tèks nan dokiman an... Tanpri pasyante...';
+
+    try {
+      let extracted = '';
+      if (file.type === 'application/pdf' || file.name.endsWith('.pdf')) {
+        const { text, pages } = await extractPdfText(file);
+        extracted = text || '';
+        if (bookStatusText) bookStatusText.textContent = `PDF analize avèk siksè : ${pages} paj rekipere !`;
+      } else if (file.type.startsWith('text/') || file.name.endsWith('.txt') || file.name.endsWith('.md')) {
+        extracted = await file.text();
+        if (bookStatusText) bookStatusText.textContent = `Fichye tèks li avèk siksè !`;
+      } else {
+        extracted = `[Dokiman atache : ${file.name} - Gwosè : ${(file.size / 1024).toFixed(1)} Ko]`;
+        if (bookStatusText) bookStatusText.textContent = `Fichye "${file.name}" chaje pou analiz devwa a !`;
+      }
+
+      if (bookExtractedText) bookExtractedText.value = extracted;
+      const wCount = extracted.split(/\s+/).filter(Boolean).length;
+      if (bookWordCount) bookWordCount.textContent = wCount;
+      if (bookTextDetails) bookTextDetails.hidden = false;
+
+      if (bookPrompt && !bookPrompt.value.trim()) {
+        bookPrompt.value = 'Ekstrè tèz santral liv sa a, fè yon gwoupman tèks ak tout fondasyon teyorik otè a, fè rezime analitik chapit pa chapit, epi rezoud devwa a selon konsiy pwofesè a.';
+      }
+      toast('Liv la pare pou IA analize l !', 'success');
+    } catch (err) {
+      console.warn('[assignment] extract book text error:', err);
+      if (bookStatusText) bookStatusText.textContent = 'Erè pandan lekti fichye a. Ou ka kopye tèks la dirèkteman anba a.';
+      if (bookTextDetails) bookTextDetails.hidden = false;
+      toast('Pa ka li tout fichye a otomatikman, ou ka kole tèks la nan bwat la.', 'warning');
+    }
+  });
+
+  // Quick Chips
+  document.querySelectorAll('#asg-book-chips-row [data-book-chip]').forEach((chip) => {
+    chip.addEventListener('click', () => {
+      const type = chip.dataset.bookChip;
+      let textToAdd = '';
+      if (type === 'thesis') textToAdd = 'Ekstrè tèz santral liv la epi detaye tout fondasyon teyorik ak doktrinal otè a baze sou yo.';
+      else if (type === 'doctrine') textToAdd = 'Fè yon gwoupman tèks, kouran doktrinal ak atikilasyon ant diferan pati liv la.';
+      else if (type === 'summary') textToAdd = 'Fè yon rezime analitik chapit pa chapit ak tout lide esansyèl yo.';
+      else if (type === 'solve') textToAdd = 'Itilize tout kontni liv la pou rezoud devwa a nèt selon enstriksyon pwofesè a.';
+      else if (type === 'defense') textToAdd = 'Idantifye agiman ki pi fò nan liv la pou soutni devwa a devan pwofesè a ak pyèj pou evite.';
+
+      if (bookPrompt) {
+        bookPrompt.value = bookPrompt.value ? `${bookPrompt.value}\n${textToAdd}` : textToAdd;
+        bookPrompt.focus();
+      }
+    });
+  });
+
+  btnRunBook?.addEventListener('click', async () => {
+    const bookContent = bookExtractedText?.value?.trim() || '';
+    const userPrompt = bookPrompt?.value?.trim() || 'Analize liv la epi rezoud devwa a';
+    const inst = document.getElementById('asg-inst-ed')?.value?.trim() || assignment?.instructions || '';
+
+    setLoading(btnRunBook, true);
+    if (bookEngineLabel) bookEngineLabel.textContent = 'IA ap analize liv la... Tanpri tann...';
+
+    try {
+      const res = await assistAssignment({
+        action: 'analyze_book',
+        title: assignment?.title || 'Devwa',
+        instructions: inst ? `${inst}\n\nDemann etidyan an : ${userPrompt}` : userPrompt,
+        content: bookContent || inst || assignment?.title || '',
+        question: userPrompt,
+        scope: currentScope,
+        useLibrary: true,
+        language: getLang(),
+        faculty: profileRef?.faculty_id || 'general',
+        level: profileRef?.level || 'L1',
+      });
+
+      const plan = res?.data || {};
+      rawBookProposal = plan?.content_proposal || (typeof res === 'string' ? res : JSON.stringify(res));
+
+      if (bookOutput && bookOutputText) {
+        bookOutput.hidden = false;
+        bookOutputText.innerHTML = renderMarkdown(rawBookProposal);
+        icons(bookOutput);
+        bookOutput.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+      if (bookEngineLabel) bookEngineLabel.textContent = `Analiz fini avèk siksè (${res?.provider || 'IA'})`;
+      toast('Analiz liv la pare ! Ou ka mete l nan devwa a kounye a.', 'success');
+    } catch (err) {
+      handleError(err);
+      if (bookEngineLabel) bookEngineLabel.textContent = 'Erè pandan analiz la';
+    } finally {
+      setLoading(btnRunBook, false);
+    }
+  });
+
+  document.getElementById('asg-book-insert-btn')?.addEventListener('click', () => {
+    insertTextInEditor(rawBookProposal);
+  });
+  document.getElementById('asg-book-replace-btn')?.addEventListener('click', () => {
+    replaceTextInEditor(rawBookProposal);
+  });
+  document.getElementById('asg-book-copy-btn')?.addEventListener('click', () => {
+    copyTextToClipboard(rawBookProposal);
   });
 
   await loadAttachedFiles();

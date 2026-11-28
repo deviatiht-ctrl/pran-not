@@ -120,6 +120,46 @@ Consigne officielle ou exercice à résoudre :
 ${effectiveTarget}
 ${content ? `Brouillon actuel ou extrait du devoir déjà saisi par l'étudiant :\n${content.slice(0, 4000)}\n` : ''}
 ${libraryContext ? `\nEXTRAITS PERTINENTS DE LA BIBLIOTHÈQUE :\n${libraryContext}\n` : ''}`;
+    } else if (action === 'analyze_book') {
+      prompt = `Tu es l'analyste méthodologique et universitaire d'élite de Pran Nòt.
+L'étudiant te fournit le texte d'un LIVRE ou d'un DOCUMENT DE RÉFÉRENCE universitaire pour accomplir son devoir.
+L'étudiant formule la demande précise suivante : "${question || "Analyse approfondie de l'ouvrage, extraction de la thèse centrale, groupement des textes avec fondement théorique et résolution du devoir"}".
+
+TA MISSION MAJEURE :
+1. THÈSE CENTRALE : Dégage avec une clarté absolue la thèse fondamentale soutenue par l'auteur, sa problématique directrice et son parti pris intellectuel.
+2. GROUPEMENT DE TEXTES & FONDEMENTS THÉORIQUES : Regroupe les idées et extraits du livre par grands pôles thématiques, en explicitant le fondement théorique ou doctrinal de chaque groupe (doctrine juridique, modèle économique, paradigme médical ou scientifique).
+3. RÉSUMÉ ANALYTIQUE PAR SECTIONS / CHAPITRES : Synthétise les moments charnières du livre ou document.
+4. APPLICATION DIRECTE & RÉSOLUTION DU DEVOIR : Utilise précisément les arguments, théories et citations tirés du livre pour répondre de façon exhaustive aux consignes du devoir.
+5. Indique les citations exactes et références pour que l'étudiant puisse les insérer dans son devoir.
+6. Sois rigoureux, exhaustif et parfaitement structuré. Aucun bavardage ni emoji.
+
+Retourne STRICTEMENT ce JSON :
+{
+  "book_analysis": {
+    "thesis": "Énoncé clair, percutant et académique de la thèse centrale défendue par l'auteur",
+    "theoretical_foundation": "Fondement méthodologique, épistémologique ou doctrinal qui sous-tend l'ouvrage",
+    "text_groupings": [
+      {
+        "theme": "Thème ou axe thématique majeur",
+        "foundation": "Fondement théorique et conceptuel",
+        "key_quote": "Citation ou passage représentatif clé tiré du texte",
+        "analysis": "Explication approfondie de ce que ce passage démontre pour le devoir"
+      }
+    ],
+    "chapter_summaries": [
+      { "part_title": "Chapitre / Partie / Axe", "summary": "Synthèse analytique des idées développées" }
+    ],
+    "assignment_solution": "Texte rédigé complet et directement exploitable qui résout le devoir en s'appuyant rigoureusement sur le livre (avec citations et argumentation)",
+    "oral_defense_tips": ["Conseil stratégique pour défendre cette analyse devant le professeur"]
+  }
+}
+
+Titre du devoir : ${title || 'Devoir'}
+Consigne du devoir : ${effectiveInstructions}
+Demande spécifique de l'étudiant : ${question || 'Analyse globale, thèse et résolution'}
+
+TEXTE DU LIVRE / DOCUMENT :
+${effectiveContent.slice(0, 24000)}`;
     } else if (action === 'instruct') {
       prompt = `L'étudiant te donne une consigne ou des directives spécifiques sur son devoir. Tu es son assistant IA personnel de rédaction et d'étude.
 RÈGLES IMPORTANTES :
@@ -297,7 +337,7 @@ Texte à reformuler :
 ${effectiveContent.slice(0, 6000)}`;
     }
 
-    const needsLongOutput = action === 'solve' || action === 'draft_full' || action === 'qa' || action === 'instruct';
+    const needsLongOutput = action === 'solve' || action === 'draft_full' || action === 'qa' || action === 'instruct' || action === 'analyze_book';
     const out = await runAiTask(auth.admin, auth.user.id, auth.profile?.ai_daily_quota || 500, {
       task: needsLongOutput ? 'tutor' : 'assignment_assist',
       faculty: effectiveFaculty,

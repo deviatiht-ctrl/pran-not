@@ -190,43 +190,115 @@ async function renderNote() {
 
     <div class="grid grid-main-side">
       <div class="stack">
-        ${note.summary ? `
-          <section class="card card-accent">
-            <h2 class="card-title">${esc(t('notes.summary'))}</h2>
-            <p class="mb-0">${esc(note.summary)}</p>
-          </section>` : ''}
-
-        <article class="card prose">
-          ${note.content_html ? sanitizeHtml(note.content_html) : `<p>${esc(note.content_text || note.raw_text || '')}</p>`}
-        </article>
-
-        ${st.bullet_summary ? `
-          <section class="card mb-4" style="background:var(--c-surface-2);border-left:4px solid #10B981;">
-            <div class="row-between mb-2">
-              <h3 class="card-title mb-0 text-sm font-bold" style="color:#10B981;">
-                ${icon('list-checks')}<span>${esc(t('notes.bullet_summary_title'))}</span>
-              </h3>
-              <button type="button" class="btn-icon" id="btn-remove-bullet-summary" title="${esc(t('notes.remove_section_title'))}">
-                ${icon('x')}
-              </button>
+        ${st.content_html_ht ? `
+          <div class="card card-sm mb-3" style="background:var(--c-surface-soft);border:1px solid var(--c-border);">
+            <div class="row-between" style="flex-wrap:wrap;gap:8px;align-items:center;">
+              <div class="row" style="gap:6px;align-items:center;">
+                <span class="badge badge-primary font-bold">${icon('languages')} <span>Vèsyon Nòt</span></span>
+                <span class="text-xs muted">Chwazi fòma w vle li a :</span>
+              </div>
+              <div class="segmented" id="note-lang-toggle" style="display:inline-flex;">
+                <button type="button" class="btn btn-xs active" data-lang-view="both">
+                  ${icon('layers')}<span>Tout 2 (FR + HT)</span>
+                </button>
+                <button type="button" class="btn btn-xs" data-lang-view="fr">
+                  <span>Français</span>
+                </button>
+                <button type="button" class="btn btn-xs" data-lang-view="ht">
+                  <span>Kreyòl</span>
+                </button>
+              </div>
             </div>
-            <div class="prose text-sm">
-              ${renderMarkdown(st.bullet_summary)}
-            </div>
-          </section>` : ''}
+          </div>
+        ` : ''}
 
-        ${st.simple_explanation ? `
-          <section class="card mb-4" style="background:var(--c-surface-2);border-left:4px solid var(--c-primary,#F97316);">
+        <!-- Conteneur Vèsyon Fransè -->
+        <div id="note-section-fr" class="stack" style="gap:12px;">
+          ${note.summary ? `
+            <section class="card card-accent">
+              <div class="row-between mb-1">
+                <h2 class="card-title text-sm">${esc(t('notes.summary'))} (Français)</h2>
+                <span class="badge badge-xs">FR</span>
+              </div>
+              <p class="mb-0 text-sm">${esc(note.summary)}</p>
+            </section>` : ''}
+
+          <article class="card prose" id="note-article-fr">
+            ${st.content_html_ht ? `<div class="mb-3 pb-2" style="border-bottom:1px solid var(--c-border);display:flex;align-items:center;gap:6px;"><span class="badge badge-primary">🇫🇷 Français Académique</span><span class="text-xs muted">Nòt ofisyèl inivèsitè</span></div>` : ''}
+            ${note.content_html ? sanitizeHtml(note.content_html) : `<p>${esc(note.content_text || note.raw_text || '')}</p>`}
+          </article>
+        </div>
+
+        <!-- Conteneur Vèsyon Kreyòl -->
+        ${st.content_html_ht ? `
+          <div id="note-section-ht" class="stack mt-4" style="gap:12px;">
+            ${st.summary_ht ? `
+              <section class="card card-accent" style="border-left:4px solid var(--c-primary);">
+                <div class="row-between mb-1">
+                  <h2 class="card-title text-sm">Rezime Kou a (Kreyòl Ayisyen)</h2>
+                  <span class="badge badge-xs badge-primary">HT</span>
+                </div>
+                <p class="mb-0 text-sm">${esc(st.summary_ht)}</p>
+              </section>` : ''}
+
+            <article class="card prose" id="note-article-ht">
+              <div class="mb-3 pb-2" style="border-bottom:1px solid var(--c-border);display:flex;align-items:center;gap:6px;">
+                <span class="badge badge-accent">🇭🇹 Kreyòl Ayisyen</span>
+                <span class="text-xs muted">Eksplikasyon ak estrikti an Kreyòl</span>
+              </div>
+              ${sanitizeHtml(st.content_html_ht)}
+            </article>
+          </div>
+        ` : ''}
+
+        <!-- Seksyon Eksplikasyon Senp Entegre (Fransè & Kreyòl) -->
+        ${(st.simple_explanation_fr || st.simple_explanation_ht || st.simple_explanation) ? `
+          <section class="card mb-4" id="note-section-simple-exp" style="background:var(--c-surface-2);border-left:4px solid var(--c-primary,#F97316);">
             <div class="row-between mb-2">
               <h3 class="card-title mb-0 text-sm font-bold" style="color:var(--c-primary,#F97316);">
-                ${icon('sparkles')}<span>${esc(t('notes.simple_explanation_title'))}</span>
+                ${icon('sparkles')}<span>${esc(t('notes.simple_explanation_title'))} (Entegre Biling)</span>
               </h3>
-              <button type="button" class="btn-icon" id="btn-remove-simple-exp" title="${esc(t('notes.remove_section_title'))}">
-                ${icon('x')}
-              </button>
             </div>
-            <div class="prose text-sm">
-              ${renderMarkdown(st.simple_explanation)}
+            <div class="stack" style="gap:10px;">
+              ${(st.simple_explanation_fr || (!st.simple_explanation_ht && st.simple_explanation)) ? `
+                <div class="p-3" style="background:var(--c-surface);border-radius:var(--r-card);border:1px solid var(--c-border);">
+                  <strong class="text-xs font-bold" style="color:var(--c-primary);">🇫🇷 En résumé simple (Français) :</strong>
+                  <div class="prose text-sm mt-1">${renderMarkdown(st.simple_explanation_fr || st.simple_explanation)}</div>
+                </div>` : ''}
+              ${st.simple_explanation_ht ? `
+                <div class="p-3" style="background:var(--c-surface);border-radius:var(--r-card);border:1px solid var(--c-border);">
+                  <strong class="text-xs font-bold" style="color:var(--c-primary);">🇭🇹 Sa pwofesè a te vle di an senp (Kreyòl) :</strong>
+                  <div class="prose text-sm mt-1">${renderMarkdown(st.simple_explanation_ht)}</div>
+                </div>` : ''}
+            </div>
+          </section>` : ''}
+
+        <!-- Seksyon Kesyon & Repons Egzamen Entegre -->
+        ${(Array.isArray(st.exam_qa) && st.exam_qa.length) ? `
+          <section class="card mb-4" id="note-section-exam-qa" style="background:var(--c-surface-2);border-left:4px solid #10B981;">
+            <div class="row-between mb-3">
+              <h3 class="card-title mb-0 text-sm font-bold" style="color:#10B981;">
+                ${icon('check-circle-2')}<span>Kesyon & Repons Modèl pou Egzamen (${st.exam_qa.length})</span>
+              </h3>
+              <span class="badge badge-success font-bold">Q&A Egzamen</span>
+            </div>
+            <div class="stack" style="gap:10px;">
+              ${st.exam_qa.map((qa, qIdx) => `
+                <div class="card p-3" style="background:var(--c-bg);border:1px solid var(--c-border);">
+                  <div class="row-between mb-1">
+                    <span class="badge badge-xs badge-success font-bold">Kesyon #${qIdx + 1}</span>
+                  </div>
+                  <p class="font-bold mb-2 text-sm" style="color:var(--c-text);">${esc(qa.question)}</p>
+                  <details style="cursor:pointer;">
+                    <summary class="text-xs font-bold" style="color:#10B981;user-select:none;">Klike pou wè repons modèl la & eksplikasyon</summary>
+                    <div class="mt-2 p-2 text-sm" style="background:var(--c-surface);border-radius:var(--r-card);border-left:3px solid #10B981;">
+                      <strong class="text-xs" style="color:var(--c-text);">Repons Modèl :</strong>
+                      <p class="text-sm mt-1 mb-1">${esc(qa.answer)}</p>
+                      ${qa.explanation ? `<p class="text-xs muted mb-0"><strong>Kritè evalyasyon :</strong> ${esc(qa.explanation)}</p>` : ''}
+                    </div>
+                  </details>
+                </div>
+              `).join('')}
             </div>
           </section>` : ''}
 
@@ -1265,6 +1337,28 @@ function bindActions() {
       return;
     }
     location.href = `./note-capture.html?id=${encodeURIComponent(note.id)}&edit=1&mode=photo`;
+  });
+
+  // Chanjman vèsyon lang nòt la (Tout 2 / Fransè sèlman / Kreyòl sèlman)
+  const langToggleButtons = root.querySelectorAll('#note-lang-toggle [data-lang-view]');
+  langToggleButtons.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      langToggleButtons.forEach((b) => b.classList.remove('active'));
+      btn.classList.add('active');
+      const view = btn.dataset.langView;
+      const frSec = document.getElementById('note-section-fr');
+      const htSec = document.getElementById('note-section-ht');
+      if (view === 'both') {
+        if (frSec) frSec.hidden = false;
+        if (htSec) htSec.hidden = false;
+      } else if (view === 'fr') {
+        if (frSec) frSec.hidden = false;
+        if (htSec) htSec.hidden = true;
+      } else if (view === 'ht') {
+        if (frSec) frSec.hidden = true;
+        if (htSec) htSec.hidden = false;
+      }
+    });
   });
 
   document.getElementById('btn-edit-note')?.addEventListener('click', () => {

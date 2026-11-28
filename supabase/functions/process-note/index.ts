@@ -32,9 +32,13 @@ Deno.serve(async (req) => {
       courses = cRows || [];
     }
 
-    const langDirective = mode === 'harmonize_ht'
-      ? 'Langue principale demandée : KREYÒL AYISYEN klè, natirèl, akademik e pedagojik (mete tèm teknik franse yo ant parantèz).'
-      : 'RÈGLE DE LANGUE MAJEURE : Les cours universitaires en Haïti sont évalués en Français académique. Par conséquent, rédige TOUTES les sections du cours (titre, résumé, content_html, points clés, devoirs, questions pour le professeur) STRICTEMENT en Français universitaire soigné, clair, rigoureux et pédagogique. Si le professeur s\'est exprimé en créole ou a fait du code-switching, intègre et restitue l\'intégralité du sens et des explications avec la plus haute fidélité académique en français pour que l\'étudiant puisse réussir ses examens universitaires. (Si l\'étudiant souhaite des explications orales en créole, il utilisera le bouton d\'explication créole).';
+    const langDirective = `RÈGLE MAJEURE DE BILINGUISME INTÉGRAL & EXHAUSTIVITÉ :
+Tu dois impérativement fournir les DEUX versions complètes du cours :
+1. "content_html" : Version académique en Français universitaire soigné, rigoureux, précis et exhaustif pour réussir les examens.
+2. "content_html_ht" : Vèsyon pedagojik konplè an Kreyòl Ayisyen klè, vivan, ak egzanp konkrè ki fasil pou etidyan an konprann pwofondèman.
+3. "simple_explanation_fr" & "simple_explanation_ht" : Explication simple étape par étape sans jargon technique (en français et en kreyòl).
+4. "exam_qa" : 4 à 6 questions et réponses types d'examen avec explications détaillées.
+5. "questions_for_professor" : 3 à 5 questions intelligentes à poser au professeur.`;
 
     const prompt = `${langDirective}
 
@@ -44,36 +48,39 @@ Tu es l'analyste académique d'élite de Pran Nòt. Le texte brut ci-dessous est
 RÈGLES STRICTES DE FIDÉLITÉ ET D'EXHAUSTIVITÉ :
 1. CONSERVATION INTÉGRALE DES NOMS PROPRES ET PERSONNES CITÉES (RÈGLE ABSOLUE) :
    - Conserve et restitue rigoureusement TOUS les noms propres de personnes citées par le professeur (auteurs, professeurs, juristes, médecins, scientifiques, philosophes, personnalités historiques ou contemporaines haïtiennes et internationales).
-   - Ne supprime JAMAIS le nom d'une personne sous prétexte que tu n'es pas sûr ou qu'il était légèrement mal transcrit : restitue son nom avec son orthographe académique exacte et intègre-le avec son apport au cours.
+   - Ne supprime JAMAIS le nom d'une personne sous prétexte que tu n'es pas sûr : restitue son nom avec son orthographe académique exacte et intègre-le avec son apport au cours.
    - Conserve tous les articles de lois, numéros de décrets, formules scientifiques/médicales, dates et concepts techniques.
 
 2. TRAITEMENT NATUREL ET RESPECTUEUX DU CRÉOLE AYISYEN & DU FRANÇAIS :
    - Comprends parfaitement le créole ayisyen, les expressions universitaires et le code-switching naturel en Haïti.
    - Ne considère JAMAIS une explication en créole comme un déchet ou du bruit à éliminer ! Restitue la totalité des concepts expliqués avec clarté, élégance et précision académique.
 
-3. EXHAUSTIVITÉ DU COURS ("content_html") :
+3. EXHAUSTIVITÉ DU COURS ("content_html" en français ET "content_html_ht" en kreyòl) :
    - Ne réduis PAS le cours à un squelette ou un court résumé minimaliste. L'étudiant doit pouvoir réviser l'intégralité du cours pour ses examens.
    - Structure le contenu avec un HTML riche et aéré :
      * <h2>1. Introduction & Contexte du Cours</h2>
      * <h2>2. Développements Principaux & Notions Clés</h2> avec des sous-sections <h3>
-     * <h2>3. Auteurs, Textes & Références Cités par le Professeur</h2> (cite nommément chaque auteur et sa doctrine)
-     * <h2>4. Exemples Pratiques & Cas Concrets</h2> (mets en valeur les anecdotes ou cas cités)
+     * <h2>3. Auteurs, Textes & Références Cités par le Professeur</h2>
+     * <h2>4. Exemples Pratiques & Cas Concrets</h2>
      * <h2>5. Points Essentiels à Maîtriser pour l'Examen</h2> avec des puces <ul><li><strong>Concept</strong> : explication</li></ul>
 
-4. SYNTHÈSE & QUESTIONS PERTINENTES POUR LE PROFESSEUR :
-   - "summary" : résumé complet en 4 à 6 phrases fidèles au cours.
-   - "takeaways" : au moins 4 à 6 points cruciaux indispensables pour l'examen.
-   - "keywords" : liste exhaustive des termes techniques et noms d'auteurs clés.
-   - "questions_for_professor" : 3 à 5 questions intelligentes, stimulantes et polies que l'étudiant peut poser au professeur pour éclaircir des zones d'ombre ou approfondir un point d'examen.
+4. EXAM_QA ET QUESTIONS PERTINENTES POUR LE PROFESSEUR :
+   - "exam_qa" : Fournis 4 à 6 questions probables d'examen avec des réponses modèles très complètes et des explications.
+   - "questions_for_professor" : 3 à 5 questions intelligentes, stimulantes et polies que l'étudiant peut poser au professeur.
 
 Cours existants de l'étudiant : ${JSON.stringify(courses.map((c: { id: string; name: string }) => ({ id: c.id, name: c.name })))}
 
 Retourne STRICTEMENT ce JSON :
 {
-  "title": "Titre court, précis et académique de la séance",
-  "summary": "Résumé clair, percutant et complet en 4 à 6 phrases",
+  "title": "Titre court, précis et académique de la séance (en Français)",
+  "title_ht": "Tit kout, klè e presi nan seyans la (an Kreyòl)",
+  "summary": "Résumé clair, percutant et complet en 4 à 6 phrases (Français)",
+  "summary_ht": "Rezime klè, konplè an 4 a 6 fraz (Kreyòl)",
   "verbatim_raw": "Retranscription nettoyée des passages clés du professeur",
-  "content_html": "HTML propre avec <h2>, <h3>, <p>, <ul>, <ol>, <li>, <strong>, <em>, <blockquote> (organisé par grandes rubriques, définitions nettes, listes à puces aérées, points d'examen)",
+  "content_html": "HTML complet et riche en Français universitaire soigné",
+  "content_html_ht": "HTML konplè ak rich an Kreyòl Ayisyen pedagojik",
+  "simple_explanation_fr": "Explication simple, fluide, sans jargon pour révision rapide",
+  "simple_explanation_ht": "Eksplikasyon senp, etap pa etap san mo difisil an Kreyòl",
   "takeaways": ["Point clé 1 indispensable pour examen", "Point clé 2", "Point clé 3", "Point clé 4"],
   "keywords": ["mot-clé 1", "mot-clé 2", "mot-clé 3", "mot-clé 4"],
   "corrections": [
@@ -84,6 +91,13 @@ Retourne STRICTEMENT ce JSON :
   ],
   "research_topics": ["Thème ou ressource de droit/médecine/ingénierie/lettres à approfondir"],
   "implied_points": ["Déduction ou idée implicite formulée sobrement"],
+  "exam_qa": [
+    {
+      "question": "Question classique ou piège susceptible de tomber à l'examen",
+      "answer": "Réponse modèle complète, rigoureuse et argumentée",
+      "explanation": "Pourquoi cette réponse est attendue et critères de notation"
+    }
+  ],
   "questions_for_professor": [
     {
       "question": "Question académique précise et stimulante à poser au professeur",

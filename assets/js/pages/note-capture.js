@@ -1346,6 +1346,35 @@ function renderAudioClips() {
   icons(box);
 }
 
+/**
+ * Relance automatiquement toutes les transcriptions audio en attente ou en erreur
+ * dès que la connexion Internet est rétablie sans que l'étudiant ait besoin de cliquer.
+ */
+let isAutoRetryingTranscriptions = false;
+export async function autoRetryPendingTranscriptions() {
+  if (!navigator.onLine || isAutoRetryingTranscriptions) return;
+  const pendingClips = audioChunksBlobs.filter((c) => c.status === 'error' || c.status === 'offline' || c.status === 'pending');
+  if (!pendingClips.length) return;
+
+  isAutoRetryingTranscriptions = true;
+  toast('Koneksyon retounen : retranskripsyon segman odyo yo ap relanse otomatikman...', 'info');
+
+  try {
+    for (const clip of pendingClips) {
+      if (!navigator.onLine) break;
+      await enqueueTranscription(clip, true);
+    }
+  } catch (err) {
+    console.warn('[audio] autoRetryPendingTranscriptions failed:', err);
+  } finally {
+    isAutoRetryingTranscriptions = false;
+  }
+}
+
+window.addEventListener('online', () => {
+  autoRetryPendingTranscriptions();
+});
+
 function enqueueTranscription(clip, isRetry = false) {
   transcribeQueue = transcribeQueue.then(() => transcribeClip(clip, isRetry)).catch(() => {});
   return transcribeQueue;
@@ -1496,28 +1525,46 @@ async function handleImportFiles(fileList) {
 }
 
 /* ------------------------------------------------------------------
-   Traitement IA de la note (structuration + harmonisation)
+   Traitement IA de la note (structuration + harmonisation bilingue)
    ------------------------------------------------------------------ */
 async function runStructureAi(mode = 'standard', btnEl = null) {
-  const raw = document.getElementById('raw-text').value.trim();
+  let raw = document.getElementById('raw-text').value.trim();
+  if (!raw && quill) {
+    raw = htmlToText(quill.root.innerHTML).trim();
+  }
+  if (!raw && editingNoteOriginal?.content_text) {
+    raw = editingNoteOriginal.content_text.trim();
+  }
+  if (!raw && editingNoteOriginal?.content_html) {
+    raw = htmlToText(editingNoteOriginal.content_html).trim();
+  }
   if (!raw) {
     toast(t('errors.required'), 'warning');
     return;
   }
   setLoading(btnEl, true);
   try {
+    const chosenLang = document.getElementById('note-lang').value;
     const res = await processNote({
       rawText: raw,
-      language: document.getElementById('note-lang').value,
+      language: chosenLang,
       faculty: profileRef?.faculty_id || 'autre',
       level: profileRef?.level || 'L1',
       courses: coursesList,
-      mode,
+      mode: mode === 'bilingual' ? 'bilingual' : mode,
     });
-    structuredData = res;
+    structuredData = {
+      ...res,
+      content_html_ht: res.content_html_ht || '',
+      simple_explanation_fr: res.simple_explanation_fr || '',
+      simple_explanation_ht: res.simple_explanation_ht || '',
+      exam_qa: Array.isArray(res.exam_qa) ? res.exam_qa : [],
+      questions_for_professor: Array.isArray(res.questions_for_professor) ? res.questions_for_professor : [],
+    };
     if (res.title) document.getElementById('note-title').value = res.title;
-    if (res.content_html && quill) {
-      quill.root.innerHTML = sanitizeHtml(res.content_html);
+    if (quill) {
+      const htmlToSet = (chosenLang === 'ht' && res.content_html_ht) ? res.content_html_ht : (res.content_html || res.content_html_ht);
+      if (htmlToSet) quill.root.innerHTML = sanitizeHtml(htmlToSet);
     }
 
     if (res.suggested_course_id && !document.getElementById('note-course').value) {
@@ -1529,8 +1576,9 @@ async function runStructureAi(mode = 'standard', btnEl = null) {
       }
     }
 
-    renderStructuredExtras(res);
-    toast(t('common.saved'), 'success');
+    renderStructuredExtras(structuredData);
+    saveDraftToStorage();
+    toast('Nòt la byen estriktire an fòma biling ak tout eksplikasyon ak Q&A!', 'success');
   } catch (err) {
     handleError(err);
   } finally {
@@ -1545,11 +1593,44 @@ function renderStructuredExtras(st) {
   const takeaways = Array.isArray(st.takeaways) ? st.takeaways : [];
   const implied = Array.isArray(st.implied_points) ? st.implied_points : [];
   const keywords = Array.isArray(st.keywords) ? st.keywords : [];
+  const examQa = Array.isArray(st.exam_qa) ? st.exam_qa : [];
+  const profQ = Array.isArray(st.questions_for_professor) ? st.questions_for_professor : [];
+
   box.innerHTML = `
-    ${st.summary ? `<div class="card card-sm card-muted"><strong>${esc(t('notes.summary'))}</strong><p class="text-sm mt-1 mb-0">${esc(st.summary)}</p></div>` : ''}
-    ${takeaways.length ? `<div class="card card-sm"><strong>${esc(t('notes.takeaways'))}</strong><ul class="text-sm mt-2 mb-0">${takeaways.map((x) => `<li>${esc(x)}</li>`).join('')}</ul></div>` : ''}
-    ${implied.length ? `<div class="ai-suggestion"><div class="ai-suggestion-label">${icon('sparkles')}<span>${esc(t('notes.implied_title'))} — ${esc(t('notes.implied_badge'))}</span></div><ul class="text-sm mt-1 mb-0">${implied.map((x) => `<li>${esc(x)}</li>`).join('')}</ul></div>` : ''}
-    ${keywords.length ? `<div class="row-wrap">${keywords.map((k) => `<span class="badge">${esc(k)}</span>`).join('')}</div>` : ''}`;
+    <div class="row-between mb-2">
+      <span class="badge badge-primary font-bold">${icon('sparkles')} <span>Nòt Estriktire Biling & Q&A</span></span>
+      <span class="badge badge-accent font-bold">${esc(st.provider || 'AI')}</span>
+    </div>
+
+    ${st.summary ? `<div class="card card-sm card-muted"><strong>${esc(t('notes.summary'))} (Français)</strong><p class="text-sm mt-1 mb-0">${esc(st.summary)}</p></div>` : ''}
+    ${st.summary_ht ? `<div class="card card-sm card-muted mt-2" style="border-left:3px solid var(--c-primary);"><strong>Rezime an Kreyòl</strong><p class="text-sm mt-1 mb-0">${esc(st.summary_ht)}</p></div>` : ''}
+
+    ${(st.simple_explanation_fr || st.simple_explanation_ht) ? `
+      <div class="card card-sm mt-2" style="background:var(--c-surface-soft);border-left:4px solid var(--c-accent);">
+        <strong>💡 Eksplikasyon Senp Entegre (Fransè & Kreyòl)</strong>
+        ${st.simple_explanation_fr ? `<p class="text-sm mt-1 mb-1"><strong>FR :</strong> ${esc(st.simple_explanation_fr)}</p>` : ''}
+        ${st.simple_explanation_ht ? `<p class="text-sm mb-0"><strong>HT :</strong> ${esc(st.simple_explanation_ht)}</p>` : ''}
+      </div>` : ''}
+
+    ${examQa.length ? `
+      <div class="card card-sm mt-2" style="background:var(--c-surface-soft);border-left:4px solid #10B981;">
+        <strong>📝 Kesyon & Repons Egzamen (${examQa.length})</strong>
+        <ul class="text-sm mt-1 mb-0" style="padding-left:1.2em;">
+          ${examQa.slice(0, 3).map(q => `<li><strong>Q :</strong> ${esc(q.question)}</li>`).join('')}
+        </ul>
+      </div>` : ''}
+
+    ${profQ.length ? `
+      <div class="card card-sm mt-2" style="background:var(--c-surface-soft);border-left:4px solid var(--c-primary);">
+        <strong>❓ Kesyon pou poze Pwofesè a (${profQ.length})</strong>
+        <ul class="text-sm mt-1 mb-0" style="padding-left:1.2em;">
+          ${profQ.slice(0, 3).map(pq => `<li>${esc(pq.question)}</li>`).join('')}
+        </ul>
+      </div>` : ''}
+
+    ${takeaways.length ? `<div class="card card-sm mt-2"><strong>${esc(t('notes.takeaways'))}</strong><ul class="text-sm mt-2 mb-0">${takeaways.map((x) => `<li>${esc(x)}</li>`).join('')}</ul></div>` : ''}
+    ${implied.length ? `<div class="ai-suggestion mt-2"><div class="ai-suggestion-label">${icon('sparkles')}<span>${esc(t('notes.implied_title'))} — ${esc(t('notes.implied_badge'))}</span></div><ul class="text-sm mt-1 mb-0">${implied.map((x) => `<li>${esc(x)}</li>`).join('')}</ul></div>` : ''}
+    ${keywords.length ? `<div class="row-wrap mt-2">${keywords.map((k) => `<span class="badge">${esc(k)}</span>`).join('')}</div>` : ''}`;
   icons(box);
 }
 
@@ -2374,6 +2455,8 @@ function initQuickAiModule() {
     syncLiveTutorContext();
   });
   document.getElementById('ai-structure-btn').addEventListener('click', (e) => runStructureAi('standard', e.currentTarget));
+  document.getElementById('btn-structure-bilingual')?.addEventListener('click', (e) => runStructureAi('bilingual', e.currentTarget));
+  document.getElementById('btn-re-structure-banner')?.addEventListener('click', (e) => runStructureAi('bilingual', e.currentTarget));
   document.getElementById('ai-ht-btn').addEventListener('click', (e) => runStructureAi('harmonize_ht', e.currentTarget));
   document.getElementById('ai-fr-btn').addEventListener('click', (e) => runStructureAi('harmonize_fr', e.currentTarget));
   document.getElementById('btn-fix-raw-sense')?.addEventListener('click', triggerFixRawSense);
@@ -2425,6 +2508,9 @@ function initQuickAiModule() {
           icons(banner);
         }
         toast(t('notes.draft_restored') || 'Bwouyon nòt ou t ap pran an retabli otomatikman !', 'info');
+        if (navigator.onLine && didRestoreAudio) {
+          setTimeout(autoRetryPendingTranscriptions, 1000);
+        }
       }
     }
     syncLiveTutorContext();

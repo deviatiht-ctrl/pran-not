@@ -1071,6 +1071,279 @@ export function exportNoteAsPDF(note, courseName) {
   }
 }
 
+/**
+ * Enprime oswa ekspòte plizyè nòt chwazi an yon sèl dokiman PDF konbine.
+ * Génère un livret académique complet avec page de garde, table des matières,
+ * séparateurs de pages, métadonnées du cours/professeur/date, et contenu bilingue.
+ * Fonctionne 100% hors-ligne via impression navigateur (Enregistrer en PDF).
+ *
+ * @param {Array<object>} notes      - Liste des notes à inclure
+ * @param {Map|object} coursesMap    - Map des cours id -> cours
+ * @param {object} profile           - Profil étudiant (nom, faculté, université)
+ */
+export function batchPrintNotes(notes = [], coursesMap = new Map(), profile = null) {
+  if (!Array.isArray(notes) || !notes.length) return;
+
+  const getCourse = (cId) => {
+    if (!cId) return null;
+    if (coursesMap instanceof Map) return coursesMap.get(cId);
+    return coursesMap[cId] || null;
+  };
+
+  const studentName = profile?.full_name || 'Etidyan / Étudiant';
+  const facultyName = profile?.faculty?.name_fr || profile?.faculty_id || 'Faculté Universitaire';
+  const uniName = profile?.university || 'Université d\'État d\'Haïti / Établissement Universitaire';
+  const todayStr = _fmtDate(new Date());
+
+  // Table des matières
+  const tocRows = notes.map((n, idx) => {
+    const c = getCourse(n.course_id);
+    const dateStr = _fmtDate(n.created_at || n.updated_at);
+    return `
+      <tr>
+        <td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;font-weight:bold;">#${idx + 1}</td>
+        <td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;"><a href="#note-doc-${idx + 1}" style="color:#1B2A4A;text-decoration:none;font-weight:600;">${_esc(n.title || 'Nòt san tit')}</a></td>
+        <td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;">${_esc(c?.name || 'Kou jeneral')}</td>
+        <td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;">${_esc(c?.professor || '—')}</td>
+        <td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;white-space:nowrap;">${_esc(dateStr)}</td>
+      </tr>
+    `;
+  }).join('');
+
+  // Contenu détaillé de chaque note
+  const notesSections = notes.map((n, idx) => {
+    const c = getCourse(n.course_id);
+    const dateStr = _fmtDate(n.created_at || n.updated_at);
+    const st = n.structured || {};
+
+    let mainHtml = '';
+    if (n.content_html) {
+      mainHtml = n.content_html;
+    } else if (n.content_text || n.content) {
+      mainHtml = (n.content_text || n.content)
+        .split(/\n\n+/)
+        .filter(p => p.trim())
+        .map(p => `<p>${_esc(p.trim())}</p>`)
+        .join('');
+    } else {
+      mainHtml = `<p><em>Pa gen tèks detaye pou nòt sa a.</em></p>`;
+    }
+
+    let htHtml = '';
+    if (st.content_html_ht) {
+      htHtml = `
+        <div style="margin-top:24px;padding:16px;background:#f8fafc;border-left:4px solid #F97316;border-radius:4px;">
+          <h3 style="font-size:14pt;color:#ea580c;margin-bottom:10px;">🇭🇹 Vèsyon Kreyòl Ayisyen (Eksplikasyon Pwofondi)</h3>
+          ${st.content_html_ht}
+        </div>
+      `;
+    }
+
+    let simpleExpHtml = '';
+    if (st.simple_explanation_fr || st.simple_explanation_ht || st.simple_explanation) {
+      simpleExpHtml = `
+        <div style="margin-top:20px;padding:14px;background:#fffbeb;border-left:4px solid #f59e0b;border-radius:4px;">
+          <h4 style="font-size:12pt;color:#b45309;margin-bottom:8px;">💡 Eksplikasyon Senp Entegre (Pou Konprann Rapid)</h4>
+          ${st.simple_explanation_fr ? `<p style="margin-bottom:6px;"><strong>Français :</strong> ${_esc(st.simple_explanation_fr)}</p>` : ''}
+          ${st.simple_explanation_ht ? `<p style="margin-bottom:0;"><strong>Kreyòl :</strong> ${_esc(st.simple_explanation_ht)}</p>` : ''}
+          ${(!st.simple_explanation_fr && !st.simple_explanation_ht && st.simple_explanation) ? `<p style="margin-bottom:0;">${_esc(st.simple_explanation)}</p>` : ''}
+        </div>
+      `;
+    }
+
+    let examQaHtml = '';
+    if (Array.isArray(st.exam_qa) && st.exam_qa.length) {
+      const qas = st.exam_qa.map((qa, qIdx) => `
+        <div style="margin-bottom:12px;padding:10px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:4px;">
+          <p style="font-weight:bold;color:#166534;margin-bottom:4px;">Q${qIdx + 1} : ${_esc(qa.question)}</p>
+          <p style="margin-bottom:4px;"><strong>Repons Modèl :</strong> ${_esc(qa.answer)}</p>
+          ${qa.explanation ? `<p style="font-size:10pt;color:#475569;margin-bottom:0;"><em>Kritè : ${_esc(qa.explanation)}</em></p>` : ''}
+        </div>
+      `).join('');
+      examQaHtml = `
+        <div style="margin-top:20px;">
+          <h4 style="font-size:12pt;color:#15803d;margin-bottom:8px;">📝 Kesyon & Repons Modèl pou Egzamen</h4>
+          ${qas}
+        </div>
+      `;
+    }
+
+    let profQHtml = '';
+    const profQuestions = Array.isArray(st.questions_for_professor) ? st.questions_for_professor : [];
+    if (profQuestions.length) {
+      const pqs = profQuestions.map((pq) => `
+        <li style="margin-bottom:6px;">
+          <strong>${_esc(pq.question)}</strong>
+          ${pq.purpose ? `<br><span style="font-size:10pt;color:#64748b;">Objektif : ${_esc(pq.purpose)}</span>` : ''}
+        </li>
+      `).join('');
+      profQHtml = `
+        <div style="margin-top:20px;padding:12px;background:#f8fafc;border-left:3px solid #1B2A4A;border-radius:4px;">
+          <h4 style="font-size:12pt;color:#1B2A4A;margin-bottom:8px;">❓ Kesyon pou poze Pwofesè a</h4>
+          <ul style="margin-left:20px;margin-bottom:0;">${pqs}</ul>
+        </div>
+      `;
+    }
+
+    return `
+      <section class="note-page" id="note-doc-${idx + 1}" style="page-break-before:always;break-before:page;padding-top:20px;">
+        <!-- Header Note -->
+        <div style="border-bottom:2px solid #1B2A4A;padding-bottom:10px;margin-bottom:16px;">
+          <div style="display:flex;justify-content:space-between;font-size:10pt;color:#64748b;text-transform:uppercase;font-weight:bold;margin-bottom:4px;">
+            <span>COURS : ${_esc(c?.name || 'Kou Jeneral')}</span>
+            <span>DATE : ${_esc(dateStr)}</span>
+          </div>
+          ${c?.professor ? `<div style="font-size:10.5pt;color:#475569;margin-bottom:6px;"><strong>Enseignant :</strong> ${_esc(c.professor)}</div>` : ''}
+          <h2 style="font-size:18pt;color:#1B2A4A;margin:0 0 4px 0;">${_esc(n.title || 'Nòt')}</h2>
+          ${n.summary ? `<div style="background:#f1f5f9;padding:10px;border-radius:4px;font-style:italic;font-size:11pt;color:#334155;margin-top:8px;"><strong>Résumé :</strong> ${_esc(n.summary)}</div>` : ''}
+        </div>
+
+        <!-- Corps Français -->
+        <div class="note-body" style="font-size:11.5pt;line-height:1.65;color:#1e293b;">
+          ${mainHtml}
+        </div>
+
+        <!-- Vèsyon Kreyòl -->
+        ${htHtml}
+
+        <!-- Eksplikasyon Senp -->
+        ${simpleExpHtml}
+
+        <!-- Egzamen Q&A -->
+        ${examQaHtml}
+
+        <!-- Kesyon Pwofesè -->
+        ${profQHtml}
+
+        <div style="margin-top:24px;border-top:1px solid #cbd5e1;padding-top:8px;display:flex;justify-content:space-between;font-size:9pt;color:#94a3b8;">
+          <span>Pran Nòt — Nòt #${idx + 1} sou ${notes.length}</span>
+          <span>${_esc(n.title || '')}</span>
+        </div>
+      </section>
+    `;
+  }).join('');
+
+  const fullHtml = `<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <title>Recueil de Notes (${notes.length} notes) — Pran Nòt</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      font-size: 11pt;
+      line-height: 1.6;
+      color: #111827;
+      background: #fff;
+      padding: 1.5cm;
+    }
+    h1, h2, h3, h4 { color: #1B2A4A; font-family: 'Plus Jakarta Sans', -apple-system, sans-serif; }
+    p { margin-bottom: 0.8em; }
+    ul, ol { margin-left: 1.5em; margin-bottom: 0.8em; }
+    li { margin-bottom: 0.3em; }
+    blockquote { border-left: 3px solid #F97316; padding-left: 12px; margin: 12px 0; color: #475569; font-style: italic; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    @media print {
+      body { padding: 0; margin: 0; }
+      @page {
+        margin: 1.5cm 1.5cm;
+        size: A4;
+      }
+      .no-print { display: none !important; }
+      .page-break { page-break-before: always; break-before: page; }
+    }
+  </style>
+</head>
+<body>
+  <!-- Barre d'action supérieure (masquée à l'impression) -->
+  <div class="no-print" style="position:sticky;top:0;background:#1B2A4A;color:#fff;padding:12px 20px;display:flex;justify-content:space-between;align-items:center;z-index:9999;box-shadow:0 2px 10px rgba(0,0,0,0.15);margin:-1.5cm -1.5cm 1.5cm -1.5cm;">
+    <div style="font-weight:bold;font-size:14pt;">📚 Pran Nòt — Recueil de ${notes.length} Notes Prêt pour Impression / PDF</div>
+    <div style="display:flex;gap:10px;">
+      <button onclick="window.print()" style="background:#F97316;color:#fff;border:none;padding:8px 18px;border-radius:6px;font-weight:bold;font-size:11pt;cursor:pointer;">
+        🖨️ Enprime / Sove an PDF
+      </button>
+      <button onclick="window.close()" style="background:rgba(255,255,255,0.2);color:#fff;border:none;padding:8px 14px;border-radius:6px;cursor:pointer;">
+        Fèmen
+      </button>
+    </div>
+  </div>
+
+  <!-- Page de Garde du Recueil -->
+  <div style="min-height:85vh;display:flex;flex-direction:column;justify-content:space-between;text-align:center;padding:40px 20px;border:3px double #1B2A4A;border-radius:8px;">
+    <div>
+      <h3 style="font-size:14pt;text-transform:uppercase;letter-spacing:1px;color:#475569;margin-bottom:6px;">${_esc(uniName)}</h3>
+      <h4 style="font-size:13pt;color:#64748b;margin-bottom:30px;">${_esc(facultyName)}</h4>
+      <div style="width:80px;height:4px;background:#F97316;margin:0 auto 40px auto;border-radius:2px;"></div>
+      <h1 style="font-size:26pt;color:#1B2A4A;margin-bottom:12px;text-transform:uppercase;">RECUEIL DE NOTES DE COURS</h1>
+      <h2 style="font-size:16pt;font-weight:normal;color:#ea580c;margin-bottom:30px;">KAYE NÒT INIVÈSITÈ KONBINE</h2>
+      <p style="font-size:13pt;color:#334155;">Édition personnalisée regroupant <strong>${notes.length} séances de cours</strong></p>
+    </div>
+
+    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:20px;max-width:500px;margin:30px auto;text-align:left;">
+      <p style="margin-bottom:8px;"><strong>Étudiant / Etidyan :</strong> ${_esc(studentName)}</p>
+      <p style="margin-bottom:8px;"><strong>Faculté / Domèn :</strong> ${_esc(facultyName)}</p>
+      <p style="margin-bottom:8px;"><strong>Nombre de cours inclus :</strong> ${notes.length} cours</p>
+      <p style="margin-bottom:0;"><strong>Date d'édition :</strong> ${_esc(todayStr)}</p>
+    </div>
+
+    <div style="font-size:10pt;color:#94a3b8;">
+      Plateforme Pran Nòt • Haïti • Conçu pour l'excellence académique universitaire
+    </div>
+  </div>
+
+  <!-- Table des Matières -->
+  <div style="page-break-before:always;break-before:page;padding-top:20px;margin-bottom:40px;">
+    <h2 style="font-size:18pt;border-bottom:2px solid #1B2A4A;padding-bottom:6px;margin-bottom:16px;">TABLE DES MATIÈRES / LIS NÒT YO</h2>
+    <table style="font-size:10.5pt;">
+      <thead>
+        <tr style="background:#f1f5f9;text-align:left;">
+          <th style="padding:8px 10px;">#</th>
+          <th style="padding:8px 10px;">Titre de la Note</th>
+          <th style="padding:8px 10px;">Cours</th>
+          <th style="padding:8px 10px;">Enseignant</th>
+          <th style="padding:8px 10px;">Date</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${tocRows}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Toutes les notes individuelles -->
+  ${notesSections}
+
+  <script>
+    window.onload = () => {
+      setTimeout(() => {
+        window.print();
+      }, 500);
+    };
+  <\/script>
+</body>
+</html>`;
+
+  const win = window.open('', '_blank');
+  if (win) {
+    win.document.write(fullHtml);
+    win.document.close();
+  } else {
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'fixed';
+    iframe.style.right = '0';
+    iframe.style.bottom = '0';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = '0';
+    document.body.appendChild(iframe);
+    const doc = iframe.contentWindow.document;
+    doc.open();
+    doc.write(fullHtml);
+    doc.close();
+  }
+}
+
 // ── Word import (mammoth UMD) ──────────────────────────────────────────
 
 /**

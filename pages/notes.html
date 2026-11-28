@@ -37,9 +37,13 @@
           <i data-lucide="download" aria-hidden="true"></i>
           <span data-i18n="transfer.receive_submit">Resevwa nòt la</span>
         </button>
+        <button type="button" class="btn btn-outline" id="notes-batch-mode-btn" title="Chwazi plizyè nòt pou enprime oswa ekspòte yo an PDF konbine">
+          <i data-lucide="printer" aria-hidden="true"></i>
+          <span>Chwazi pou Enprime</span>
+        </button>
         <button type="button" class="btn btn-outline" id="notes-exam-btn" data-i18n-title="transfer.exam_revision_title">
           <i data-lucide="calendar" aria-hidden="true"></i>
-          <span data-i18n="transfer.exam_revision_title">Revizyon Egzamen pa Peryòd Dat</span>
+          <span data-i18n="transfer.exam_revision_title">Revizyon Egzamen</span>
         </button>
         <a class="btn btn-primary" href="./note-capture.html?new=1">
           <i data-lucide="plus" aria-hidden="true"></i>
@@ -80,6 +84,27 @@
           <option value="custom">Chwazi yon dat...</option>
         </select>
         <input class="input" type="date" id="notes-custom-date" style="width:auto;min-width:145px;display:none;">
+      </div>
+    </div>
+
+    <!-- Barre d'actions groupées pour impression / PDF konbine -->
+    <div class="card card-sm mb-4" id="notes-batch-bar" hidden style="background:var(--c-surface-soft);border:1.5px solid var(--c-primary);position:sticky;top:65px;z-index:25;box-shadow:var(--shadow-md);">
+      <div class="row-between" style="flex-wrap:wrap;gap:10px;align-items:center;">
+        <div class="row" style="gap:10px;align-items:center;">
+          <span class="badge badge-primary font-bold" id="batch-selected-count">0 nòt chwazi</span>
+          <button type="button" class="btn btn-xs btn-ghost" id="batch-select-all">Chwazi tout</button>
+          <button type="button" class="btn btn-xs btn-ghost" id="batch-deselect-all">Deseleksyone tout</button>
+        </div>
+        <div class="row" style="gap:8px;">
+          <button type="button" class="btn btn-sm btn-primary" id="btn-batch-print" style="font-weight:700;">
+            <i data-lucide="printer" aria-hidden="true"></i>
+            <span>Enprime / Jenere PDF Konbine</span>
+          </button>
+          <button type="button" class="btn btn-sm btn-secondary" id="btn-batch-cancel">
+            <i data-lucide="x" aria-hidden="true"></i>
+            <span>Anile</span>
+          </button>
+        </div>
       </div>
     </div>
 

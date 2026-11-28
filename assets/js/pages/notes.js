@@ -12,6 +12,7 @@ import {
 import { cacheSet, cacheGet, cacheEntriesByPrefix, getQueueItems, updateQueuedNotePayload, removeQueueItem, enqueue, isNetworkError } from '../offline.js';
 import { mergeCourseSchedules } from '../notifications.js';
 import { openReceiveTransferModal, openExamRevisionModal } from '../live-transfer.js';
+import { batchPrintNotes } from '../export.js';
 
 const db = window.db;
 const PAGE_SIZE = 18;
@@ -20,6 +21,28 @@ let coursesMap = new Map();
 let page = 0;
 let hasMore = false;
 let currentUserRef = null;
+let currentProfileRef = null;
+
+let isBatchMode = false;
+let selectedNoteIds = new Set();
+
+function updateBatchUI() {
+  const batchBar = document.getElementById('notes-batch-bar');
+  const countBadge = document.getElementById('batch-selected-count');
+  const batchBtn = document.getElementById('notes-batch-mode-btn');
+
+  if (batchBar) batchBar.hidden = !isBatchMode;
+  if (countBadge) countBadge.textContent = `${selectedNoteIds.size} nòt chwazi`;
+  if (batchBtn) {
+    if (isBatchMode) {
+      batchBtn.classList.add('btn-primary');
+      batchBtn.classList.remove('btn-outline');
+    } else {
+      batchBtn.classList.remove('btn-primary');
+      batchBtn.classList.add('btn-outline');
+    }
+  }
+}
 
 const modeIcons = { photo: 'camera', audio: 'mic', flash: 'zap', text: 'file-edit', import: 'upload' };
 
@@ -88,9 +111,12 @@ function renderList(append = false) {
       ? n.draft_target
       : `./note-view.html?id=${esc(encodeURIComponent(n.id))}`;
 
-    return `<article class="card card-sm" style="display:flex;flex-direction:column;gap:10px;">
+    return `<article class="card card-sm ${isBatchMode && selectedNoteIds.has(n.id) ? 'card-accent' : ''}" style="display:flex;flex-direction:column;gap:10px;">
       <div class="row-between">
-        <div class="row-wrap" style="gap:6px;">
+        <div class="row-wrap" style="gap:6px;align-items:center;">
+          ${isBatchMode ? `
+            <input type="checkbox" class="note-batch-cb" data-batch-id="${esc(n.id)}" ${selectedNoteIds.has(n.id) ? 'checked' : ''} style="width:18px;height:18px;cursor:pointer;accent-color:var(--c-primary);">
+          ` : ''}
           <span class="badge">${icon(ic)}<span>${esc(t(`capture.mode_${n.capture_mode}`) || n.capture_mode)}</span></span>
           ${isDraft ? `<span class="badge badge-warning">${icon('file-edit')}<span>${esc(n.is_local_draft ? (t('notes.local_draft') || 'Bwouyon lokal') : 'Bwouyon')}</span></span>` : `<span class="badge badge-success">${icon('check-circle')}<span>Fini</span></span>`}
           ${n.is_local_pending ? `<span class="badge badge-warning">${icon('wifi-off')}<span>Lokal</span></span>` : ''}
@@ -142,6 +168,16 @@ function renderList(append = false) {
 
   if (append) grid.insertAdjacentHTML('beforeend', html);
   else grid.innerHTML = html;
+
+  grid.querySelectorAll('.note-batch-cb').forEach((cb) => {
+    cb.addEventListener('change', () => {
+      const id = cb.dataset.batchId;
+      if (cb.checked) selectedNoteIds.add(id);
+      else selectedNoteIds.delete(id);
+      updateBatchUI();
+      cb.closest('article')?.classList.toggle('card-accent', cb.checked);
+    });
+  });
 
   grid.querySelectorAll('[data-del-draft]').forEach((btn) => {
     btn.addEventListener('click', async () => {
@@ -543,7 +579,7 @@ async function fetchNotes(reset = true) {
   try {
     let query = db
       .from('pran_not_notes')
-      .select('id, title, summary, content_text, raw_text, course_id, capture_mode, is_pinned, status, created_at, updated_at');
+      .select('id, title, summary, content_html, content_text, raw_text, structured, course_id, capture_mode, is_pinned, status, created_at, updated_at');
 
     // Toujou filtre strikteman pa user_id pou garanti vi prive chak etidyan menm si kont lan ta admin
     if (currentUserRef?.id) {
@@ -573,6 +609,7 @@ async function fetchNotes(reset = true) {
 (async () => {
   const { user, profile } = await requireAuth();
   currentUserRef = user;
+  currentProfileRef = profile;
   await initAppChrome({ profile, user, active: 'notes' });
   setTutorContext({ contextType: 'general', contextTitle: t('notes.title') });
   pageEnter();
@@ -642,6 +679,46 @@ async function fetchNotes(reset = true) {
     renderList();
   });
   customDateInput?.addEventListener('change', () => renderList());
+
+  // Boutons mòd seleksyon pou enprime an pakèt
+  document.getElementById('notes-batch-mode-btn')?.addEventListener('click', () => {
+    isBatchMode = !isBatchMode;
+    if (!isBatchMode) selectedNoteIds.clear();
+    updateBatchUI();
+    renderList();
+    if (isBatchMode) {
+      toast('Mòd seleksyon aktive : klike sou kaz nòt ou vle enprime yo.', 'info');
+    }
+  });
+
+  document.getElementById('batch-select-all')?.addEventListener('click', () => {
+    allNotes.forEach((n) => selectedNoteIds.add(n.id));
+    updateBatchUI();
+    renderList();
+  });
+
+  document.getElementById('batch-deselect-all')?.addEventListener('click', () => {
+    selectedNoteIds.clear();
+    updateBatchUI();
+    renderList();
+  });
+
+  document.getElementById('btn-batch-cancel')?.addEventListener('click', () => {
+    isBatchMode = false;
+    selectedNoteIds.clear();
+    updateBatchUI();
+    renderList();
+  });
+
+  document.getElementById('btn-batch-print')?.addEventListener('click', () => {
+    if (!selectedNoteIds.size) {
+      toast('Tanpri chwazi omwen yon nòt pou w ka enprime !', 'warning');
+      return;
+    }
+    const selectedNotes = allNotes.filter((n) => selectedNoteIds.has(n.id));
+    toast(`Preparasyon ${selectedNotes.length} nòt pou enpresyon / PDF...`, 'info');
+    batchPrintNotes(selectedNotes, coursesMap, currentProfileRef);
+  });
 
   document.getElementById('load-more-btn').addEventListener('click', () => {
     page++;
