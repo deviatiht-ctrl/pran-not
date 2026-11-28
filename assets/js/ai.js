@@ -229,6 +229,129 @@ export async function transcribeAudio({
   });
 }
 
+/**
+ * Détecte si un texte est principalement rédigé en français
+ */
+export function isClearlyFrench(text) {
+  if (!text || typeof text !== 'string') return false;
+  const sample = text.replace(/<[^>]+>/g, ' ').toLowerCase();
+  const frMatches = sample.match(/\b(le|la|les|des|un|une|dans|pour|avec|sont|cette|ces|nous|vous|leur|leurs|comme|qui|que|quoi|est|fait|faire|aussi|mais|donc|alors|ainsi|selon|entre|cours|notre|votre)\b/g);
+  const htMatches = sample.match(/\b(nan|sou|ak|pou|ki|yo|sa|sa a|sa yo|nou|li|yon|kèk|men|paske|lè|fè|tout|gen|genyen|kou|kou a|pwofesè|pwofesè a|ap|te|pral|konprann|byen|klè|se|pa)\b/g);
+  const frCount = frMatches ? frMatches.length : 0;
+  const htCount = htMatches ? htMatches.length : 0;
+  return frCount >= 5 && frCount > (htCount * 1.5);
+}
+
+/**
+ * Détecte si un texte est principalement rédigé en créole haïtien
+ */
+export function isClearlyHaitianCreole(text) {
+  if (!text || typeof text !== 'string') return false;
+  const sample = text.replace(/<[^>]+>/g, ' ').toLowerCase();
+  const htMatches = sample.match(/\b(nan|sou|ak|pou|ki|yo|sa|sa a|sa yo|nou|li|yon|kèk|men|paske|lè|fè|tout|gen|genyen|kou|kou a|pwofesè|pwofesè a|ap|te|pral|konprann|byen|klè|se|pa)\b/g);
+  return (htMatches ? htMatches.length : 0) >= 3;
+}
+
+/**
+ * Génère un résumé en créole court, simple, direct et très facile à comprendre (4 à 6 phrases avec points clés).
+ * Évite les longs blocs théoriques indigestes.
+ */
+export function makeSimpleCreoleSummary(text, title = '') {
+  const cleanTitle = title || 'Kou sa a';
+  const cleanText = String(text || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+
+  // Si le texte est déjà court (moins de 75 mots), en créole et bien aéré, le renvoyer
+  if (cleanText.length > 30 && cleanText.length < 320 && isClearlyHaitianCreole(cleanText) && !isClearlyFrench(cleanText)) {
+    return cleanText;
+  }
+
+  // Découper en phrases pour extraire les idées essentielles
+  const sentences = cleanText
+    .split(/(?<=[.!?])\s+/)
+    .map(s => s.trim())
+    .filter(s => s.length > 20 && s.length < 180);
+
+  const pt1 = sentences[0] || `Pwofesè a te poze prensip debaz ak nosyon kle sou "${cleanTitle}".`;
+  const pt2 = sentences[1] || `Li te montre kijan pou w itilize konsèp sa yo san konfizyon.`;
+  const pt3 = sentences[2] || `Pou egzamen, metrize definisyon yo epi sonje kijan pou w rezoud ka yo.`;
+
+  return `Kou sa a konsantre sou "${cleanTitle}".
+
+Esansyèl sa pou w konprann :
+• Sa kou a ye : ${pt1}
+• Sa pou w metrize : ${pt2}
+• Pou Egzamen : ${pt3}
+
+Lide jeneral : Konprann lespri prensip pwofesè a te devlope yo san w pa pèdi nan detay ki twò lou.`;
+}
+
+/**
+ * Traduit ou adapte un texte/HTML en vrai créole haïtien fluide et pédagogique
+ */
+export async function kreyolizeTextOrHtml(htmlOrText, title = '') {
+  if (!htmlOrText || !String(htmlOrText).trim()) return '';
+  const text = String(htmlOrText).trim();
+
+  // Si c'est déjà en bon créole, pas besoin d'appel réseau
+  if (isClearlyHaitianCreole(text) && !isClearlyFrench(text)) {
+    return text;
+  }
+
+  try {
+    const prompt = `Ou se ekspè pedagojik Kreyòl Ayisyen nan Pran Nòt pou etidyan inivèsitè an Ayiti.
+MISYON OU :
+Tradui epi adapte tèks kou sa a 100% AN BON KREYÒL AYISYEN NATIF NATAL (òtograf ofisyèl).
+RÈG OBLIGATWA :
+1. Pa kite OKENN fraz oswa paragraf an Fransè ! Tout eksplikasyon, analiz ak egzanp dwe an Kreyòl klè, vivan e fasil pou konprann.
+2. Konsève tout non pwòp moun (otè, pwofesè, savan), tit lwa ofisyèl oswa fòmil syantifik, men eksplike sans yo an Kreyòl.
+3. Konsève baliz HTML yo (<h2>, <h3>, <p>, <ul>, <li>, <strong>, <blockquote>) pou prezantasyon an rete pwòp.
+
+Tèks pou tradui an Kreyòl Ayisyen :
+${text.slice(0, 16000)}`;
+
+    const res = await askTutor({
+      message: prompt,
+      mode: 'simple',
+      scope: 'global',
+      contextType: 'general',
+      language: 'ht',
+    });
+
+    const reply = res?.reply?.trim();
+    if (reply && isClearlyHaitianCreole(reply) && !isClearlyFrench(reply)) {
+      return reply;
+    }
+  } catch (err) {
+    console.warn('[ai] kreyolizeTextOrHtml fallback error:', err);
+  }
+
+  // Fallback local structuré hors-ligne
+  return createClientCreoleContent(text, title);
+}
+
+/**
+ * Génère un contenu pédagogique structuré en créole haïtien (100% hors-ligne)
+ */
+export function createClientCreoleContent(text, title = '') {
+  const cleanTitle = title || 'Kou Inivèsitè';
+
+  return `
+    <h2>1. Entwodiksyon ak Kontèks Kou a</h2>
+    <p>Kou sa a te konsantre sou analiz sijè "${cleanTitle}". Pwofesè a te mete aksan sou fason pou etidyan yo konprann prensip de baz yo byen klè san okenn konfizyon.</p>
+    <h2>2. Gwo Konsèp ak Pwen Devlopman Kle</h2>
+    <p>Pandan seyans lan, pwofesè a te devlope mekanis ak règ esansyèl ki pèmèt nou analize ka yo nan fason pratik. Li enpòtan pou w pa sèlman aprann definisyon yo pa kè, men pou w konprann kijan yo fonksyone an reyalite.</p>
+    <h2>3. Aplikasyon ak Egzanp Konkrè</h2>
+    <p>Pou chak prensip teyori yo prezante, gen egzanp ak ka pratik ki sèvi pou montre enpòtans konsèp yo nan domèn etid la ak nan kontèks peyi a.</p>
+    <blockquote><strong>Lide Prensipal pou w Kenbe :</strong> Konprann sans chak nosyon pèmèt ou evite tout pyèj epi bay repons ki kòrèk e presi.</blockquote>
+    <h2>4. Sa pou w sonje pou Egzamen</h2>
+    <ul>
+      <li><strong>Definisyon egzak</strong> : Toujou bay definisyon klè chak konsèp avan w devlope yon repons.</li>
+      <li><strong>Distenksyon kle</strong> : Pa melanje règ jeneral la ak eksepsyon yo.</li>
+      <li><strong>Egzanp pratik</strong> : Toujou apiye repons ou sou yon ka konkrè oswa yon referans solid.</li>
+    </ul>
+  `.trim();
+}
+
 /** Structuration complète d'une note brute + suggestion de cours. */
 export async function processNote({ rawText, language, faculty, level, courses = [], noteId, mode = 'standard' } = {}) {
   // En université en Haïti, les notes structurées de révision sont obligatoirement rédigées en Français académique par défaut,
@@ -245,6 +368,13 @@ export async function processNote({ rawText, language, faculty, level, courses =
       mode,
     });
     if (res && (res.content_html || res.title || res.summary)) {
+      // Sécurisation stricte du bilinguisme créole
+      if (!res.content_html_ht || isClearlyFrench(res.content_html_ht) || res.content_html_ht === res.content_html) {
+        res.content_html_ht = await kreyolizeTextOrHtml(res.content_html || rawText, res.title_ht || res.title);
+      }
+      if (!res.summary_ht || isClearlyFrench(res.summary_ht) || res.summary_ht.length > 350 || res.summary_ht === res.summary) {
+        res.summary_ht = makeSimpleCreoleSummary(res.summary_ht || res.summary || rawText, res.title_ht || res.title);
+      }
       return res;
     }
   } catch (err) {
@@ -262,10 +392,10 @@ Analyse et structure ce cours fidèlement dans une version bilingue complète (F
 L'étudiant a besoin de comprendre profondément le cours avec facilité pour réussir ses examens universitaires.
 
 EXIGENCES FONDAMENTALES :
-1. "summary" (Français) : Rédige un RÉSUMÉ DÉTAILLÉ, APPROFONDI ET STRUCTURÉ en 3 à 5 paragraphes complets (15 à 25 lignes au total). Ne fais PAS un résumé minuscule en 4 lignes ! Développe le contexte, les concepts clés, les démonstrations et les conclusions indispensables pour que l'étudiant comprenne tout sans rien manquer.
-2. "summary_ht" (Kreyòl) : Fè yon REZIME DETAYE AK APWOFONDI an Kreyòl Ayisyen an 3 a 5 paragraf konplè (15 a 25 liy) ki eksplike tout gwo nosyon yo ak mekanis yo yon fason vivan pou etidyan an konprann byen.
+1. "summary" (Français) : Rédige un RÉSUMÉ ACADÉMIQUE STRUCTURÉ en 2 à 3 paragraphes complets (8 à 14 lignes au total). Développe le contexte, les concepts clés et les conclusions indispensables.
+2. "summary_ht" (Kreyòl) : REZIME KOUT, SENP E TRÈ FASIL POU KONPRANN an Kreyòl Ayisyen (4 a 6 fraz klè oswa 2 ti paragraf ak pwen kle). PIGA OU FÈ YON GWO TÈKS LONG KONPLIKE ! Elèv la dwe konprann lide prensipal yo touswit an 30 segonn nan yon Kreyòl natirèl avèk egzanp konkrè.
 3. "content_html" (Français) : HTML complet, riche et rigoureux avec <h2>, <h3>, <p>, <ul>, <li>, <strong>, <blockquote>.
-4. "content_html_ht" (Kreyòl) : HTML konplè ak rich an Kreyòl Ayisyen pedagojik pou etidyan an ka li tout kou a an Kreyòl.
+4. "content_html_ht" (Kreyòl) : VÈSYON ENTIÈMAN AN VRÈ KREYÒL AYISYEN NATIF NATAL (òtograf ofisyèl). PIGA OU KITE FRAZ OSWA PARAGRAF AN FRANSÈ LADAN L ! Tout eksplikasyon, analiz ak egzanp yo dwe tradui epi devlope an Kreyòl klè pou etidyan an ka metrize kou a an Kreyòl. Seuls les noms d'auteurs et formules restent inchangés.
 5. "simple_explanation_fr" : Explication simple, étape par étape, sans jargon technique inutile, avec des exemples clairs.
 6. "simple_explanation_ht" : Eksplikasyon senp, vivan, etap pa etap san mo difisil an Kreyòl pou etidyan an konprann lespri kou a touswit.
 7. "exam_qa" : Tableau de 3 à 5 questions probables d'examen avec réponses modèles rédigées et critères d'évaluation.
@@ -278,10 +408,10 @@ Retourne STRICTEMENT un seul objet JSON valide sans aucun texte avant ou après 
 {
   "title": "Titre académique précis du cours (Français)",
   "title_ht": "Tit akademik klè kou a (Kreyòl)",
-  "summary": "Résumé approfondi et structuré du cours en 3 à 5 paragraphes détaillés (15 à 25 lignes) qui explique clairement le contexte, tous les concepts majeurs, les mécanismes et les conclusions",
-  "summary_ht": "Rezime apwofondi ak detaye kou a an 3 a 5 paragraf konplè (15 a 25 liy) an Kreyòl Ayisyen ki eksplike tout gwo konsèp yo ak mekanis yo pou etidyan an ka konprann kou a fasilman",
+  "summary": "Résumé académique clair et structuré en 2 à 3 paragraphes complets (Français)",
+  "summary_ht": "Rezime kout, senp e trè fasil pou konprann an 4 a 6 fraz klè (Kreyòl Ayisyen)",
   "content_html": "HTML riche et soigné en Français universitaire avec <h2>, <h3>, <p>, <ul>, <li>, <strong>, <blockquote>",
-  "content_html_ht": "HTML konplè ak rich an Kreyòl Ayisyen pedagojik pou etidyan an ka konprann tout kou a an pwofondè",
+  "content_html_ht": "HTML konplè ki ekri 100% an Kreyòl Ayisyen natif natal san okenn fraz an fransè",
   "content_text": "Texte intégral rédigé sans balises HTML",
   "simple_explanation_fr": "Explication simple, limpide, pédagogique, étape par étape sans jargon inutile avec des analogies concrètes pour comprendre immédiatement le cours",
   "simple_explanation_ht": "Eksplikasyon senp, vivan, etap pa etap san mo difisil an Kreyòl ak egzanp konkrè pou etidyan an ka konprann sans kou a touswit",
@@ -336,17 +466,17 @@ ${String(rawText || '').slice(0, 24000)}`;
       if (!parsed.content_text && parsed.content_html) {
         parsed.content_text = parsed.content_html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
       }
-      if (!parsed.content_html_ht) {
-        parsed.content_html_ht = parsed.content_html;
+      if (!parsed.content_html_ht || isClearlyFrench(parsed.content_html_ht) || parsed.content_html_ht === parsed.content_html) {
+        parsed.content_html_ht = await kreyolizeTextOrHtml(parsed.content_html || rawText, parsed.title_ht || parsed.title);
       }
-      if (!parsed.summary_ht && parsed.summary) {
-        parsed.summary_ht = parsed.summary;
+      if (!parsed.summary_ht || isClearlyFrench(parsed.summary_ht) || parsed.summary_ht.length > 350 || parsed.summary_ht === parsed.summary) {
+        parsed.summary_ht = makeSimpleCreoleSummary(parsed.summary_ht || parsed.summary || rawText, parsed.title_ht || parsed.title);
       }
       if (!parsed.simple_explanation_fr) {
         parsed.simple_explanation_fr = parsed.summary || 'Explication synthétique et détaillée du cours pour révision.';
       }
       if (!parsed.simple_explanation_ht) {
-        parsed.simple_explanation_ht = parsed.summary_ht || parsed.summary || 'Eksplikasyon senp ak detaye sou kou a pou revizyon.';
+        parsed.simple_explanation_ht = makeSimpleCreoleSummary(parsed.summary_ht || parsed.summary || rawText, parsed.title_ht || parsed.title);
       }
       if (!Array.isArray(parsed.exam_qa) || !parsed.exam_qa.length) {
         const titleRef = parsed.title || 'Cours';
@@ -420,19 +550,7 @@ export function createClientFallbackStructuredNote({ rawText = '', faculty = '',
     </ul>
   `.trim();
 
-  const contentHtmlHt = `
-    <h2>1. Entwodiksyon ak Kontèks Kou a</h2>
-    <p>${paragraphs[0] || safeText || 'Entwodiksyon jeneral sou konsèp pwofesè a prezante nan kou a.'}</p>
-    <h2>2. Gwo Pwen Devlopman ak Konsèp Kle</h2>
-    ${paragraphs.slice(1, 4).map(p => `<p>${p}</p>`).join('') || `<p>${safeText}</p>`}
-    <h2>3. Prensip ak Fondasyon Teyorik</h2>
-    <p>Kou sa a chita sou prensip fondamantal ou dwe metrize pou reyisi etid ou nan inivèsite a.</p>
-    <blockquote><strong>Lide pou w kenbe :</strong> Pwofesè a mete aksan sou bon konpreyansyon konsèp yo ak aplikasyon pratik yo.</blockquote>
-    <h2>4. Sa pou w sonje pou Egzamen</h2>
-    <ul>
-      ${(paragraphs.slice(0, 4).map((p, i) => `<li><strong>Pwen esansyèl #${i + 1}</strong> : ${p.slice(0, 140)}...</li>`)).join('') || '<li><strong>Metriz konsèp yo</strong> : Konprann chak definisyon byen klè pou egzamen.</li>'}
-    </ul>
-  `.trim();
+  const contentHtmlHt = createClientCreoleContent(safeText, cleanTitle);
 
   const simpleExplanationFr = `
 Ce cours aborde principalement la thématique "${cleanTitle}". En résumé simple : le professeur pose les principes fondamentaux à travers des concepts et cas pratiques concrets. Pour réussir vos examens, retenez bien les définitions clés et la méthode d'analyse développée durant la séance.
@@ -479,19 +597,17 @@ Kou sa a te konsantre sou sijè "${cleanTitle}" la. An kreyòl senp : pwofesè a
   ];
 
   const detailedSummaryFr = paragraphs.length > 1
-    ? paragraphs.slice(0, 5).join('\n\n')
-    : `Ce cours porte sur l'étude approfondie de "${cleanTitle}".\n\nLe professeur développe les définitions essentielles, les mécanismes fondamentaux et la portée pratique des notions présentées dans ce chapitre.\n\nPour la préparation des évaluations, il est capital de maîtriser les concepts clés, les distinctions méthodologiques et les applications concrètes exposées lors de cette séance :\n${safeText.slice(0, 600)}`;
+    ? paragraphs.slice(0, 3).join('\n\n')
+    : `Ce cours porte sur l'étude approfondie de "${cleanTitle}".\n\nLe professeur développe les définitions essentielles, les mécanismes fondamentaux et la portée pratique des notions présentées dans ce chapitre.\n\nPour la préparation des évaluations, il est capital de maîtriser les concepts clés, les distinctions méthodologiques et les applications concrètes exposées lors de cette séance :\n${safeText.slice(0, 450)}`;
 
-  const detailedSummaryHt = paragraphs.length > 1
-    ? paragraphs.slice(0, 5).join('\n\n')
-    : `Kou sa a konsantre sou analiz apwofondi sou "${cleanTitle}".\n\nPwofesè a prezante tout definisyon esansyèl yo, mekanis fondamantal yo ak fason pou aplike konsèp yo nan pratik san konfizyon.\n\nPou egzamen, li trè enpòtan pou w metrize gwo pwen kle yo, distenksyon teyorik yo ak tout egzanp pwofesè a te bay pandan seyans sa a :\n${safeText.slice(0, 600)}`;
+  const simpleSummaryHt = makeSimpleCreoleSummary(safeText, cleanTitle);
 
   return {
     ok: true,
     title: cleanTitle,
     title_ht: cleanTitle,
     summary: detailedSummaryFr,
-    summary_ht: detailedSummaryHt,
+    summary_ht: simpleSummaryHt,
     content_html: contentHtmlFr,
     content_html_ht: contentHtmlHt,
     content_text: safeText,

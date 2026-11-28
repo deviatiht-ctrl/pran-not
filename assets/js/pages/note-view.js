@@ -12,7 +12,7 @@ import {
   toast, handleError, setLoading, getParam, isUuid, pageEnter, promptDialog,
   htmlToText, uid,
 } from '../utils.js';
-import { generateFlashcards, generateTest, explainText, processNote, askTutor, correctRawTextSense, generateProfessorQuestions } from '../ai.js';
+import { generateFlashcards, generateTest, explainText, processNote, askTutor, correctRawTextSense, generateProfessorQuestions, kreyolizeTextOrHtml, makeSimpleCreoleSummary } from '../ai.js';
 import { exportNotePdf, exportNoteDocx, exportNoteMarkdown, batchPrintNotes } from '../export.js';
 import {
   cacheSet, cacheGet, cacheEntriesByPrefix, isDataSaver, enqueue,
@@ -258,16 +258,21 @@ async function renderNote() {
             ${st.summary_ht ? `
               <section class="card card-accent" style="border-left:4px solid var(--c-primary);">
                 <div class="row-between mb-1">
-                  <h2 class="card-title text-sm">${isFr ? 'Résumé du cours (Créole haïtien)' : 'Rezime Kou a (Kreyòl Ayisyen)'}</h2>
+                  <h2 class="card-title text-sm">${isFr ? 'Résumé clair en créole' : 'Rezime Senp Kou a (Kreyòl Ayisyen)'}</h2>
                   <span class="badge badge-xs badge-primary">HT</span>
                 </div>
-                <p class="mb-0 text-sm">${esc(st.summary_ht)}</p>
+                <div class="prose text-sm mt-1" style="line-height:1.6;white-space:pre-wrap;">${renderMarkdown(st.summary_ht)}</div>
               </section>` : ''}
 
             <article class="card prose" id="note-article-ht">
-              <div class="mb-3 pb-2" style="border-bottom:1px solid var(--c-border);display:flex;align-items:center;gap:6px;">
-                <span class="badge badge-accent">🇭🇹 Kreyòl Ayisyen</span>
-                <span class="text-xs muted">${isFr ? 'Explications et structure en créole' : 'Eksplikasyon ak estrikti an Kreyòl'}</span>
+              <div class="row-between mb-3 pb-2" style="border-bottom:1px solid var(--c-border);flex-wrap:wrap;gap:8px;align-items:center;">
+                <div class="row" style="gap:6px;align-items:center;">
+                  <span class="badge badge-accent">🇭🇹 Kreyòl Ayisyen</span>
+                  <span class="text-xs muted">${isFr ? 'Explications et structure 100% en créole' : 'Eksplikasyon ak estrikti 100% an Kreyòl'}</span>
+                </div>
+                <button type="button" class="btn btn-xs btn-outline" id="btn-re-kreyolize" title="${isFr ? 'Régénérer et clarifier la version créole' : 'Re-jenere epi fè vèsyon Kreyòl la pi klè'}">
+                  ${icon('wand-2')}<span>${isFr ? 'Clarifier en Kreyòl' : 'Fè Kreyòl la pi klè'}</span>
+                </button>
               </div>
               ${sanitizeHtml(st.content_html_ht)}
             </article>
@@ -788,6 +793,36 @@ function bindActions() {
       await cacheSet(`note_${note.id}`, note);
 
       toast(isFr ? 'Note parfaitement structurée en format bilingue avec explications !' : 'Nòt la byen estriktire an fòma biling ak tout eksplikasyon ak Q&A !', 'success');
+      await renderNote();
+    } catch (err) {
+      handleError(err);
+    } finally {
+      setLoading(btn, false);
+    }
+  });
+
+  root.querySelector('#btn-re-kreyolize')?.addEventListener('click', async (e) => {
+    const btn = e.currentTarget;
+    setLoading(btn, true);
+    try {
+      const srcText = getFullNoteContent();
+      const newCreoleHtml = await kreyolizeTextOrHtml(note.content_html || srcText, note.title);
+      const newCreoleSummary = makeSimpleCreoleSummary(newCreoleHtml || srcText, note.title);
+
+      note.structured = {
+        ...(note.structured || {}),
+        content_html_ht: newCreoleHtml,
+        summary_ht: newCreoleSummary,
+      };
+
+      if (navigator.onLine && isUuid(note.id)) {
+        await db.from('pran_not_notes').update({
+          structured: note.structured,
+          updated_at: new Date().toISOString(),
+        }).eq('id', note.id);
+      }
+      await cacheSet(`note_${note.id}`, note);
+      toast(isFr ? 'Version créole clarifiée et mise à jour !' : 'Vèsyon Kreyòl la rann pi klè epi mete ajou !', 'success');
       await renderNote();
     } catch (err) {
       handleError(err);

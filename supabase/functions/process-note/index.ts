@@ -35,10 +35,13 @@ Deno.serve(async (req) => {
     const langDirective = `RÈGLE MAJEURE DE BILINGUISME INTÉGRAL & EXHAUSTIVITÉ :
 Tu dois impérativement fournir les DEUX versions complètes du cours :
 1. "content_html" : Version académique en Français universitaire soigné, rigoureux, précis et exhaustif pour réussir les examens.
-2. "content_html_ht" : Vèsyon pedagojik konplè an Kreyòl Ayisyen klè, vivan, ak egzanp konkrè ki fasil pou etidyan an konprann pwofondèman.
-3. "simple_explanation_fr" & "simple_explanation_ht" : Explication simple étape par étape sans jargon technique (en français et en kreyòl).
-4. "exam_qa" : 4 à 6 questions et réponses types d'examen avec explications détaillées.
-5. "questions_for_professor" : 3 à 5 questions intelligentes à poser au professeur.`;
+2. "content_html_ht" : VÈSYON ENTIÈMAN AN VRÈ KREYÒL AYISYEN NATIF NATAL.
+   ATTENTION OBLIGATOIRE : Interdiction formelle de laisser du texte ou des paragraphes en français dans "content_html_ht" ! Tout le cours doit être fidèlement expliqué, vulgarisé et structuré en créole haïtien limpide, fluide et naturel (orthographe officielle), pour qu'un étudiant puisse réviser tout son cours en créole sans ambiguïté. Seuls les noms d'auteurs et formules restent inchangés.
+3. "summary" (Français) : Résumé académique structuré en 2 à 3 paragraphes complets (8 à 14 lignes) sans être inutilement lourd.
+4. "summary_ht" (Kreyòl) : REZIME KOUT, SENP E TRÈ FASIL POU KONPRANN (4 à 6 phrases courtes ou 2 petits paragraphes avec tirets clairs). PIGA FÈ YON GWO TÈKS LONG KONPLIKE ! Le but est que l'étudiant comprenne en 30 secondes en kreyòl l'idée maîtresse du cours et ce qu'il doit retenir sans se perdre dans de longs blocs théoriques.
+5. "simple_explanation_fr" & "simple_explanation_ht" : Explication simple étape par étape sans jargon technique (en français et en kreyòl).
+6. "exam_qa" : 4 à 6 questions et réponses types d'examen avec explications détaillées.
+7. "questions_for_professor" : 3 à 5 questions intelligentes à poser au professeur.`;
 
     const prompt = `${langDirective}
 
@@ -74,11 +77,11 @@ Retourne STRICTEMENT ce JSON :
 {
   "title": "Titre court, précis et académique de la séance (en Français)",
   "title_ht": "Tit kout, klè e presi nan seyans la (an Kreyòl)",
-  "summary": "Résumé clair, percutant et complet en 4 à 6 phrases (Français)",
-  "summary_ht": "Rezime klè, konplè an 4 a 6 fraz (Kreyòl)",
+  "summary": "Résumé clair et structuré en 2 à 3 paragraphes complets (Français)",
+  "summary_ht": "Rezime kout, senp e trè fasil pou konprann an 4 a 6 fraz klè (Kreyòl Ayisyen)",
   "verbatim_raw": "Retranscription nettoyée des passages clés du professeur",
   "content_html": "HTML complet et riche en Français universitaire soigné",
-  "content_html_ht": "HTML konplè ak rich an Kreyòl Ayisyen pedagojik",
+  "content_html_ht": "HTML konplè ki ekri 100% an Kreyòl Ayisyen natif natal san okenn fraz an fransè",
   "simple_explanation_fr": "Explication simple, fluide, sans jargon pour révision rapide",
   "simple_explanation_ht": "Eksplikasyon senp, etap pa etap san mo difisil an Kreyòl",
   "takeaways": ["Point clé 1 indispensable pour examen", "Point clé 2", "Point clé 3", "Point clé 4"],

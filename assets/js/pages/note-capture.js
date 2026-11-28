@@ -1651,7 +1651,7 @@ function renderStructuredExtras(st) {
     </div>
 
     ${st.summary ? `<div class="card card-sm card-muted"><strong>${esc(t('notes.summary'))} (Français)</strong><p class="text-sm mt-1 mb-0">${esc(st.summary)}</p></div>` : ''}
-    ${st.summary_ht ? `<div class="card card-sm card-muted mt-2" style="border-left:3px solid var(--c-primary);"><strong>${isFr ? 'Résumé en créole' : 'Rezime an Kreyòl'}</strong><p class="text-sm mt-1 mb-0">${esc(st.summary_ht)}</p></div>` : ''}
+    ${st.summary_ht ? `<div class="card card-sm card-muted mt-2" style="border-left:3px solid var(--c-primary);"><strong>${isFr ? 'Résumé clair en créole' : 'Rezime Senp an Kreyòl'}</strong><div class="text-sm mt-1 mb-0" style="line-height:1.6;white-space:pre-wrap;">${renderMarkdown(st.summary_ht)}</div></div>` : ''}
 
     ${(st.simple_explanation_fr || st.simple_explanation_ht) ? `
       <div class="card card-sm mt-2" style="background:var(--c-surface-soft);border-left:4px solid var(--c-accent);">
